@@ -1,11 +1,12 @@
 # One Life: Handoff
 
-Updated 25 September 2026. Read this first. `docs/MASTER_NOTE.md` is the older full design note (parts of it are out of date where this file disagrees).
+Updated 26 September 2026. Read this first. `docs/MASTER_NOTE.md` is the older full design note (parts of it are out of date where this file disagrees).
 
 ## What this is
 One Life is a BitLife-style life simulator that runs in the browser. You live one life year by year from birth to death: school, jobs, relationships, money, investing, property and businesses, in 16 countries. When you die you can continue as one of your children (dynasty play). It is played as a published Claude artifact, and it also works as a plain web page.
 
-- Live game: https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T (owned by the taiyiweii@gmail.com Claude account, shared as "anyone with the link").
+- **Main public link: https://taiyiweii-spec.github.io/onelife/** (GitHub Pages, serves this branch, updates automatically within a minute or two of every push). AI features are off there because `window.claude` doesn't exist outside Claude.
+- Claude artifact (AI features on): https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T, owned by the personal Claude account and shared as "anyone with the link". Only that account can republish it. The work (Beyond Insights) account has no edit rights and its own artifacts can't be shared publicly.
 - The owner is not a programmer. Explain things in plain everyday language and give clear options with a recommendation.
 
 ## Tech stack
@@ -22,6 +23,7 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
   node tools/stress.js index.html 20 7      # robot plays full lives: file, lives, seed
   node tools/ceobot.js                      # owner-run vs great-CEO businesses, 12 years, flags bad CEO calls
   node tools/ceobot.js cafe,gym 2           # chosen business types, 2 seeds each
+  node tools/loanbot.js 15 3                # personal loan checks plus random lives that borrow and repay
   ```
   `stress.js` must report `ERRORS 0`, `YEAR STEP ERRORS 0`, `BAD NUMBERS 0`. The same seed always gives the same fingerprint.
 - **Syntax check after edits** (catches a missing bracket before anything else):
@@ -29,7 +31,7 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
   node -e "const t=require('fs').readFileSync('index.html','utf8');const re=/<script[^>]*>([\s\S]*?)<\/script>/g;let m;while(m=re.exec(t)){new Function(m[1])}"
   ```
 - **Environment variables:** none. No API keys or secrets anywhere.
-- **Publish:** Claude Artifact tool, `publish` with `file_path: index.html` and `url: https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T`. Read the live version first if that conversation has not published it. The `sample` capability carries forward. A different Claude account cannot update that URL unless it was shared with edit rights; otherwise publish a new artifact.
+- **Publish:** pushing to this branch updates the GitHub Pages link automatically. For the Claude artifact, use the Claude Artifact tool, `publish` with `file_path: index.html` and `url: https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T`. Read the live version first if that conversation has not published it. The `sample` capability carries forward. A different Claude account cannot update that URL unless it was shared with edit rights; otherwise publish a new artifact.
 
 ## How the code is organised (inside index.html)
 - Game state is one object `S`. `newLife(o)` creates a life; `fillDefaults`/`migrate()` upgrade old saves (`SAVE_V=5`).
@@ -42,7 +44,8 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
 - **Life:** careers with promotions, education, relationships, karma, 42 achievements, challenges, character creator, dynasties, moving abroad.
 - **Character panel:** tap the stat bars. Karma, work ethic, fame, credit score (affects loan limits and rates) and skills (business, tech, people) with real effects.
 - **Jobs:** yearly random openings, senior roles from your experience (`S.cexp`), up to 3 interviews a year with one question and 3 answers (`openings`, `applyJob`, `hireChance`).
-- **Money tab:** Overview with a personal cash flow statement (income, expenses by month and year, net). Investing, Business, **Market** (homes and cars with areas, condition, yields, deal tags) and **My assets** tabs, Retirement.
+- **Money tab:** Overview with a personal cash flow statement (income, expenses by month and year, net).
+- **Personal bank loan** (Money, Overview, `loanModal`, `S.ploan`): one loan that can be topped up (blended into one balance, term resets). Limit = income x (1.5/1/0.6/0.3) + net worth excluding retirement x (30/20/10/5%) by credit tier (Excellent/Good/Fair/Poor, `PL_TIERS`); Bad credit, bankruptcy, under 18 or prison = no loan. Affordability: loan plus mortgage payments under 40% of income plus 5% of net worth. Terms 1, 3, 5 or 7 years, rate = `loanRate()` + tier add-on. Paid yearly in `plYear()` (inside `propertyYear`); a missed payment goes on the credit card and costs 50 credit points for 3 years. Counts in net worth, credit score and cash flow; bankruptcy wipes it; it's deducted from the estate on death. `S.ploan` only exists while there is a loan, so old saves and stress fingerprints are unchanged. Investing, Business, **Market** (homes and cars with areas, condition, yields, deal tags) and **My assets** tabs, Retirement.
 - **Children live their own lives** (`kidLife`, `kidYear`): study, careers, dating, marriage, grandchildren, savings, investing, homes, small businesses, trouble. You influence them (suggestions accepted based on relationship, paying for university, approving partners, gifts). Continuing as a child keeps what they built.
 - **Businesses:**
   - Products and services with one yearly demand, automatic production, suppliers, wholesale, rebrands, processing plants. Outlet capacity is shared between products (`baseCap`, `freeSpace`, `prodCap`).
@@ -80,7 +83,7 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
 
 ## Before you change anything
 - Make edits with exact-match replacements and run the syntax check afterwards.
-- Run `tools/stress.js` (seed 7 and 42) before every publish. Run `tools/ceobot.js` after any CEO or business-economy change.
+- Run `tools/stress.js` (seed 7 and 42) before every publish. Run `tools/ceobot.js` after any CEO or business-economy change, and `tools/loanbot.js` after any personal money, credit or loan change.
 - Keep all randomness on `rnd()`. Keep saves backward compatible: give new fields defaults (see `fillDefaults`, `ensureRunner`, getters like `hArea`, `carRun`).
 - Wrap money moved inside a business with `cfAdd(b, key, amount)` (keys: prod, owner, invest, credit) so the cash flow statement stays correct.
 - Development branch: `claude/peaceful-meitner-bz4tmp`. It has not been merged into the default branch.

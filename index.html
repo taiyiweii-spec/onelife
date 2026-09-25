@@ -578,12 +578,52 @@ function addSk(k,v){S.sk=S.sk||{biz:0,tech:0,ppl:0};S.sk[k]=cl(S.sk[k]+v);}
 function addKarma(v){S.karma=cl((S.karma||50)+v);}
 function addEthic(v){S.ethic=cl((S.ethic==null?50:S.ethic)+v);}
 function creditScore(){if(S.age<18)return 0;
-  const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0)+Math.max(0,-S.money)+(S.sloan||0),inc=S.job?S.job.s:Math.max(20000,S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0));
+  const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0)+Math.max(0,-S.money)+(S.sloan||0)+plBal(),inc=S.job?S.job.s:Math.max(20000,S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0));
   let c=640+Math.min(110,(S.age-18)*4)-Math.min(160,debt/Math.max(1,inc)*25)+(netWorth()>500000?40:netWorth()>100000?20:0)+(S.karma-50)*.4;
-  if(S.flags.wasBankrupt)c-=60;if(badCredit())c=Math.min(c,520)-40;if(S.money<0)c-=40;
+  if(S.flags.wasBankrupt)c-=60;if(badCredit())c=Math.min(c,520)-40;if(S.money<0)c-=40;if(S.flags.plMiss!=null&&S.age-S.flags.plMiss<3)c-=50;
   return cl(c,300,850);}
 const creditLabel=c=>c>=760?'Excellent':c>=690?'Good':c>=620?'Fair':c>=560?'Poor':'Bad';
 const creditF=()=>S.age<18?1:Math.max(.3,Math.min(1.25,(creditScore()-450)/250));
+/* ---- personal bank loan: one loan that can be topped up. The limit comes from income and net worth, scaled by credit ---- */
+// [min score, times income, share of net worth, rate add-on, label]
+const PL_TIERS=[[760,1.5,.3,.03,'Excellent'],[690,1,.2,.04,'Good'],[620,.6,.1,.06,'Fair'],[560,.3,.05,.08,'Poor']];
+const PL_TERMS=[1,3,5,7];
+const plBal=()=>S&&S.ploan?S.ploan.bal:0;
+function plTier(){const c=creditScore();return PL_TIERS.find(t=>c>=t[0])||null;}
+function plIncome(){if(S.jail)return 0;let t=S.job?S.job.s:0;
+  S.biz.forEach(b=>{if(b.salary>0&&!b.ousted)t+=b.salary;if(divPol(b)&&b.lastPre>0)t+=b.lastPre*divPol(b)/100*b.own;});
+  t+=homes().filter(a=>a.rent).reduce((x,a)=>x+a.v*hYld(a),0);if(S.retired&&S.pension)t+=S.pension;if(S.flags.talentPay&&S.age<70)t+=S.flags.talentPay;
+  return Math.round(t);}
+// The retirement account is locked until 60, so the bank leaves it out.
+const plNW=()=>Math.max(0,netWorth()-S.ret.bal);
+const plRate=y=>loanRate()+(plTier()?plTier()[3]:.08)+(y-3)*.002;
+function plInfo(){const t=plTier(),inc=plIncome(),nw=plNW(),mort=homes().reduce((x,a)=>x+(a.mort&&a.mort.bal>0?a.mort.pay:0),0);
+  const why=S.age<18?'I need to be 18':S.jail?'Not while I\'m in prison':badCredit()?'My credit is damaged after bankruptcy':!t?'My credit score is too low':null;
+  if(why)return {t,inc,nw,mort,limit:0,payCap:0,why};
+  return {t,inc,nw,mort,limit:Math.round(inc*t[1]+nw*t[2]),payCap:Math.max(0,Math.round(inc*.4+nw*.05-mort)),why:null};}
+// Largest total balance the bank allows over y years: the limit, and yearly payments within what I can afford.
+function plMaxBal(y){const I=plInfo();if(I.why)return 0;const r=plRate(y),aff=I.payCap*(1-Math.pow(1+r,-y))/r;return Math.max(0,Math.floor(Math.min(I.limit,aff)/1000)*1000);}
+const plRoom=y=>Math.max(0,plMaxBal(y)-plBal());
+function plNew(amt,y){const L=S.ploan,r=plRate(y),bal=plBal()+amt,rate=L&&L.bal?(L.bal*L.rate+amt*r)/bal:r;return {bal,rate,left:y,pay:Math.round(annuity(bal,rate,y))};}
+function plYear(){const L=S.ploan;if(!L)return;if(L.bal<=0){S.ploan=null;return;}
+  const int=L.bal*L.rate,due=Math.round((L.left||1)<=1?L.bal+int:Math.min(L.pay,L.bal+int));
+  if(S.money<due){S.flags.plMiss=S.age;line(`I couldn't cover my ${fmt(due)} personal loan payment, so it went on my credit card. My credit score took a hit.`,'bad');}
+  S.money-=due;L.bal=Math.max(0,Math.round(L.bal+int-due));L.left=Math.max(0,(L.left||1)-1);
+  if(L.bal<=0){S.ploan=null;line('I paid off my personal loan!','good');}}
+function loanModal(){const I=plInfo(),L=S.ploan,t=I.t;
+  const info=h('div',{},h('p',{className:'label'},'How the bank decides'),h('dl',{},
+    h('dt',{},'Credit score'),h('dd',{},`${creditScore()} (${t?t[4]:creditLabel(creditScore())})`),
+    h('dt',{},'Yearly income'),h('dd',{},fmt(I.inc)),h('dt',{},'Net worth counted'),h('dd',{},fmt(I.nw)),
+    ...(I.why?[]:[h('dt',{},'Borrowing limit'),h('dd',{},fmt(I.limit)),h('dt',{},'Affordable payments'),h('dd',{},`${fmt(I.payCap)}/yr`)])),
+    h('p',{className:'sub'},I.why?`${I.why}, so the bank won't lend right now.`:`The limit is ${t[1]} times my income plus ${Math.round(t[2]*100)}% of my net worth (not counting my retirement account). All my loan and mortgage payments must stay under 40% of my income plus 5% of my net worth${I.mort?`, and my mortgages already take ${fmt(I.mort)} a year`:''}.`));
+  const borrow=y=>{const room=plRoom(y);amountModal({title:L?`Top up my loan over ${y} year${y>1?'s':''}`:`Borrow over ${y} year${y>1?'s':''}`,sub:`Up to ${fmt(room)} more.${L?` It joins my ${fmt(L.bal)} balance as one loan, repaid over ${y} year${y>1?'s':''}.`:''}`,max:room,init:room/2,btn:a=>`Borrow ${fmt(a)}`,
+    note:a=>{const n=plNew(a,y);return `New total owed ${fmt(n.bal)} at ${(n.rate*100).toFixed(1)}%. I pay about ${fmt(n.pay)} a year for ${y} year${y>1?'s':''}, about ${fmt(n.pay*y-n.bal)} in interest overall.`;},
+    onOk:a=>{S.ploan=plNew(a,y);S.money+=a;stay(`I ${L?'topped up my personal loan':'took out a personal loan'}: ${fmt(a)}. I now owe ${fmt(S.ploan.bal)}, paying ${fmt(S.ploan.pay)} a year for ${y} year${y>1?'s':''}.`,'good');}});};
+  const ch=PL_TERMS.map(y=>{const room=plRoom(y);return [`${y} year${y>1?'s':''} at ${(plRate(y)*100).toFixed(1)}%: ${room>0?`up to ${fmt(room)}${L?' more':''}`:'no room'}`,()=>borrow(y),()=>room<1000];});
+  if(L)ch.push([`Pay off early (I owe ${fmt(L.bal)})`,()=>amountModal({title:'Repay my personal loan',sub:`I owe ${fmt(L.bal)}. No early repayment fee.`,max:Math.min(L.bal,Math.max(0,S.money)),init:Math.min(L.bal,Math.max(0,S.money)),btn:a=>`Repay ${fmt(a)}`,
+    onOk:a=>{S.money-=a;L.bal=Math.round(L.bal-a);if(L.bal<=0){S.ploan=null;stay('I paid off my personal loan!','good');}else{L.pay=Math.round(annuity(L.bal,L.rate,Math.max(1,L.left||1)));stay(`I repaid ${fmt(a)}. I still owe ${fmt(L.bal)}, now ${fmt(L.pay)} a year.`);}}}),()=>S.money<1]);
+  ch.push(['Close',()=>{}]);
+  choiceModal('🏦 Personal loan',L?`I owe ${fmt(L.bal)} at ${(L.rate*100).toFixed(1)}%, paying ${fmt(L.pay)} a year for ${L.left} more year${L.left>1?'s':''}. I can top it up: pick how long to repay the whole loan.`:'Pick how long to repay. Shorter loans cost more each year but less interest overall.',ch,info);}
 function yearSkills(){
   S.biz.forEach(b=>addSk('biz',b.life==='hands'?3:1));
   if(S.job){const j=S.job;if(j.c==='tech')addSk('tech',2+j.lvl);if(['mkt','fin','law','office','retail','teach','nurse'].includes(j.c)||j.lvl>=2)addSk('ppl',1);
@@ -596,7 +636,7 @@ const investVal=()=>TICK.reduce((a,t)=>a+(S.hold[t.s]||0)*price(t.s),0);
 const saleVal=a=>Math.round(a.k==='home'?a.v*.94:a.v);
 const propEquity=()=>S.assets.reduce((a,x)=>a+saleVal(x)-(x.mort?x.mort.bal:0),0);
 const angelVal=()=>S.angels.reduce((a,x)=>a+x.amt,0);
-const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+stakeVal()+angelVal());
+const netWorth=()=>Math.round(S.money-S.sloan-plBal()+investVal()+S.ret.bal+propEquity()+stakeVal()+angelVal());
 const canManage=()=>S.alive&&S.age>=18&&!S.jail;
 function initMkt(){const m={};TICK.forEach(t=>m[t.s]={p:t.start,chg:0,h:[]});return m;}
 function energyMax(){if(S.age<6)return 2;if(S.age<12)return 3;let e=5;if(has('athletic'))e++;if(has('lazy'))e--;if(S.age>=75)e--;
@@ -940,6 +980,7 @@ function propertyYear(){
   if(S.age>=18&&!S.jail&&!atHome)S.money-=livingCost();
   if(S.sloan>0){S.sloan=Math.round(S.sloan*1.04);if(S.job){const p=Math.min(S.sloan,Math.round(S.job.s*.1));S.sloan-=p;S.money-=p;if(S.sloan===0)line('I paid off my student loans!','good');}}
   if(S.flags.talentPay&&!S.jail&&S.age<70){S.money+=S.flags.talentPay;}
+  plYear();
   // trustee protects minors
   if(S.age<18&&S.money<0){homes().sort((a,b)=>a.v-b.v).forEach(a=>{if(S.money<0){S.money+=saleVal(a)-(a.mort?a.mort.bal:0);S.assets=S.assets.filter(x=>x!==a);line(`My trustee sold the ${a.n.toLowerCase()} to cover costs.`,'bad');}});if(S.money<0)S.money=0;}
   if(S.money<0&&S.age>=18){S.money=Math.round(S.money*1.07);S.st.happy-=3;}
@@ -1411,6 +1452,7 @@ function cashFlow(){const inc=[],exp=[];
   if(hs.length)exp.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,hs.reduce((t,a)=>t+a.v*hCond(a).up,0)]);
   const cars=S.assets.filter(a=>a.k==='car');if(cars.length)exp.push([`⛽ Car running costs${cars.length>1?` (${cars.length} cars)`:''}`,cars.reduce((t,a)=>t+carRun(a),0)]);
   if(S.sloan>0&&S.job)exp.push(['🎓 Student loan',Math.min(S.sloan*1.04,S.job.s*.1)]);
+  if(S.ploan&&S.ploan.bal>0)exp.push(['🏦 Personal loan',(S.ploan.left||1)<=1?S.ploan.bal*(1+S.ploan.rate):Math.min(S.ploan.pay,S.ploan.bal*(1+S.ploan.rate))]);
   if(tax)exp.push(['🧾 Taxes',tax]);if(ret)exp.push(['🏖️ Retirement savings',ret]);
   if(S.money<0)exp.push(['💳 Credit card interest (7%)',-S.money*.07]);
   const r=a=>a.filter(x=>x[1]>0).map(([n,v])=>[n,Math.round(v)]);return {inc:r(inc),exp:r(exp)};}
@@ -1430,14 +1472,16 @@ function tabOverview(s){
   s.append(h('dl',{},h('dt',{},'Net worth'),h('dd',{},fmt(netWorth())),h('dt',{},'Cash'),h('dd',{className:S.money<0?'bad':''},fmt(S.money)),
     h('dt',{},'Investments'),h('dd',{},fmt(investVal())),h('dt',{},'Retirement account'),h('dd',{},fmt(S.ret.bal)),
     h('dt',{},'Property equity'),h('dd',{},fmt(propEquity())),h('dt',{},'Business stakes'),h('dd',{},fmt(stakeVal())),
-    h('dt',{},'Angel investments'),h('dd',{},fmt(angelVal())),h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan))));
+    h('dt',{},'Angel investments'),h('dd',{},fmt(angelVal())),h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan)),...(S.ploan?[h('dt',{},'Personal loan'),h('dd',{},fmt(S.ploan.bal))]:[])));
+  if(canManage()){const L=S.ploan,I=plInfo(),best=Math.max(...PL_TERMS.map(plRoom));
+    s.append(row('🏦 Personal loan',L?`I owe ${fmt(L.bal)} at ${(L.rate*100).toFixed(1)}%, ${fmt(L.pay)} a year for ${L.left} more year${L.left>1?'s':''}.${best>=1000?` I can top up by up to ${fmt(best)}.`:''}`:I.why?`${I.why}. Banks lend based on credit score, income and net worth`:best>=1000?`Borrow up to ${fmt(best)}, based on my ${I.t[4].toLowerCase()} credit, income and net worth. Repay over 1 to 7 years`:'I need more income or net worth to borrow',L?fmt(L.bal):'',loanModal));}
   s.append(expenseTable());
   const c=chartEl(S.nwHist);if(c){s.append(h('p',{className:'label'},'Net worth over my life'),c);}
   if(S.money<0)s.append(h('p',{className:'sub'},'Negative cash is credit card debt and grows 7% a year.'));
   if(badCredit())s.append(h('p',{className:'sub bad'},`My credit is damaged until age ${S.flags.badCreditUntil}. No loans or mortgages.`));
   if(S.money<-20000&&canManage())s.append(row('Declare bankruptcy','Sell investments and property, wipe card debt, ruin credit for 7 years','',()=>{
     TICK.forEach(t=>{S.money+=(S.hold[t.s]||0)*price(t.s);S.hold[t.s]=0;S.basis[t.s]=0;});
-    S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');stay('I declared bankruptcy.','bad')}));
+    S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];delete S.ploan;if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');stay('I declared bankruptcy.','bad')}));
 }
 function tabInvest(s){
   s.append(h('p',{className:'sub'},`Portfolio ${fmt(investVal())}. Prices change once a year when I age up.`));pubRows(s);
@@ -1713,7 +1757,7 @@ function showDeath(){
 }
 function continueAs(k){
   const heirs=kids().filter(p=>p.alive).length;
-  const liquid=S.money-S.sloan+investVal()+S.ret.bal+angelVal();
+  const liquid=S.money-S.sloan-plBal()+investVal()+S.ret.bal+angelVal();
   const estate=Math.max(0,Math.round(liquid*.85/heirs));
   const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
   const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
