@@ -2773,7 +2773,6 @@ function bizTip(b){const svc=isSvc(b),word=svc?'service':'product',ph=bizPhase(b
   const waste=prs.find(p=>!p.auto&&p.last&&p.last.made>0&&p.last.waste>p.last.made*.2);if(waste)return `A lot of ${waste.name.toLowerCase()} went to waste last year. Turn on automatic production in its plan.`;
   const out=prs.find(p=>p.last&&p.last.dem>p.last.sold*1.2);if(out)return `${out.name} sold out: about ${fmtN(out.last.dem-out.last.sold)} more customers wanted it. ${svc?'Offer more capacity':'Make more'} or raise the price a little.`;
   if(b.staff<needStaff(b))return `Understaffed: ${b.staff} of ${needStaff(b)}. Turn on auto-hire on the People tab.`;
-  if(runBy(b)==='none')return `Nobody runs ${b.name}, so quality and reputation slip. Run it yourself or hire a CEO on the People tab.`;
   if(ph==='recession'||ph==='crash')return `${COUNTRIES[b.cty]?COUNTRIES[b.cty].n:'This country'} is in a ${ph==='crash'?'deep slump':'recession'}, so sales are down for everyone. Keep costs low until it passes.`;
   if(b.yrs&&b.lastPre<0&&b.pnl&&b.pnl.mk>0&&b.pnl.mk>-b.lastPre*.5)return 'Marketing costs a lot for a business losing money. Try a lower marketing level.';
   if(b.yrs&&b.lastPre<0)return 'Staff and rent cost more than sales bring in. Add another product or close a quiet outlet.';
@@ -2799,7 +2798,7 @@ function runnerBlock(s,b){const r=runBy(b),busy=S.job||S.edu.major||S.age>72;
       h('p',{className:'label'},'CEO can spend or borrow without asking me'),seg(CEOLIM,b.ceoLim==null?50000:b.ceoLim,v=>{b.ceoLim=v;stay()}),
       h('p',{className:'sub'},'Each year the CEO runs products and services (prices, suppliers, production, wholesale, rebrands, retiring and researching products, processing plants), growth (outlets, new cities, online sales, franchising, contracts, automation, buildings, insurance) and finance (loans). Strategy, marketing and hiring stay with me. Anything above the spending limit comes to me for approval.'));
     const fair=ceoWage(b,b.ceo);if(b.ceo.wage<fair*.85)s.append(row('💰 Match market pay',`${b.ceo.name} is underpaid and may quit. Market rate ${fmt(fair)}`,'',()=>{b.ceo.wage=fair;b.ceo.loyal=Math.min(99,(b.ceo.loyal||50)+5);stay(`I raised ${b.ceo.name}'s pay to ${fmt(fair)}.`)}));}
-  else{s.append(h('p',{className:'flash bad'},`⚠️ Nobody runs ${b.name}. Quality and reputation slip every year.`));
+  else{s.append(h('p',{className:'flash'},`Nobody is in charge of ${b.name}. It keeps running as it is, with no bonus. Running it myself or hiring a CEO can lift quality, customers and costs.`));
     s.append(row('🙋 Run it myself',busy?'Not with a job or while studying':'Costs 1 energy a year','',()=>{b.life='hands';stay(`I'm running ${b.name} myself now.`,'good')},busy));}
   if(r!=='ceo'){
     if(!b.ceoCands||b.ceoCands.age!==S.age)b.ceoCands={age:S.age,list:[makeCEO(b),makeCEO(b),makeCEO(b)]};
@@ -2854,7 +2853,7 @@ function ensureRunner(b){if(b.life==='absent')b.life='delegate';if(b.ceo&&b.ceo.
 function runFx(b){const r=runBy(b);
   if(r==='me')return {q:5+S.st.smarts/10+sk('biz')/10+((S.ethic||50)-50)/12,d:1+(S.st.looks-50)/1000+sk('biz')/2000+(has('charming')?.04:0)+(has('hustler')?.03:0),cost:1,morale:2,noise:1};
   if(r==='ceo'){const c=b.ceo,P=c.pers;return {q:(c.ops-50)/5,d:(c.sales<60?.85+c.sales*.00167:.95+c.sales*.0017)*(P==='grow'?1.04:1),cost:(c.ops<60?1.15-c.ops*.00233:1.01-c.ops*.0009)*(P==='cut'?.96:P==='grow'?1.03:1),morale:(c.people-50)/10-(P==='cut'?3:0),noise:P==='steady'?.8:P==='vision'?1.2:1,award:P==='vision'?1.5:1};}
-  return {q:-15,d:.95,cost:1.05,morale:-3,noise:1.1};}
+  return {q:0,d:1,cost:1,morale:0,noise:1};}
 const CEOLIM=[[0,'$0'],[50000,'$50k'],[250000,'$250k'],[-1,'No limit']],MAND={grow:'📈 Grow',bal:'⚖️ Balanced',cut:'✂️ Cut costs'};
 const ceoLim=b=>{const v=b.ceoLim==null?50000:b.ceoLim;return v<0?Infinity:v;};
 function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),M=b.mand||'bal',notes=[],lim=ceoLim(b);
@@ -3247,7 +3246,7 @@ function emptyBiz(){return S.alive&&!S.used.emptyOk?S.biz.find(b=>isGoods(b)&&!b
 function unrunBiz(){return S.alive&&!S.used.unrunOk&&canManage()?S.biz.find(b=>!b.ousted&&runBy(b)==='none'):null;}
 $('statsWrap').onclick=()=>{if(S)charSheet();};$('statsWrap').onkeydown=e=>{if(e.key==='Enter'&&S)charSheet();};
 $('bAge').onclick=()=>{if(modalOpen())return;if(!S.alive)return showDeath();
-  const u=!emptyBiz()&&unrunBiz();
+  const u=false;
   if(u)return choiceModal(`${Tof(u).ic} Nobody runs ${u.name}`,'Without me or a CEO in charge, quality and reputation slip every year.',[
     ['Choose who runs it',()=>{mTab='biz';bizView=u.id;bTab='people';openSheet(drawMoney);}],
     ['Age up anyway',()=>{S.used.unrunOk=true;ageUp();}]]);
