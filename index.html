@@ -2370,12 +2370,15 @@ function balanceSheet(b){const {A,L,ta,tl}=bookItems(b),eq=ta-tl,mv=bizVal(b),gw
     h('p',{className:'label'},'What the business owes'),h('dl',{},...(tl?rows(L.filter(x=>x[1])):[h('dt',{},'No debts'),h('dd',{},fmt(0))]),h('dt',{},h('b',{},'Total liabilities')),h('dd',{},fmt(tl))),
     h('dl',{},h('dt',{},h('b',{},"Owners' equity (book value)")),h('dd',{className:eq<0?'bad':''},fmt(eq)),...own.map(([n,f])=>[h('dt',{},`${n}, ${Math.round(f*100)}%`),h('dd',{},fmt(eq*f))]).flat()),
     h('p',{className:'sub'},`📈 Market value ${fmt(mv)} versus book value ${fmt(eq)}. ${gw>=0?`The ${fmt(gw)} difference is what buyers pay for its customers, brand and earnings.`:`The market values it ${fmt(-gw)} below its book value, usually because it isn't earning enough from what it owns.`} Buildings follow the local property market.`)];}
-function finsTab(s,b){const H=b.fh||[],cur=H[H.length-1],prev=H[H.length-2];
-  if(!b.pnl){s.append(h('p',{className:'sub'},'The profit and loss and cash flow statements appear after the first full year.'),...balanceSheet(b));return;}
-  const p=b.pnl,ops=opsCost(p),cf=b.cf?b.cf.close-b.cf.open:0;
+// Headline tiles: revenue, operating costs, profit and cash flow, with the change on last year.
+function finTiles(b){if(!b.pnl)return null;const H=b.fh||[],prev=H[H.length-2],ops=opsCost(b.pnl),cf=b.cf?b.cf.close-b.cf.open:0;
   const chg=(k,v)=>{if(!prev||!prev[k])return '';const d=(v-prev[k])/Math.abs(prev[k])*100;return ` ${d>=0?'▲':'▼'} ${Math.abs(Math.round(d))}%`;};
-  const tile=(l,v,k,badNeg,upBad)=>h('div',{style:'flex:1;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 10px'},h('p',{className:'label',style:'margin:0'},l),h('b',{className:badNeg&&v<0?'bad':'',style:'font-size:16px'},fmt(v)),h('small',{style:'display:block;opacity:.75'},chg(k,v)));
-  s.append(h('div',{style:'display:flex;gap:8px;margin:0 0 12px'},tile('Revenue',b.lastRev,'rev'),tile('Operating costs',ops,'ops'),tile('Cash flow',cf,'cf',true)));
+  const tile=(l,v,k,badNeg)=>h('div',{style:'flex:1;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 10px'},h('p',{className:'label',style:'margin:0'},l),h('b',{className:badNeg&&v<0?'bad':'',style:'font-size:15px'},fmt(v)),h('small',{style:'display:block;opacity:.75'},chg(k,v)));
+  return h('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px'},tile('Revenue',b.lastRev,'rev'),tile('Operating costs',ops,'ops'),tile('Profit',b.lastPre,'pre',true),tile('Cash flow',cf,'cf',true));}
+function finsTab(s,b){const H=b.fh||[];
+  if(!b.pnl){s.append(h('p',{className:'sub'},'The profit and loss and cash flow statements appear after the first full year.'),...balanceSheet(b));return;}
+  const p=b.pnl,ops=opsCost(p);
+  s.append(finTiles(b));
   s.append(h('p',{className:'sub'},`Operating profit ${fmt(b.lastRev-ops)} (${b.lastRev?Math.round((b.lastRev-ops)/b.lastRev*100):0}% margin). Business cash now ${fmt(b.cash)}.`));
   {s.append(h('h4',{},'Profit and loss, last year'),h('dl',{},...[['Sales',p.rev],['Contracts',p.conRev],['Franchise royalties',p.royal],['Cost of goods',-p.cogs],['Owner salary (me)',-(p.owner||0)],['Staff wages',-p.wages],['Rent and utilities',-p.rent],['Marketing',-p.mk],['Other costs',-p.other],['Interest and loan payments',-p.interest],['Tax',-p.tax],['Net',p.net]].filter(([,x])=>x).flatMap(([l,x])=>[h('dt',{},l),h('dd',{className:x<0?'bad':''},fmt(x),h('small',{style:'display:inline-block;min-width:44px;opacity:.6;font-weight:400;margin-left:6px'},p.rev?`${Math.round(Math.abs(x)/(p.rev+(p.conRev||0)+(p.royal||0))*100)}%`:''))])),h('p',{className:'sub'},'Percentages are shares of total income.'));}
   s.append(...balanceSheet(b));
@@ -2782,14 +2785,15 @@ function transferModal(){
   const opts=[];S.biz.forEach(x=>S.biz.forEach(y=>{if(x!==y&&x.cash>0)opts.push([`${x.name} → ${y.name} (${fmt(x.cash/2)})`,()=>{const m=Math.round(x.cash/2);x.cash-=m;y.cash+=m;stay(`Moved ${fmt(m)} from ${x.name} to ${y.name}.`)}]);}));
   opts.push(['Cancel',()=>{}]);choiceModal('Move cash','Move half of one business\'s cash to another.',opts.slice(0,7));
 }
-let bTab='over';
+let bTab='over',mSub='reports';
 function drawBiz(s,b){
   syncStaff(b);
   const T=Tof(b),v=bizVal(b),need=needStaff(b),ro=!canManage(),lock=ro||b.ousted;
   s.append(h('button',{className:'back',on:()=>{bizView=null;flash=null;drawSheet(true)}},'‹ All businesses'));
   s.append(h('h3',{},`${T.ic} ${b.name}`),h('p',{className:'sub'},`${b.cty&&COUNTRIES[b.cty]?COUNTRIES[b.cty].ic+' '+COUNTRIES[b.cty].n+'. ':''}${T.n}, ${b.yrs} yr${b.yrs===1?'':'s'} old${b.gens>1?`, family-owned for ${b.gens} generations`:''}. I own ${Math.round(b.own*100)}%${b.co?`, ${fname(b.co.name)} owns ${Math.round(b.co.share*100)}%`:''}${b.inv>0?`, investors own ${Math.round(b.inv*100)}%`:''}.${b.pub?' Publicly traded.':''}`));
   if(b.ousted)s.append(h('p',{className:'flash bad'},'🪑 The board removed me as CEO. A hired CEO runs things. I can sell my stake or buy out the investors to take back control.'));
-  ensureGoods(b);s.append(h('div',{className:'tabs'},[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),['strat','Strategy'],['people','People'],['grow','Growth'],['fins','📊 Financials'],['fin','Finance'],['risk','Risk']].map(([k,l])=>h('button',{'aria-pressed':String(bTab===k),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
+  if(bTab==='fins'){bTab='money';mSub='reports';}if(bTab==='fin'){bTab='money';mSub='funding';}if(bTab==='risk')bTab='strat';if(bTab==='gov'&&!hasBoard(b))bTab='money';
+  ensureGoods(b);s.append(h('div',{className:'tabs'},[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),['strat','Strategy'],['people','People'],['grow','Growth'],['money','💰 Money'],...(hasBoard(b)?[['gov','🏛️ Governance']]:[])].map(([k,l])=>h('button',{'aria-pressed':String(bTab===k),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
   const bars=(l,v,c)=>[h('p',{className:'label'},`${l} ${v}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${v}%;background:var(--${c})`}))];
   if(bTab==='prod'&&!isGoods(b))bTab='over';
   if(bTab==='prod'){tabProducts(s,b,lock);return;}
@@ -2797,20 +2801,21 @@ function drawBiz(s,b){
     s.append(...bars('Reputation',b.rep,'happy'),...bars('Quality',b.q,'smarts'),...bars('Staff morale',b.morale,'health'));
     const units=isGoods(b)?(b.products||[]).reduce((a,p)=>a+(p.last?p.last.sold:0),0):Math.round(b.lastRev/T.unit[1]);
     if(isGoods(b)&&!b.products.length)s.append(h('p',{className:'flash bad'},'No products yet, so no sales. Open the Products tab to research one.'));
-    const dl=h('dl',{},h('dt',{},'Revenue'),h('dd',{},fmt(b.lastRev)),h('dt',{},'Profit'),h('dd',{className:b.lastPre<0?'bad':''},fmt(b.lastPre)),h('dt',{},isGoods(b)?'Units sold':T.unit[0][0].toUpperCase()+T.unit[0].slice(1)),h('dd',{},units.toLocaleString()),
+    {const ft=finTiles(b);if(ft)s.append(ft);const {ta,tl}=bookItems(b);s.append(h('p',{className:'sub'},`Assets ${fmt(ta)} · Debts ${fmt(tl)} · Book value ${fmt(ta-tl)} · Market value ${fmt(v)}`));}
+    const dl=h('dl',{},h('dt',{},isGoods(b)?'Units sold':T.unit[0][0].toUpperCase()+T.unit[0].slice(1)),h('dd',{},units.toLocaleString()),
       h('dt',{},'Business cash'),h('dd',{className:b.cash<0?'bad':''},fmt(b.cash)),h('dt',{},'Company value'),h('dd',{},fmt(v)),h('dt',{},'My stake'),h('dd',{},fmt(v*b.own)));
     if(T.tech){dl.append(h('dt',{},'Customer churn'),h('dd',{},`${Math.max(2,Math.round(30-b.q/4))}% a year`),h('dt',{},'Runway'),h('dd',{},b.lastPre>=0?'Profitable':`${Math.max(0,b.cash/(-b.lastPre)).toFixed(1)} years`));}
     s.append(dl);
-    if(!lock)s.append(h('div',{className:'btns'},row('🤝 Sell, raise money or go public','Opens the Finance tab','',()=>{bTab='fin';flash=null;drawSheet(true)})));
+    if(!lock)s.append(h('div',{className:'btns'},row('🤝 Sell, raise money or go public','Opens Money, Funding','',()=>{bTab='money';mSub='funding';flash=null;drawSheet(true)})));
     if(b.hist.length>1){s.append(h('p',{className:'label'},'Revenue by year'),chartEl(b.hist));}
-    s.append(row('📊 Full financials','Profit and loss, cash flow and 5-year history','',()=>{bTab='fins';flash=null;drawSheet(true)}));
+    s.append(row('📊 Full reports','Profit and loss, balance sheet, cash flow and 5-year history','',()=>{bTab='money';mSub='reports';flash=null;drawSheet(true)}));
     if(b.reviews.length){s.append(h('h4',{},'Recent reviews'));b.reviews.forEach(r=>s.append(h('p',{className:'sub',style:'margin:0 0 8px'},`${r.s} "${r.t}", ${r.n}`)));}
     if(b.awards.length)s.append(h('p',{className:'sub'},`🏆 ${b.awards.join(', ')}`));
     if(b.prods.length)s.append(h('p',{className:'sub'},`🧪 Products: ${b.prods.join(', ')}${b.patents?` (${b.patents} patented)`:''}`));
     const rs=S.rivals.filter(r=>r.vs===b.id);if(rs.length)s.append(h('p',{className:'sub'},`⚔️ Rivals: ${rs.map(r=>`${r.name} (${r.strat}, strength ${r.str}%)`).join('; ')}`));
     const sy=synergy(b);if(sy.length)s.append(h('p',{className:'sub'},`🔗 ${sy.map(x=>x[3]).join(', ')}`));
     return;}
-  if(lock&&bTab!=='fin'){s.append(h('p',{className:'sub'},S.jail?"The business runs without me while I'm in prison.":S.age<18?'A trustee runs this until I turn 18.':'The board is in charge.'));return;}
+  if(lock&&bTab!=='money'&&bTab!=='gov'){s.append(h('p',{className:'sub'},S.jail?"The business runs without me while I'm in prison.":S.age<18?'A trustee runs this until I turn 18.':'The board is in charge.'));return;}
   if(bTab==='strat'){
     if(!isGoods(b))s.append(h('p',{className:'label'},'Prices'),seg(Object.entries(PRICE).map(([k,p])=>[k,p.l]),b.price,x=>{b.price=x;stay()}));
     else s.append(h('p',{className:'sub'},'Prices, suppliers and quantities are set per product in the Products tab.'));
@@ -2827,7 +2832,7 @@ function drawBiz(s,b){
     if(isGoods(b)){}else if(b.rd)s.append(h('p',{className:'sub'},`🧪 Developing ${b.rd.n}: ${b.rd.yrs} yr left.`));
     else s.append(row('🧪 Develop a new product',`R&D costs ${fmt(b.base*.1)} from business cash. Takes 1 to 2 years`,'',()=>{b.cash-=Math.round(b.base*.1);b.rd={n:prodName(b),yrs:R(1,2)};stay(`${b.name} started developing ${b.rd.n}.`)},false,1));
     if(T.tech&&!b.pivoted)s.append(row('↩️ Pivot the product','Reset reputation and growth for a new idea. Could be better or worse. Once only','',()=>{b.pivoted=true;b.base=Math.round(T.base*R(50,250)/100);b.rep=50;mile(`Pivoted ${b.name}`);stay(`${b.name} pivoted to a whole new idea.`)}));
-    return;}
+    riskBlock(s,b);return;}
   if(bTab==='people'){
     ensureRunner(b);runnerBlock(s,b);
     if(!b.ousted&&canManage())s.append(salaryRow(b));
@@ -2893,15 +2898,15 @@ function drawBiz(s,b){
       lbl.textContent=txt(b.prem);box.append(h('p',{className:'label',style:'margin:0'},`🏢 Buildings owned: ${b.prem} of ${b.locs}`),sl,lbl);s.append(box);}
     s.append(tog('🛡️ Insurance','About 1.5% of sales. Covers fires, floods, break-ins and lawsuits',b.ins,()=>{b.ins=!b.ins;stay()}));
     return;}
-  if(bTab==='fins'){finsTab(s,b);return;}
-  if(bTab==='fin'){finTab(s,b);return;}
-  if(bTab==='risk'){
-    s.append(h('p',{className:'sub'},'Shortcuts that save money now. Each one raises the odds of fines, lawsuits, or worse.'));
+  if(bTab==='money'){s.append(seg([['reports','📊 Reports'],['funding','🏦 Funding']],mSub,v=>{mSub=v;flash=null;drawSheet(true);}));if(mSub==='funding')finTab(s,b);else finsTab(s,b);return;}
+  if(bTab==='gov'){govTab(s,b);return;}
+}
+function riskBlock(s,b){
+    s.append(h('h4',{},'⚠️ Risky shortcuts'),h('p',{className:'sub'},'Shortcuts that save money now. Each one raises the odds of fines, lawsuits, or worse.'));
     s.append(tog('Skip safety inspections','Save money. Lower quality, more accidents, lawsuits and failed inspections',b.skipQC,()=>{b.skipQC=!b.skipQC;stay()}));
     s.append(tog('Creative accounting','Pay 8% tax instead of the real rate. Audits can mean prison',b.taxDodge,()=>{b.taxDodge=!b.taxDodge;stay()}));
     s.append(row('Bribe an inspector','$10,000. Skip the next 2 years of inspection trouble. 15% chance of getting caught','',()=>{S.used['bribe'+b.id]=true;S.money-=10000;if(rnd()<.15){S.flags.record=true;S.money-=50000;b.rep-=20;let m='The inspector was wearing a wire. I was fined $50,000.';if(rnd()<.3){S.jail=R(1,2);S.biz.forEach(x=>{if(x.life==='hands')x.life='delegate'});m+=` I was sentenced to ${S.jail} years.`;mile('Went to prison for bribery');}act(m,'bad')}else{b.bribed=2;stay('The inspector pocketed the envelope and smiled.')}},S.used['bribe'+b.id]||S.money<10000));
     s.append(h('p',{className:'sub'},'Paying staff below market is on the People tab. It saves money but lowers morale and invites unions.'));
-  }
 }
 // One plain tip: the most useful thing to fix, checked in order of importance.
 function bizTip(b){const svc=isSvc(b),word=svc?'service':'product',ph=bizPhase(b);
@@ -3333,6 +3338,9 @@ function listedBlock(s,b){const ctl=hasCtl(b),M=buybackMax(b),so=S.used['so'+b.i
   s.append(h('h4',{},'Listed company'),h('p',{className:'sub'},`${fmtN(shOf(b))} shares at ${fmtP(sharePx(b))}. I own ${(b.own*100).toFixed(1)}%.${ctl?'':' Both moves need a board vote.'}`),
     row('📈 Secondary offering',so?'Already done this year':'Sell new shares to raise money for the business. Dilutes every owner','',()=>secondaryOffer(b),so||bizVal(b)<50000),
     row('🔁 Share buyback',bb?'Already done this year':M.cash<1000?(M.f<=0?'The public holds no shares to buy':'Not enough spare business cash'):`Spend up to ${fmt(M.cash)} of business cash to buy back shares`,'',()=>shareBuyback(b),bb||M.cash<1000));}
+// Governance tab: only shown when others own part of the business.
+function govTab(s,b){const v=bizVal(b),ro=!canManage();govBlock(s,b,ro);
+  if(!ro&&b.ousted){const cost=Math.round(v*b.inv*1.2);s.append(row('Buy out the investors',`Take back control for ${fmt(cost)}`,'',()=>{S.money-=cost;b.own+=b.inv;b.inv=0;b.ousted=false;b.life='delegate';stay(`I bought out the investors and I'm CEO of ${b.name} again.`,'good')},S.money<cost));}}
 /* ================= finance tab ================= */
 function finTab(s,b){
   const T=Tof(b),v=bizVal(b),ro=!canManage();
@@ -3344,9 +3352,9 @@ function finTab(s,b){
     h('dt',{},'Company value'),h('dd',{},fmt(v))));
   s.append(h('p',{className:'label'},'Ownership'),h('p',{className:'sub'},[`Me ${Math.round(b.own*100)}%`,b.co?`${fname(b.co.name)} ${Math.round(b.co.share*100)}%`:null,b.inv>0?`Investors ${Math.round(b.inv*100)}%${b.inv>=.3?' (board seats)':''}`:null,b.pub?'Publicly traded':null].filter(Boolean).join(' · ')));
   if(!ro&&!b.ousted)s.append(salaryRow(b));
-  govBlock(s,b,ro);
+  if(!hasBoard(b))govBlock(s,b,ro);
   if(ro){s.append(h('p',{className:'sub'},S.jail?"I can't make financial moves from prison.":S.age<18?'A trustee manages the money until I turn 18.':''));return;}
-  if(b.ousted){const cost=Math.round(v*b.inv*1.2);s.append(row('Buy out the investors',`Take back control for ${fmt(cost)}`,'',()=>{S.money-=cost;b.own+=b.inv;b.inv=0;b.ousted=false;b.life='delegate';stay(`I bought out the investors and I'm CEO of ${b.name} again.`,'good')},S.money<cost));}
+  if(b.ousted&&!hasBoard(b)){const cost=Math.round(v*b.inv*1.2);s.append(row('Buy out the investors',`Take back control for ${fmt(cost)}`,'',()=>{S.money-=cost;b.own+=b.inv;b.inv=0;b.ousted=false;b.life='delegate';stay(`I bought out the investors and I'm CEO of ${b.name} again.`,'good')},S.money<cost));}
   if(b.cash<Math.max(10000,burn*.5)&&!b.ousted)s.append(h('p',{className:'flash bad'},`⚠️ ${b.name} is low on cash. Put money in, borrow from the bank, draw the credit line, or raise from investors below.`));
   if(!b.ousted){
     s.append(h('h4',{},'Move money'),h('div',{className:'btns'},row(b.own<.999?'💰 Put money in':'💰 Deposit',`${b.own<.999?'Lend it or buy new shares':'Put my cash in'}. I have ${fmt(S.money)}${b.sl&&b.sl.bal?`. It owes me ${fmt(b.sl.bal)}`:''}`,'',()=>moveCash(b,'in'),S.money<=0),row('💵 Withdraw',`Taxed ${Math.round(divTax()*100)}% as a dividend in ${resC().n}. Business has ${fmt(b.cash)}`,'',()=>moveCash(b,'out'),b.cash<=0)));

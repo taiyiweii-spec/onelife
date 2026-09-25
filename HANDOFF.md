@@ -9,6 +9,8 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
 - Claude artifact (AI features on): https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T, owned by the personal Claude account and shared as "anyone with the link". Only that account can republish it. The work (Beyond Insights) account has no edit rights and its own artifacts can't be shared publicly.
 - The owner is not a programmer. Explain things in plain everyday language and give clear options with a recommendation.
 
+- **Business tabs:** Overview (tips, bars, `finTiles` headlines, balance summary), Products/Services, Strategy (risky shortcuts at the bottom, `riskBlock`), People, Growth, Money (`mSub`: Reports = `finsTab`, Funding = `finTab`), Governance (`govTab`, only when `hasBoard(b)`). Old `bTab` values fins/fin/risk are mapped automatically.
+
 ## Tech stack
 - One file: `index.html` (about 380 KB). Vanilla JavaScript, inline CSS, no framework, **no build step**. Keep it as one file.
 - Google Fonts for type. Saves live in the browser's `localStorage` (3 slots, backup codes).
