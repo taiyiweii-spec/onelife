@@ -2354,14 +2354,31 @@ function planModal(b,pr,fresh){const P0=pdef(b,pr.id),P=Object.assign({},P0,{pri
   m.append(h('h3',{},`📅 ${P.ic} ${pr.name}`),h('p',{className:'sub'},fresh?'Ready. Set this year\'s plan and it starts selling right away.':'Edit this year\'s plan.'),pL,pR,autoTog,qL,qR,qN,h('div',{className:'btns',style:'grid-template-columns:1fr 1fr'},sugBtn,matchBtn),info,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
   upd();$('modalWrap').classList.add('open');}
 const opsCost=p=>(p.cogs||0)+(p.wages||0)+(p.owner||0)+(p.rent||0)+(p.mk||0)+(p.other||0);
+// Balance sheet: what the business owns and owes today, at the same values the company valuation uses.
+function bookItems(b){const T=Tof(b);
+  const stock=(b.products||[]).reduce((a,pr)=>{const P=pdef(b,pr.id);return a+(P&&!P.pe&&!isSvc(b)?(pr.inv||0)*unitCost(b,pr):0);},0);
+  const A=[['💵 Cash',b.cash],['📦 Goods paid for this year',(b.products||[]).reduce((a,pr)=>a+(pr.paid||0),0)],['🏷️ Stock left over',stock],
+    [`🏢 Buildings (${b.prem} owned)`,b.prem*bldCost(b)],[`🪑 Outlets, equipment and fit-out (${b.locs})`,T.cost*(1-T.cap)*Math.max(.3,.8-.08*(b.yrs||0))*b.locs],
+    [`🏭 ${FACN[b.type]?FACN[b.type].charAt(0).toUpperCase()+FACN[b.type].slice(1)+'s':'Plants'}`,(b.fac||0)*T.cost*.6],['📜 Franchise rights and patents',(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000]];
+  const L=[['🏦 Bank loan',b.loan.bal||0],['💳 Credit line used',b.credit||0],['🤝 Loan from me',b.sl?b.sl.bal:0]];
+  return {A,L,ta:A.reduce((a,x)=>a+x[1],0),tl:L.reduce((a,x)=>a+x[1],0)};}
+function balanceSheet(b){const {A,L,ta,tl}=bookItems(b),eq=ta-tl,mv=bizVal(b),gw=mv-eq;
+  const rows=(list)=>list.filter(([,v],i)=>i===0||Math.round(v)).flatMap(([l,v])=>[h('dt',{},l),h('dd',{className:v<0?'bad':''},fmt(v))]);
+  const own=[['Me',b.own],b.co?[fname(b.co.name),b.co.share]:null,b.inv>0?[b.pub?'Public shareholders':'Investors',b.inv]:null].filter(Boolean);
+  return [h('h4',{},'Balance sheet, today'),
+    h('p',{className:'label'},'What the business owns'),h('dl',{},...rows(A),h('dt',{},h('b',{},'Total assets')),h('dd',{},fmt(ta))),
+    h('p',{className:'label'},'What the business owes'),h('dl',{},...(tl?rows(L.filter(x=>x[1])):[h('dt',{},'No debts'),h('dd',{},fmt(0))]),h('dt',{},h('b',{},'Total liabilities')),h('dd',{},fmt(tl))),
+    h('dl',{},h('dt',{},h('b',{},"Owners' equity (book value)")),h('dd',{className:eq<0?'bad':''},fmt(eq)),...own.map(([n,f])=>[h('dt',{},`${n}, ${Math.round(f*100)}%`),h('dd',{},fmt(eq*f))]).flat()),
+    h('p',{className:'sub'},`📈 Market value ${fmt(mv)} versus book value ${fmt(eq)}. ${gw>=0?`The ${fmt(gw)} difference is what buyers pay for its customers, brand and earnings.`:`The market values it ${fmt(-gw)} below its book value, usually because it isn't earning enough from what it owns.`} Buildings follow the local property market.`)];}
 function finsTab(s,b){const H=b.fh||[],cur=H[H.length-1],prev=H[H.length-2];
-  if(!b.pnl){s.append(h('p',{className:'sub'},'Financial statements appear after the first full year.'));return;}
+  if(!b.pnl){s.append(h('p',{className:'sub'},'The profit and loss and cash flow statements appear after the first full year.'),...balanceSheet(b));return;}
   const p=b.pnl,ops=opsCost(p),cf=b.cf?b.cf.close-b.cf.open:0;
   const chg=(k,v)=>{if(!prev||!prev[k])return '';const d=(v-prev[k])/Math.abs(prev[k])*100;return ` ${d>=0?'▲':'▼'} ${Math.abs(Math.round(d))}%`;};
   const tile=(l,v,k,badNeg,upBad)=>h('div',{style:'flex:1;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 10px'},h('p',{className:'label',style:'margin:0'},l),h('b',{className:badNeg&&v<0?'bad':'',style:'font-size:16px'},fmt(v)),h('small',{style:'display:block;opacity:.75'},chg(k,v)));
   s.append(h('div',{style:'display:flex;gap:8px;margin:0 0 12px'},tile('Revenue',b.lastRev,'rev'),tile('Operating costs',ops,'ops'),tile('Cash flow',cf,'cf',true)));
   s.append(h('p',{className:'sub'},`Operating profit ${fmt(b.lastRev-ops)} (${b.lastRev?Math.round((b.lastRev-ops)/b.lastRev*100):0}% margin). Business cash now ${fmt(b.cash)}.`));
   {s.append(h('h4',{},'Profit and loss, last year'),h('dl',{},...[['Sales',p.rev],['Contracts',p.conRev],['Franchise royalties',p.royal],['Cost of goods',-p.cogs],['Owner salary (me)',-(p.owner||0)],['Staff wages',-p.wages],['Rent and utilities',-p.rent],['Marketing',-p.mk],['Other costs',-p.other],['Interest and loan payments',-p.interest],['Tax',-p.tax],['Net',p.net]].filter(([,x])=>x).flatMap(([l,x])=>[h('dt',{},l),h('dd',{className:x<0?'bad':''},fmt(x),h('small',{style:'display:inline-block;min-width:44px;opacity:.6;font-weight:400;margin-left:6px'},p.rev?`${Math.round(Math.abs(x)/(p.rev+(p.conRev||0)+(p.royal||0))*100)}%`:''))])),h('p',{className:'sub'},'Percentages are shares of total income.'));}
+  s.append(...balanceSheet(b));
   s.append(h('h4',{},'Cash flow, last year'),cashFlowBlock(b));
   if(H.length>1){const R5=H.slice(-5).reverse(),g=`display:grid;grid-template-columns:auto repeat(${R5.length},1fr);gap:4px 8px;font-size:13px;text-align:right`;
     const k=v=>Math.abs(v)>=1e6?(v/1e6).toFixed(1)+'M':Math.round(v/1000)+'k';
@@ -2440,11 +2457,11 @@ const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*payMult(b)*(b.un
    sales value: yearly sales x a share set by gross margin and reputation (smaller when losing money);
    asset value: outlets and equipment, buildings, plants, stock, franchises and patents.
    Owners' value = business value + cash - debts, never under 10% of business value while it trades. ---- */
-const bldCost=b=>Math.round(Tof(b).fixed*3*cty(b).rent);
+const bldCost=b=>Math.round(Tof(b).fixed*3*cty(b).rent*(b.bldIdx||1));
 const bldSave=b=>Math.round(Tof(b).fixed*.5*b.rentMult*cty(b).rent);
 function bizEV(b){const T=Tof(b),yrs=b.yrs||0;
   const assets=T.cost*(1-T.cap)*Math.max(.3,.8-.08*yrs)*b.locs+b.prem*bldCost(b)+(b.fac||0)*T.cost*.6+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000
-    +(b.products||[]).reduce((a,pr)=>a+(pr.inv||0)*(pdef(b,pr.id)?unitCost(b,pr):0),0);
+    +(b.products||[]).reduce((a,pr)=>a+(pr.inv||0)*(pdef(b,pr.id)?unitCost(b,pr):0)+(pr.paid||0),0);
   if(T.tech)return {ev:Math.max(b.lastRev*6,T.cost*(1-T.cap)*.5,assets),assets};
   const H=(b.fh||[]).slice(-3).reverse(),W=[.5,.3,.2];let op=null;
   if(H.length){let w=0,t=0;H.forEach((x,i)=>{t+=(x.rev-x.ops)*W[i];w+=W[i];});op=t/w;}else if(b.lastRev>0)op=b.lastPre;
@@ -2519,6 +2536,8 @@ function bizYear(){
 function simBiz(b){
   const cash0=b.cash,acc0=Object.assign({prod:0,owner:0,invest:0},b.cfAcc);
   const T=Tof(b),L=lev(b),ph=bizPhase(b);
+  // building prices follow the local property market, like homes do
+  b.bldIdx=+Math.max(.4,Math.min(4,(b.bldIdx||1)*(1+(PHASE[ph].home+gauss()*3)/100))).toFixed(4);
   const econ={boom:.12,normal:0,recession:-.12,crash:-.28}[ph]*T.econ*cty(b).vol*(L.e||1)*(b.lever==='annual'?1:1);
   if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.base=Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+(b.rep-50)/4+(L.g||0))/100)));}
   if(b.ousted)b.life='absent';
