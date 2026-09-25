@@ -2792,7 +2792,7 @@ function runnerBlock(s,b){const r=runBy(b),busy=S.job||S.edu.major||S.age>72;
       row('👋 Fire the CEO',`Severance ${fmt(b.ceo.wage*.5)}`,'',()=>choiceModal('Fire the CEO?',`${b.ceo.name} gets ${fmt(b.ceo.wage*.5)} in severance. Nobody runs ${b.name} until I pick someone.`,[['Fire them',()=>stay(ceoFire(b),'bad')],['Cancel',()=>{}]]))));
     s.append(h('p',{className:'label',style:'margin-top:10px'},'CEO mandate'),seg(Object.entries(MAND),b.mand||'bal',v=>{b.mand=v;stay()}),
       h('p',{className:'label'},'CEO can spend or borrow without asking me'),seg(CEOLIM,b.ceoLim==null?50000:b.ceoLim,v=>{b.ceoLim=v;stay()}),
-      h('p',{className:'sub'},'Each year the CEO runs everything day to day: prices, suppliers, production, wholesale, rebrands, retiring and researching products, processing plants, strategy, marketing, celebrity deals, staff pay, hiring and firing key people, outlets, new cities, online sales, franchising, contracts, automation, buildings, insurance and loans. Anything above the spending limit comes to me for approval. Changes I make myself last until the CEO\'s next review.'));
+      h('p',{className:'sub'},'Each year the CEO runs products and services (prices, suppliers, production, wholesale, rebrands, retiring and researching products, processing plants), growth (outlets, new cities, online sales, franchising, contracts, automation, buildings, insurance) and finance (loans). Strategy, marketing and hiring stay with me. Anything above the spending limit comes to me for approval.'));
     const fair=ceoWage(b,b.ceo);if(b.ceo.wage<fair*.85)s.append(row('💰 Match market pay',`${b.ceo.name} is underpaid and may quit. Market rate ${fmt(fair)}`,'',()=>{b.ceo.wage=fair;b.ceo.loyal=Math.min(99,(b.ceo.loyal||50)+5);stay(`I raised ${b.ceo.name}'s pay to ${fmt(fair)}.`)}));}
   else{s.append(h('p',{className:'flash bad'},`⚠️ Nobody runs ${b.name}. Quality and reputation slip every year.`));
     s.append(row('🙋 Run it myself',busy?'Not with a job or while studying':'Costs 1 energy a year','',()=>{b.life='hands';stay(`I'm running ${b.name} myself now.`,'good')},busy));}
@@ -2879,7 +2879,7 @@ function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),
     // wholesale: sell extra stock when there is some
     if(isMaker(b)&&b.fac&&L&&!pr.ws&&(L.waste>0||(pr.inv||0)>L.sold*.05)){pr.ws=true;notes.push(`wholesale on for ${pr.name}`);}
     // rebrand a tired product
-    if(L&&!pr.boost&&(pr.rating||50)<55&&L.sold<L.dem*1.02&&M!=='cut'&&rnd()<.25){spend(rdCost(b,P)*.3,`rebrand ${pr.name}`,()=>{pr.name=`${pick(['Classic','Signature','Street','Deluxe','Original','Supreme','Golden'])} ${P.n}`;pr.boost=.2;});}
+    if(L&&!pr.boost&&pr.yrs>=2&&(pr.rating||50)<55&&L.sold<L.dem*1.02&&M!=='cut'&&rnd()<.25){spend(rdCost(b,P)*.3,`rebrand ${pr.name}`,()=>{pr.name=`${pick(['Classic','Signature','Street','Deluxe','Original','Supreme','Golden'])} ${P.n}`;pr.boost=.2;});}
   });
   // retire a product that loses money (keeps at least one)
   if((b.products||[]).length>1){const loser=b.products.filter(pr=>pr.last&&pr.yrs>=2&&pr.last.rev<pr.last.cost).sort((x,y)=>(x.last.rev-x.last.cost)-(y.last.rev-y.last.cost))[0];
@@ -2893,28 +2893,6 @@ function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),
   // processing plant when production is maxed out
   if(isMaker(b)&&(b.fac||0)<FAC_MAX&&M!=='cut'&&mg>.1){const capped=(b.products||[]).some(pr=>pr.last&&pr.last.made>=prodCap(b,pr)*.95&&pr.last.dem>pr.last.sold);
     if(capped&&(skill(c.ops)||rnd()<.2))spend(facCost(b),`build a ${FACN[b.type]}`,()=>{b.fac=(b.fac||0)+1;});}
-  // ---- strategy ----
-  if(!isGoods(b)){const sold=b.lastSoldOut;const want=M==='cut'?'std':sold?'premium':mg<.05?'budget':'std';if(b.price!==want&&skill(c.sales)){b.price=want;notes.push(`pricing set to ${PRICE[want].l.toLowerCase()}`);}
-    const sw=M==='cut'?'cheap':M==='grow'?'premium':'standard';if(b.supplier!==sw&&skill(c.ops)){b.supplier=sw;notes.push(`${SUPPLIERS[sw].l.toLowerCase()} supplier`);}}
-  if(T.lever){const sc=([k,o])=>(o.d||1)*(o.p||1)/(o.c||1)-(M==='bal'||M==='cut'?((o.v||1)-1)*.1:0);
-    const best=Object.entries(T.lever.o).reduce((a,x)=>sc(x)>sc(a)?x:a);const pickK=skill(c.ops)?best[0]:pick(Object.keys(T.lever.o));
-    if(pickK!==b.lever&&rnd()<.5){b.lever=pickK;notes.push(`${T.lever.t.toLowerCase()}: ${T.lever.o[pickK].l.toLowerCase()}`);}}
-  // marketing
-  {const lv=mkLv(b),cr=b.cash/Math.max(1,b.lastRev);let tg=M==='cut'?0:mg>.2?(M==='grow'?2:1):mg>.1?1:0;if(cr<.05)tg=0;if(rnd()<(60-c.sales)/150)tg=R(0,3);
-    if(tg!==lv){b.mkt=lv+(tg>lv?1:-1);notes.push(`marketing ${MKTL[lv].l.toLowerCase()} → ${MKTL[b.mkt].l.toLowerCase()}`);}}
-  if(b.celeb&&(mg<.1||M==='cut')){notes.push(`dropped ${b.celeb.n}`);b.celeb=null;}
-  else if(!b.celeb&&M==='grow'&&mg>.25){const cel=CELEBS.filter(x=>x.c<b.lastRev*.15).sort((x,y)=>y.d-x.d)[0];if(cel&&(cel.c<=lim||lim===Infinity)){b.celeb={...cel};notes.push(`signed ${cel.n} as the face of the brand`);}}
-  if(!b.push&&mg>.1&&M!=='cut'&&rnd()<.5){b.push=true;notes.push(`planned a ${T.season.toLowerCase()}`);}
-  if(trendHits(b)&&b.ride!==S.trend.k&&M!=='cut'&&skill(c.sales))spend(b.base*b.locs*.08,`ride the ${TRENDS[S.trend.k].n.toLowerCase()}`,()=>{b.ride=S.trend.k;});
-  // ---- people ----
-  {const pw=M==='cut'?'low':b.morale<45||M==='grow'?'high':'market';if(b.pay!==pw&&skill(c.people)){b.pay=pw;b.payPct={low:85,market:100,high:115}[pw];notes.push(`staff pay ${pw==='market'?'at market':pw==='low'?'below market':'above market'}`);}}
-  if(b.autoStaff===false){b.autoStaff=true;notes.push('staff hired automatically');}
-  {const weak=b.team.filter(p=>!p.kid).sort((x,y)=>x.skill/x.wage-y.skill/y.wage)[0];
-    if(weak&&(weak.skill<40||M==='cut'&&mg<.05)&&skill(c.people)){b.team=b.team.filter(x=>x!==weak);b.morale=clamp(b.morale-3);notes.push(`let ${weak.name} go`);}}
-  if(b.team.length<teamCap(b)&&M!=='cut'&&mg>.05&&rich(b.lastRev*.05)){if(!b.cands||b.cands.age!==S.age)b.cands=candPool(b);
-    const pool=b.cands.list.filter(x=>x.wage<Math.max(0,b.lastPre)*.4);const h1=pool.length?(skill(c.people)?pool.reduce((a,x)=>x.skill/x.wage>a.skill/a.wage?x:a):pick(pool)):null;
-    if(h1){b.team.push({...h1});b.cands.list=b.cands.list.filter(x=>x!==h1);notes.push(`hired ${h1.name} (${h1.role.toLowerCase()}, skill ${h1.skill})`);}}
-  if(b.team.length&&b.morale<45&&M!=='cut')spend(500+b.staff*300,'hold a team building day',()=>{b.morale=clamp(b.morale+10);});
   // ---- growth ----
   if(!T.tech&&!T.hit&&M!=='cut'&&canExpand(b)){const cost=outletCost(b),run=outletRun(b),lm=bizLoanMax(b);
     const good=b.lastPre>run*.35&&b.rep>=45,rash=rnd()<Math.max(0,50-c.ops)/150;
