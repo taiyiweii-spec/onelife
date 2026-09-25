@@ -419,6 +419,10 @@ const ACH={
  turnaround:['🔧','Turnaround artist','Buy a struggling business and get it to 70% reputation'],
  takeover:['🛡️','Not today','Fight off a hostile takeover',1],
  challenge:['🎯','Challenger','Complete any challenge'],
+ extra:['🧍','Background artist','Work as a film extra'],
+ childstar:['🧒','Child star','Land an acting role before turning 13'],
+ reel:['🏆','And the award goes to...','Win a Golden Reel acting award'],
+ alist:['🌟','A-lister','Land a blockbuster lead role',1],
 };
 const CHAL={
  truck:{n:'Food truck to empire',d:'Start at 22 with a food truck. Own 10 locations in total before age 40.',start:{age:22,money:20000,biz:['truck']},goal:()=>S.biz.reduce((a,b)=>a+b.locs,0)>=10,dead:()=>S.age>=40},
@@ -1055,6 +1059,142 @@ function applyJob(o){const C=CAREERS[o.c],t=C.t[o.lvl][0];
   choiceModal(`Interview: ${t}`,`${o.co?o.co+'. ':''}"${q[0]}"${lvlNote}`,q.slice(1).map(([txt,st])=>[txt,()=>{
     const v=st==='looks'?S.st.looks+(has('charming')?10:0):S.st[st];const bonus=(v-50)/250+R(-5,5)/100;finish(bonus);}]));}
 
+/* ================= ACTING CAREER =================
+   Paid per role, not a salary. Acting skill, looks and fame win auditions; each project comes out a flop, OK, hit or
+   smash; hits bring fame, residuals and award nominations. S.act only exists once I start acting. */
+const GENRES={comedy:'😂 comedy',drama:'🎭 drama',action:'💥 action',horror:'👻 horror',romance:'💘 romance',scifi:'🚀 sci-fi'};
+// pay range, fame gain, skill and fame needed; big = takes the whole year
+const AROLES=[
+ {n:'Background extra',ic:'🧍',pay:[800,3000],fame:[0,1],sk:0,fm:0},
+ {n:'TV commercial',ic:'📺',pay:[5000,25000],fame:[1,2],sk:10,fm:0},
+ {n:'TV guest role',ic:'🎞️',pay:[15000,60000],fame:[2,4],sk:25,fm:3},
+ {n:'Series regular',ic:'📡',pay:[150000,600000],fame:[4,7],sk:40,fm:10,big:1,series:1},
+ {n:'Supporting film role',ic:'🎬',pay:[300000,1500000],fame:[4,8],sk:50,fm:20,big:1,film:1},
+ {n:'Lead film role',ic:'⭐',pay:[2000000,10000000],fame:[8,14],sk:65,fm:40,big:1,film:1},
+ {n:'Blockbuster lead',ic:'🌟',pay:[10000000,25000000],fame:[12,20],sk:75,fm:65,big:1,film:1}];
+const AGENTS=[{n:'No agent',cut:0,aud:2,up:0,d:'Small auditions only'},{n:'Hustle Talent',cut:.1,aud:4,up:1,fm:0,d:'More auditions and a shot at bigger roles. Takes 10%'},{n:'Starline Agency',cut:.15,aud:5,up:2,fm:30,d:'Top agency: the biggest roles in town. Takes 15%. Needs 30% fame'}];
+const OUTC={flop:{l:'Flop',ic:'🍅',f:.2,box:[2,6]},ok:{l:'Did OK',ic:'👍',f:1,box:[6,14]},hit:{l:'Hit',ic:'🔥',f:1.5,box:[14,30]},smash:{l:'Smash hit',ic:'💎',f:2.2,box:[30,70]}};
+const FILM_A=['The Last','Midnight','Broken','Neon','Silent','Crimson','Wild','Golden','Lost','Iron','Paper','Electric','Hidden','Burning'];
+const FILM_B=['Harbor','Protocol','Summer','Kingdom','Signal','Heist','Hearts','Frontier','Circus','Witness','Echo','Empire','Garden','Tide'];
+const SHOWS=['Precinct 9','Hollow Creek','Startup Nation','The Morning Desk','Doctors of Mercy','Suburbia','Night Shift','The Firm','Pine Valley High','Cold Case Unit'];
+const ADS=['VoltCola','Zenith Watches','Lumière Perfume','CrunchO Cereal','SwiftPhone','Glow Skincare','PawPals Pet Food'];
+const actS=()=>{if(!S.act)S.act={sk:0,agent:0,roles:[],gen:{},res:[],awards:[],noms:0,booked:[],series:null,offers:null,deal:null,flops:0,boost:0,fee:1};return S.act;};
+const actPay=()=>.5+.5*resC().pp;
+const actRoom=()=>{const A=S.act;return !A||(!A.series&&A.bigAge!==S.age);};
+function actTop(){const A=actS(),f=S.fame||0;let t=0;AROLES.forEach((r,i)=>{if(A.sk>=r.sk&&f>=r.fm)t=i;});return t;}
+function actReach(){const A=actS();let r=Math.min(AROLES.length-1,actTop()+1+AGENTS[A.agent].up);if(S.age<16)r=Math.min(r,2);return r;}
+function actTitle(o){return AROLES[o.t].series?pick(SHOWS):`${pick(FILM_A)} ${pick(FILM_B)}`;}
+function actOffers(){const A=actS();if(A.offers&&A.offers.age===S.age)return A.offers.list;const top=actTop(),reach=actReach(),list=[];
+  for(let i=0;i<AGENTS[A.agent].aud;i++){let t=Math.max(0,Math.min(reach,pick([top-1,top,top,top+1,reach])));if(AROLES[t].big&&!actRoom())t=Math.min(t,2);if(S.age<16)t=Math.min(t,2);
+    const r=AROLES[t],o={id:uid(),t,g:pick(Object.keys(GENRES))};o.title=actTitle(o);o.pay=Math.round(R(r.pay[0],r.pay[1])*actPay()*A.fee/100)*100;list.push(o);}
+  A.offers={age:S.age,list:list.sort((a,b)=>a.t-b.t)};return A.offers.list;}
+function typecast(){const A=actS(),top=Object.entries(A.gen).sort((a,b)=>b[1]-a[1])[0];return top&&top[1]>=3?top[0]:null;}
+function audChance(o){const A=actS(),r=AROLES[o.t];let c=.5+(A.sk-r.sk)/120+((S.fame||0)-r.fm)/200+(S.st.looks-50)/(o.t>=4?250:450)+(S.st.happy-50)/500+(has('charming')?.05:0)+(has('creative')?.05:0)+A.agent*.04;
+  const tc=typecast();if(tc)c+=tc===o.g?.1:-.12;
+  if(A.flops>=2)c-=.08*(A.flops-1);
+  if(o.t>=4&&S.age>45)c-=(S.age-45)/100*(A.sk>80?.3:1);
+  if(S.used.headshot)c+=.05;
+  return Math.max(.03,Math.min(.9,c));}
+const AUD_FAIL=['The casting director said I "wasn\'t quite right for the part." I was exactly right for the part.','They went with someone who "looked more like a real astronaut."','I forgot my lines halfway through. A pigeon walked in. It was a lot.','They loved me. Then they cast the director\'s nephew.','I nailed it, but the role went to someone with a million followers.'];
+function audition(o){const A=actS(),r=AROLES[o.t];
+  const go=bonus=>{o.done=1;const c=Math.max(.03,Math.min(.92,audChance(o)+bonus));
+    if(rnd()<c)bookRole(o);else{S.st.happy-=2;stay(`🎭 Audition for ${r.n.toLowerCase()} in "${o.title}": ${pick(AUD_FAIL)}`,'bad');}};
+  choiceModal(`🎬 Audition: ${r.n}`,`"${o.title}", a ${GENRES[o.g].split(' ')[1]} ${r.series?'series':r.film?'film':'job'}. Pays about ${fmt(o.pay)}${r.series?' a season':''}. The casting director looks up from their coffee: "Whenever you're ready."`,[
+    ['📖 Nail the script',()=>go((A.sk-50)/250)],
+    [`${has('charming')?'😏':'🙂'} Charm the room`,()=>go((S.st.looks-50)/250+(has('charming')?.06:0))],
+    ['🎲 Improvise something wild',()=>go(rnd()<.5+(has('creative')||has('reckless')?.1:0)?.18:-.2)],
+    ['Walk out',()=>{o.done=1;stay('I walked out before it started. The stage fright won this round.');}]]);}
+function bookRole(o){const r=AROLES[o.t];
+  if(r.big&&(S.job||S.edu.major)){choiceModal('🎉 I got the part!',`${r.series?'The show':'Filming'} takes the whole year. I'd have to ${S.job?`quit my job as a ${title(S.job)}`:`drop out of ${S.edu.major}`}.`,[
+    [S.job?'Quit and take the role':'Drop out and take the role',()=>{if(S.job){line(`I quit my job as a ${title(S.job)} to act full time.`);S.job=null;}if(S.edu.major){line(`I dropped out of ${S.edu.major} to act full time.`);S.edu.major=null;S.edu.yrs=0;}confirmRole(o);}],
+    ['Turn it down',()=>stay(`I turned down "${o.title}". Somebody else became famous instead.`)]]);return;}
+  confirmRole(o);}
+function confirmRole(o){const A=actS(),r=AROLES[o.t];
+  if(r.series)A.series={title:o.title,g:o.g,pay:o.pay,season:0};else A.booked.push(o);
+  if(r.big)A.bigAge=S.age;A.offers.list=A.offers.list.filter(x=>x!==o);
+  if(S.age<13)unlock('childstar');if(o.t===0)unlock('extra');if(o.t===6)unlock('alist');
+  if(o.t>=3)mile(`Cast as a ${r.n.toLowerCase()} in "${o.title}"`);
+  sfx('good');stay(`🎉 I got the part: ${r.n.toLowerCase()} in "${o.title}"! ${r.series?'Filming starts this season.':'It comes out when I age up.'}`,'good');}
+// One finished project: outcome, pay, fame, box office, residuals and maybe an award nomination.
+// Success comes from acting skill (most), looks and fame (star power), plus luck.
+const actPower=()=>{const A=S.act;return A.sk*.45+S.st.looks*.15+(S.fame||0)*.15;};
+function actResolve(o,season){const A=S.act,r=AROLES[o.t];const x=actPower()+R(0,40)-o.t*3+A.boost+(has('creative')?5:0)+gauss()*10;A.boost=0;
+  const out=x<38?'flop':x<62?'ok':x<84?'hit':'smash',O=OUTC[out];
+  let pay=o.pay*(season?1+.1*(season-1):1);if(r.film&&o.t>=5&&(out==='hit'||out==='smash'))pay+=o.pay*(out==='smash'?1:.4);
+  const cut=Math.round(pay*AGENTS[A.agent].cut),net=Math.round(pay-cut);S.money+=net-incomeTax(net);
+  const fg=Math.round(R(r.fame[0],r.fame[1])*O.f)-(out==='flop'?2:0);S.fame=cl((S.fame||0)+fg);
+  A.flops=out==='flop'?A.flops+1:0;A.gen[o.g]=(A.gen[o.g]||0)+1;A.sk=cl(A.sk+R(2,5));
+  const box=r.film?Math.round(o.pay*R(O.box[0],O.box[1])*(.6+(S.fame||0)/125)/1e5)*1e5:0;
+  if((out==='hit'||out==='smash')&&o.t>=2)A.res.push({n:o.title,v:Math.round(pay*(out==='smash'?.25:.12))});
+  A.roles.push({age:S.age,t:o.t,title:o.title,g:o.g,out,season:season||0});if(A.roles.length>40)A.roles.shift();
+  const what=season?`Season ${season} of "${o.title}"`:`"${o.title}" (${r.n.toLowerCase()})`;
+  const flavor={flop:pick(['Critics were brutal. One review just said "no."','Audiences stayed away in huge numbers.','It went straight to a streaming service nobody uses.']),ok:pick(['Solid reviews, decent crowds.','People liked it. Some even loved it.','My mum watched it twice.']),hit:pick(['Everyone is talking about it.','Critics called my performance "electric."','Lines from it are already memes.']),smash:pick(['A cultural phenomenon. Kids are dressing up as my character.','Critics are calling it the role of a lifetime.','It broke records around the world.'])}[out];
+  line(`${O.ic} ${what}: ${O.l.toLowerCase()}. ${flavor}${box?` Box office ${fmt(box)}.`:''} I earned ${fmt(net)}${cut?` after my agent's ${fmt(cut)}`:''}. Fame ${fg>=0?'+':''}${fg}.`,out==='flop'?'bad':out==='ok'?'':'good');
+  if(o.t>=3&&(out==='hit'||out==='smash')&&rnd()<(out==='smash'?.3:.1)+(A.sk-70)/300)Q.push(awardEvent(o,out));}
+function awardEvent(o,out){const A=S.act,r=AROLES[o.t],cat=o.t>=5||r.series?'Best Actor':'Best Supporting Actor',cost=Math.round(Math.max(50000,o.pay*.05)/1000)*1000;A.noms++;
+  const odds=b=>Math.max(.05,Math.min(.6,.2+(A.sk-70)/150+(S.fame||0)/500+(out==='smash'?.08:0)+b));
+  const win=(b,how)=>{if(rnd()<odds(b)){A.awards.push(`${cat}, "${o.title}" (${S.age})`);A.fee=Math.min(2,A.fee*1.15);S.fame=cl((S.fame||0)+12);S.st.happy+=15;unlock('reel');mile(`Won ${cat} at the Golden Reel Awards`);sfx('ach');
+      return how==='skip'?'I won! I wasn\'t there, so a confused stranger accepted it for me. The clip went viral anyway.':pick(['I WON! I thanked my mum, my agent and, for some reason, my dentist.','I won, and my speech made the whole room cry. Offers are pouring in.']);}
+    S.st.happy-=3;return pick(['I lost to an actor who played a lighthouse keeper. Brilliant, apparently.','The award went to someone else. I did my best "happy for them" face on live TV.','I lost, but the after-party was legendary.']);};
+  return {text:`🏆 I'm nominated for ${cat} at the Golden Reel Awards for "${o.title}"!`,ch:[
+    [`Campaign hard (${fmt(cost)})`,()=>{S.money-=cost;return win(.15);},()=>S.money<cost],
+    ['Rehearse my speech in the mirror',()=>win(.03)],
+    ['Skip the ceremony, too cool for it',()=>win(-.03,'skip')]]};}
+function actEvent(){const A=S.act,f=S.fame||0,ev=[];const push=(w,fn)=>ev.push([w,fn]);
+  if(f>=30)push(2,()=>Q.push({text:'📸 Paparazzi caught me leaving a restaurant at 2am, looking absolutely wrecked.',ch:[['Laugh it off and wave',()=>{S.fame=cl(f+1);return 'The photo made me look relatable. Fans loved it.';}],['Grab their camera',()=>{S.money-=20000;S.fame=cl(f+3);addKarma(-3);return 'Headline: "STAR SNAPS". I paid a $20,000 settlement, but everyone knows my name now.';},null,'hothead'],['Strike a pose',()=>{if(S.st.looks>=65){S.fame=cl(f+2);return 'Somehow it became my best photo ever.';}S.st.happy-=3;return 'I posed. It did not help.';}]]}));
+  if(A.series||A.bigAge===S.age)push(2,()=>Q.push({text:'🎬 My director wants me to go full method for the next role: stay in character for months, lose sleep, the works.',ch:[['Commit completely',()=>{S.st.health-=6;S.st.happy-=4;A.boost+=12;A.sk=cl(A.sk+3);return 'I didn\'t answer to my own name for three months. The performance will be something else.';}],['Politely refuse',()=>{A.boost-=4;return 'The director sighed and muttered about "real artists."';}]]}));
+  push(1,()=>Q.push({text:'💥 The action scene calls for jumping between two moving trucks. Do my own stunt?',ch:[['Do it myself',()=>{if(rnd()<.3){S.st.health-=R(10,20);return 'I broke my arm. The footage is incredible, though.';}S.fame=cl(f+3);A.boost+=5;return 'Nailed it first take. The crew applauded.';}],['Let the stunt double do it',()=>'Very sensible. My stunt double got a round of applause instead.']]}));
+  if(!partner()&&S.age>=18)push(1,()=>{const g=S.gender==='M'?pick(['F','F','M']):pick(['M','M','F']),c=person('Partner',g,Math.max(18,S.age+R(-5,5)),lastN());c.famous=true;
+    Q.push({text:`💘 My co-star ${c.name} keeps finding reasons to rehearse our scenes together.`,ch:[['Go for it',()=>{if(rnd()<.6+(has('charming')?.15:0)){S.rels.push(c);S.fame=cl(f+4);return `${fname(c.name)} and I are dating. The tabloids gave us a couple name.`;}S.st.happy-=5;return 'Turns out they were just really into rehearsing.';}],['Keep it professional',()=>'I kept it professional. The chemistry on screen was still unreal.']]});});
+  push(1,()=>{S.fame=cl(f+5);S.st.happy-=2;line('😂 A clip of my most dramatic scene became a meme. Millions of people are using my face to say "when the Wi-Fi drops."','good');});
+  if(f>=20)push(1,()=>{const p=Math.round((50000+f*8000)*actPay()/1000)*1000;Q.push({text:`🦶 A foot cream brand offers ${fmt(p)} for a very, very close-up TV ad.`,ch:[['Take the money',()=>{S.money+=p-incomeTax(p);S.fame=cl(f-1);return 'The ad runs every hour. My feet are now famous too.';}],['Decline, I\'m an artist',()=>{S.st.happy+=2;return 'I declined. My agent cried a little.';}]]});});
+  push(1,()=>{S.st.happy+=4;line('🥹 A fan stopped me in the street to say my performance helped them through a hard year.','good');});
+  if(f>=20&&S.karma<45)push(2,()=>Q.push({text:'📰 A tabloid is about to run a story digging into my past.',ch:[['Deny everything',()=>{if(rnd()<.5){S.fame=cl(f-8);return 'They had receipts. The denial made it worse.';}return 'It blew over in a week.';}],['Get ahead of it with an apology',()=>{S.fame=cl(f-3);addKarma(3);return 'A heartfelt apology. Most people respected it.';}],['Lean into the bad-boy or bad-girl image',()=>{S.fame=cl(f+4);S.st.happy-=4;return 'Offers for villain roles are flooding in.';}]]}));
+  if(f>=15)push(1,()=>Q.push({text:'🛋️ I\'m invited on a late-night talk show.',ch:[['Tell my wildest on-set story',()=>{if(rnd()<.55+(has('charming')?.2:0)){S.fame=cl(f+4);return 'The audience was in tears. The clip hit ten million views.';}return 'The story was funnier in my head.';}],['Prank the host',()=>{if(rnd()<.5){S.fame=cl(f+5);return 'Legendary television.';}S.fame=cl(f-2);return 'The host did not find it funny. At all.';},null,'reckless'],['Decline',()=>'I stayed home and watched it anyway.']]}));
+  const tc=typecast();if(tc&&A.gen[tc]>=4)push(2,()=>Q.push({text:`🎭 Critics say I only ever play ${GENRES[tc].split(' ')[1]} roles.`,ch:[['Do a tiny indie film for almost no pay',()=>{A.sk=cl(A.sk+6);A.gen[tc]=Math.floor(A.gen[tc]/2);S.fame=cl(f-1);return 'The indie film was strange and wonderful. Casting directors see me differently now.';}],['Embrace it: it\'s my brand',()=>{S.fame=cl(f+2);return `I leaned in. I am now THE ${GENRES[tc].split(' ')[1]} star.`;}]]}));
+  if(!ev.length)return;const [,fn]=wpick(ev,e=>e[0]);fn();}
+function yrActing(){const A=S.act;if(!A||S.jail)return;const top0=actTop();
+  (A.booked||[]).forEach(o=>actResolve(o,0));A.booked=[];
+  if(A.series){const sr=A.series;sr.season++;const o={t:3,title:sr.title,g:sr.g,pay:sr.pay};const before=A.roles.length;actResolve(o,sr.season);const out=(A.roles[A.roles.length-1]||{}).out;
+    const keep=rnd()<({flop:.25,ok:.6,hit:.9,smash:.97}[out]||.5);if(!keep){line(`📡 "${sr.title}" was cancelled after ${sr.season} season${sr.season>1?'s':''}.`,'bad');A.series=null;}else line(`📡 "${sr.title}" was renewed for season ${sr.season+1}!`,'good');}
+  A.res=A.res.filter(x=>{const v=Math.round(x.v);if(v<500)return false;S.money+=v-incomeTax(v);x.v*=.7;return true;});
+  if(A.deal){const p=A.deal.pay;S.money+=p-incomeTax(p);A.deal.yrs--;if(A.deal.yrs<=0){line(`🤝 My deal with ${A.deal.brand} ended.`);A.deal=null;}}
+  const active=A.roles.some(r=>r.age===S.age);if(!active&&!A.series)S.fame=cl((S.fame||0)-2);if((S.fame||0)>50)S.fame=cl(S.fame-Math.round(((S.fame||0)-50)/15));
+  if(A.roles.length&&S.age>=12&&rnd()<.3)actEvent();
+  if((S.fame||0)>=25&&!A.deal&&rnd()<.3){const brand=pick(ADS),pay=Math.round((S.fame||0)**2*120*actPay()/1000)*1000;
+    Q.push({text:`🤝 ${brand} wants me as the face of their campaign: ${fmt(pay)} a year for 2 years.`,ch:[['Sign the deal',()=>{A.deal={brand,pay,yrs:2};return `I'm the new face of ${brand}.`;}],['Negotiate for more',()=>{if(rnd()<.5+(has('charming')?.2:0)){A.deal={brand,pay:Math.round(pay*1.3),yrs:2};return `They agreed to ${fmt(pay*1.3)} a year.`;}return `${brand} walked away and signed someone else.`;}],['Decline',()=>'I passed. My agent is not speaking to me.']]});}
+  if(actTop()>top0)line(`🎭 Casting directors are taking notice. I can now go for ${AROLES[actReach()].n.toLowerCase()} roles.`,'good');}
+function stageSheet(){openSheet(drawStage);}
+function drawStage(s){const A=actS(),f=S.fame||0,ag=AGENTS[A.agent],ro=!S.alive||S.jail||S.age<8;
+  s.append(h('button',{className:'back',on:jobSheet},'‹ Work & school'),h('h3',{},'🎭 Acting career'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left. Paid per role, not a salary. Acting skill, looks and fame win auditions.`));
+  s.append(...mbar('Acting skill',A.sk,'looks'),...mbar('Looks',S.st.looks,'smarts'),...mbar('Fame',f,'happy'),h('p',{className:'sub'},'Hits come from acting skill most, then looks and fame (star power), plus luck. Fame also fills cinemas: more fame, bigger box office.'));
+  const tc=typecast();s.append(h('p',{className:'sub'},`${ag.n}${ag.cut?` (takes ${Math.round(ag.cut*100)}%)`:''}. ${A.roles.length} role${A.roles.length===1?'':'s'} so far${A.awards.length?`, 🏆 ${A.awards.length} award${A.awards.length>1?'s':''}`:A.noms?`, ${A.noms} nomination${A.noms>1?'s':''}`:''}.${tc?` Typecast in ${GENRES[tc].split(' ')[1]}: easier to land, harder to escape.`:''}${A.flops>=2?` ⚠️ ${A.flops} flops in a row. Casting directors are nervous.`:''}`));
+  if(ro)return s.append(h('p',{className:'sub'},S.age<8?'I can start acting at 8.':'Not right now.'));
+  if(A.series)s.append(row(`📡 "${A.series.title}"`,`Series regular, season ${A.series.season+1}. ${fmt(A.series.pay)} a season. Takes my whole year`,'',()=>choiceModal('Leave the show?','My character would be written out. Fans will be upset, but my year opens up for films.',[['Leave the show',()=>{const t=A.series.title;A.series=null;S.fame=cl(f-2);stay(`I left "${t}". My character "moved to Canada."`);}],['Stay',()=>{}]])));
+  if(A.booked.length)s.append(h('p',{className:'flash'},`🎬 Booked this year: ${A.booked.map(o=>`${AROLES[o.t].n.toLowerCase()} in "${o.title}"`).join(', ')}. ${A.booked.length>1?'They come':'It comes'} out when I age up.`));
+  if(A.deal)s.append(h('p',{className:'sub'},`🤝 Face of ${A.deal.brand}: ${fmt(A.deal.pay)} a year, ${A.deal.yrs} year${A.deal.yrs>1?'s':''} left.`));
+  // auditions
+  s.append(h('h4',{},'Auditions this year'));const offers=actOffers();
+  if(!offers.some(o=>!o.done))s.append(h('p',{className:'sub'},'No more auditions this year. New ones come with the new year.'));
+  offers.forEach(o=>{const r=AROLES[o.t],blocked=r.big&&!actRoom(),c=audChance(o);
+    s.append(row(`${r.ic} ${r.n}: "${o.title}"`,o.done?'Done this year':blocked?'I already have a big project this year':`${GENRES[o.g]}. ${c<.3?'🎯 Long shot':c<.55?'⚖️ Fair chance':'✅ Strong chance'} (${Math.round(c*100)}%).${r.big?' Takes the whole year.':''}`,fmt(o.pay),()=>audition(o),o.done||blocked,1));});
+  // training
+  s.append(h('h4',{},'Get better'));
+  if(S.age<18)s.append(row('🎭 Drama club','Free. Builds acting skill','',()=>{S.used.drama=true;A.sk=cl(A.sk+Math.round(R(3,6)*(has('creative')?1.5:1)));stay(`I played ${pick(['a tree','the lead','a very dramatic narrator','Villager #4'])} in the school play. My skill is now ${A.sk}.`)},S.used.drama,1));
+  else{const c1=Math.round(1500*actPay()),c2=Math.round(15000*actPay());
+    s.append(row('🎓 Acting classes','Builds acting skill',fmt(c1),()=>{S.used.aclass=true;S.money-=c1;A.sk=cl(A.sk+Math.round(R(3,7)*(has('creative')?1.3:1)));stay(`I took acting classes. My skill is now ${A.sk}.`)},S.used.aclass||S.money<c1,1),
+      row('🧑‍🏫 Private acting coach','A big skill boost. Needs skill 30+',fmt(c2),()=>{S.used.acoach=true;S.money-=c2;A.sk=cl(A.sk+R(7,12));stay(`My coach made me cry twice and laugh once. Skill is now ${A.sk}.`,'good')},S.used.acoach||A.sk<30||S.money<c2,1));}
+  s.append(row('📸 New headshots','+5% on every audition this year',fmt(800),()=>{S.used.headshot=true;S.money-=800;stay('New headshots. I look like someone who gets cast.')},S.used.headshot||S.money<800),
+    row('📱 Post on social media','Grow my fame a little. Sometimes a lot','',()=>{S.used.post=true;if(rnd()<.1){S.fame=cl(f+5);stay('My post went viral! Fame +5.','good');}else{S.fame=cl(f+R(0,2));stay('I posted a behind-the-scenes clip. A few new fans.');}},S.used.post,1));
+  // agent
+  s.append(h('h4',{},'Agent'));
+  AGENTS.forEach((a,i)=>{if(i===A.agent)return;const lock=i>0&&(a.fm&&f<a.fm||a.need&&!A.roles.length);
+    s.append(row(`${i===0?'👋 Drop my agent':`🤝 Sign with ${a.n}`}`,lock?(a.fm?`Needs ${a.fm}% fame`:'Needs at least one role first'):a.d,'',()=>{A.agent=i;A.offers=null;stay(i?`I signed with ${a.n}. More auditions start this year.`:'I dropped my agent. Freedom, and fewer auditions.')},lock));});
+  // filmography
+  if(A.roles.length){s.append(h('h4',{},'Filmography'));A.roles.slice(-8).reverse().forEach(r=>s.append(h('p',{className:'sub',style:'margin:0 0 6px'},`${OUTC[r.out].ic} Age ${r.age}: ${r.season?`"${r.title}" season ${r.season}`:`${AROLES[r.t].n}, "${r.title}"`}, ${OUTC[r.out].l.toLowerCase()}`)));}
+  if(A.awards.length)s.append(h('p',{className:'sub'},`🏆 ${A.awards.join('; ')}`));
+  if(A.res.length)s.append(h('p',{className:'sub'},`💰 Residuals still coming in from ${A.res.length} project${A.res.length>1?'s':''}: about ${fmt(A.res.reduce((a,x)=>a+x.v,0))} this year.`));}
+
 function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
 function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate+(S.age>=18?(700-creditScore())/12000:0));}
 
@@ -1161,7 +1301,7 @@ function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
-  ['econ',yrEcon],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
+  ['econ',yrEcon],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],['acting',yrActing],
   ['business',yrBiz],['angels',yrAngels],['property',yrProperty],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
@@ -1251,6 +1391,7 @@ function obituary(){
   P.push(nw<0?`They left behind more debt than furniture.`:nw<20000?`They left a modest estate and a very full junk drawer.`:nw<1e6?`They left a comfortable nest egg of ${fmt(nw)}.`:`They left a fortune of ${fmt(nw)}${memeGain>=1e5?', much of it, bafflingly, from Moonpaw Coin':''}.`);
   const odd=S.miles.filter(m=>/lightning|treasure|game show|strange lights|memoir|science fair|competition|scholarship|paid work/.test(m.t));
   if(odd.length)P.push(`Friends will remember that they ${odd.slice(0,2).map(m=>m.t.charAt(0).toLowerCase()+m.t.slice(1)).join(', and ')}.`);
+  if(S.act&&S.act.roles.length){const A=S.act,best=A.roles.filter(r=>r.out==="smash"||r.out==="hit").sort((a,b)=>b.t-a.t)[0]||A.roles[A.roles.length-1];P.push(`On screen, ${fn} appeared in ${A.roles.length} production${A.roles.length>1?"s":""}, best remembered for "${best.title}"${A.awards.length?`, and won ${A.awards.length} Golden Reel award${A.awards.length>1?"s":""}`:""}.`);}
   if(S.flags.jailYears)P.push(`They served ${S.flags.jailYears} year${S.flags.jailYears>1?'s':''} in prison, a chapter the family politely skips at holidays.`);
   const sp=spouse(),k=kids().filter(c=>c.alive),pets=living(['Pet']);
   const surv=[];if(sp)surv.push(`their spouse ${fname(sp.name)}`);if(k.length)surv.push(`${k.length} child${k.length>1?'ren':''}`);if(pets.length)surv.push(pets.map(p=>fname(p.name)).join(' and ')+(pets.length>1?', their pets':', their pet'));
@@ -1368,6 +1509,7 @@ function jobSheet(){openSheet(s=>{
   if(S.age<18){s.append(h('p',{className:'sub'},`I'm in ${S.age<11?'elementary':S.age<14?'middle':'high'} school.`),
     row('Study harder','Boost smarts','',()=>{S.used.study=true;S.st.smarts+=Math.round(R(2,6)*(has('genius')?1.5:1));stay('I hit the books hard this year.')},S.used.study,1),
     row('Skip class','Fun now, grades later','',()=>{S.used.skip=true;S.st.happy+=5;S.st.smarts-=3;stay('I skipped class with friends.')},S.used.skip));
+    if(S.age>=8)s.append(row('🎭 Acting',S.act&&S.act.roles.length?`${S.act.roles.length} roles so far. Auditions, training and my agent`:'Auditions for commercials, TV and films','',stageSheet));
     if(S.age>=15)s.append(row('Part-time job','Earn a little cash','',()=>{S.used.pt=true;const p=Math.round(R(1500,4000)*payF());S.money+=p;S.st.happy-=2;stay(`I worked a part-time job and earned ${fmt(p)}.`,'good')},S.used.pt,2));
     return;}
   const dg=S.edu.degrees;
@@ -1390,6 +1532,7 @@ function jobSheet(){openSheet(s=>{
       row('Quit','Leave this job','',()=>{const t=title(j);S.job=null;stay(`I quit my job as a ${t}.`)}));
     if(S.age>=60)s.append(row('Retire',C.pub?'Public-sector pension: 50% of salary yearly':'Live off savings and retirement account','',()=>{S.pension=C.pub?Math.round(j.s*.5):0;S.retired=true;const t=title(j);S.job=null;mile(`Retired as a ${t}`);stay(`I retired from being a ${t}.${S.pension?` Pension: ${fmt(S.pension)}/yr.`:''}`,'good')}));
   }
+  s.append(h('h4',{},'🎭 Acting'),row('🎬 Acting career',S.act&&S.act.roles.length?`${S.act.roles.length} roles, fame ${S.fame||0}%${S.act.series?`, starring in "${S.act.series.title}"`:''}`:'Audition for commercials, TV shows and films. Paid per role','',stageSheet));
   s.append(h('h4',{},'Side gig this year'));
   const gm=(has('hustler')?1.3:1)*payF();
   const gigs=[['Rideshare driving',()=>hasCar(),'Needs a car',[6000,14000],3],['Food delivery',()=>true,'',[3000,8000],2],['Tutoring',()=>S.st.smarts>=60,'Needs smarts 60+',[4000,10000],1],
@@ -1444,6 +1587,7 @@ function cashFlow(){const inc=[],exp=[];
   const rent=homes().filter(a=>a.rent).reduce((t,a)=>t+a.v*hYld(a),0);if(rent){inc.push(['🏘️ Rental income',rent]);tax+=rent*.2;}
   if(S.gig&&!S.jail)inc.push([`🛵 Side gig: ${S.gig.n.toLowerCase()}`,S.gig.pay]);
   if(S.retired&&S.pension)inc.push(['🏖️ Pension',S.pension]);
+  if(S.act&&!S.jail){if(S.act.series)inc.push([`📡 "${S.act.series.title}" next season (before agent)`,S.act.series.pay*(1+.1*S.act.series.season)]);if(S.act.deal)inc.push([`🤝 ${S.act.deal.brand} deal`,S.act.deal.pay]);const rs=S.act.res.reduce((a,x)=>a+x.v,0);if(rs>=500)inc.push(['🎬 Residuals',rs]);}
   if(S.flags.talentPay&&!S.jail&&S.age<70)inc.push(['⭐ Talent income',S.flags.talentPay]);
   if(S.age>=18&&!S.jail&&!atHome){const lc=livingCost(),own=homes().some(a=>!a.rent);
     (own?[['🍽️ Food and groceries',.35],['🚗 Transport',.2],['💡 Utilities and phone',.2],['🛍️ Personal and other',.25]]:[['🏠 Rent',.55],['🍽️ Food and groceries',.18],['🚗 Transport',.1],['💡 Utilities and phone',.08],['🛍️ Personal and other',.09]]).forEach(([n,f])=>exp.push([n,lc*f]));}

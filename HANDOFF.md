@@ -11,6 +11,8 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
 
 - **Business tabs:** Overview (tips, bars, `finTiles` headlines, balance summary), Products/Services, Strategy (risky shortcuts at the bottom, `riskBlock`), People, Growth, Money (`mSub`: Reports = `finsTab`, Funding = `finTab`), Governance (`govTab`, only when `hasBoard(b)`). Old `bTab` values fins/fin/risk are mapped automatically.
 
+- **Acting career** (Work → 🎭 Acting, `drawStage`, `S.act`, yearly `yrActing`): acting skill (drama club, classes, coach), 7 role tiers `AROLES` from extra to blockbuster lead, auditions (`actOffers`, `audChance`: skill, fame, looks, agent, typecasting, flops, age) with 3 approaches, agents (`AGENTS`, 0-15% cut), outcomes flop/ok/hit/smash from `actPower()` (skill 45%, looks 15%, fame 15%) plus luck, box office scaled by fame, residuals, TV series seasons with renewal, Golden Reel award nominations and ceremony (`awardEvent`, fee boost capped at 2x), brand deals, and events (`actEvent`). Big roles take the whole year and need no job or studies.
+
 ## Tech stack
 - One file: `index.html` (about 380 KB). Vanilla JavaScript, inline CSS, no framework, **no build step**. Keep it as one file.
 - Google Fonts for type. Saves live in the browser's `localStorage` (3 slots, backup codes).
