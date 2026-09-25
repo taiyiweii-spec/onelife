@@ -674,48 +674,85 @@ function queueEvents(){
 
 /* ================= aging ================= */
 let lastYearCls=null;
+/* The year, step by step. Each step runs once per year in this order.
+   To add a new yearly system, add a step here instead of editing ageUp. */
+const YEAR_STEPS=[
+ {layer:'Life',name:'people',desc:'Everyone ages; relatives, partners and pets may die or leave',run(){
+    S.rels.forEach(p=>{if(!p.alive)return;p.age++;p.rel-=R(0,4);
+      const risk=p.type==='Pet'?(p.age>9?.22:.01):p.age>62?Math.pow((p.age-58)/45,3):.0015;
+      if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
+      else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
+      if(p.type==='Child'&&p.alive&&p.age===18){line(`My kid ${fname(p.name)} moved out. The house is very quiet.`);S.st.happy-=3;}
+    });
+    S.rels=S.rels.filter(p=>!p.left);
+ }},
+ {layer:'Life',name:'stats',desc:'Yearly drift in happiness, health, looks and smarts',run(){
+    S.st.happy+=R(-6,5)+(has('lazy')?2:0)-(has('anxious')?2:0)-(has('ambitious')&&S.age>=22&&!S.job&&!S.edu.major&&!S.biz.length&&!S.retired?4:0);
+    S.st.health+=S.age>45?-R(0,Math.floor(S.age/14))+(has('athletic')?1:0):R(-3,3);
+    if(S.age>30)S.st.looks-=R(0,2);
+    if(S.age<23)S.st.smarts+=R(0,has('genius')?3:2);
+ }},
+ {layer:'Life',name:'prison',desc:'Count down prison time',run(){
+    if(S.jail>0){S.jail--;S.flags.jailYears++;S.st.happy-=4;line(S.jail===0?'I was released from prison.':`Another year behind bars. ${S.jail} to go.`,S.jail===0?'good':'');}
+ }},
+ {layer:'Life',name:'school',desc:'School milestones and high school graduation',run(){
+    if(S.age===5)line('I started elementary school.');
+    if(S.age===11)line('I started middle school.');
+    if(S.age===14)line('I started high school.');
+    if(S.age===18){if(S.st.smarts>=15){line('I graduated from high school!','good');S.flags.hs=true;mile('Graduated high school')}else{S.flags.hs=false;line('I failed to graduate high school.','bad')}}
+ }},
+ {layer:'World',name:'economy',desc:'Economy phase, markets, home prices',run(){
+    econYear();
+ }},
+ {layer:'Life',name:'university',desc:'University years, tuition and degrees',run(){
+    if(S.edu.major&&!S.jail){S.edu.yrs++;if(!S.flags.scholarship||MAJORS[S.edu.major].grad)S.sloan+=TUITION;
+      if(S.edu.yrs>=MAJORS[S.edu.major].y){const m=S.edu.major;S.edu.degrees.push(m);line(`I graduated with a degree in ${m}!`,'good');mile(`Earned a ${m} degree`);S.edu.major=null;S.st.smarts+=6;S.st.happy+=10;}
+      else line(`I finished year ${S.edu.yrs} of ${S.edu.major}.${S.flags.scholarship&&!MAJORS[S.edu.major].grad?' My scholarship covered tuition.':' Tuition went on my student loans.'}`);}
+ }},
+ {layer:'Life',name:'work',desc:'Job performance, raises, promotions, layoffs',run(){
+    workYear();
+ }},
+ {layer:'Money',name:'income',desc:'Pension and side gig pay',run(){
+    if(S.retired&&S.pension)S.money+=S.pension;
+    if(S.gig&&!S.jail){const g=S.gig;S.money+=g.pay;line(`My side gig (${g.n.toLowerCase()}) earned ${fmt(g.pay)}.`,'good');S.st.happy-=g.stress||0;}
+    S.gig=null;
+ }},
+ {layer:'Business',name:'business',desc:'Run every business for the year',run(){
+    {const q0=Q.length;bizYear();
+     if((S.age<18||S.jail)&&Q.length>q0){const mine=Q.splice(q0);const who=S.age<18?'My trustee':'My lawyer';
+       mine.forEach(ev=>{const ch=(typeof ev.ch==='function'?ev.ch():ev.ch).find(c=>!(c[2]&&c[2]()));if(!ch)return;const r=ch[1]();line(`${ev.text} ${who} chose to ${ch[0].charAt(0).toLowerCase()+ch[0].slice(1)}. ${r||''}`.trim());});}}
+ }},
+ {layer:'Money',name:'angels',desc:'Angel investments pay out or fail',run(){
+    S.angels.forEach(a=>{a.yrs++;if(a.yrs>=4){const x=rnd()-(a.boost||0)-(has('lucky')?.05:0);const m=x<.6?0:x<.85?2:x<.97?8:40;a.done=true;
+      if(m===0)line(`${a.co}, the startup I angel-invested in, shut down. I lost ${fmt(a.amt)}.`,'bad');else{S.money+=a.amt*m;line(`${a.co} was acquired! My ${fmt(a.amt)} became ${fmt(a.amt*m)}.`,'good');if(m>=40)unlock('angel');mile(`Angel investment in ${a.co} returned ${m}x`);}}});
+    S.angels=S.angels.filter(a=>!a.done);
+ }},
+ {layer:'Money',name:'property',desc:'Property, rent, living costs, loans',run(){
+    propertyYear();
+ }},
+ {layer:'Life',name:'limits',desc:'Keep all stats between 0 and 100',run(){
+    norm();
+ }},
+ {layer:'Meta',name:'events',desc:'Pick random life events for the year',run(){
+    if(!S.jail)queueEvents();
+ }},
+ {layer:'Money',name:'networth',desc:'Record net worth history',run(){
+    if(S.age>=18)S.nwHist.push({age:S.age,nw:netWorth()});
+    S.peak=Math.max(S.peak,netWorth());
+ }},
+ {layer:'Meta',name:'decade',desc:'Decade review every 10 years',run(){
+    if(S.age%10===0&&S.age>=20)Q.push(decadeReview());
+ }},
+ {layer:'Life',name:'death',desc:'Check whether I die this year',run(){
+    checkDeath();
+    checkAch();
+ }},
+];
 function ageUp(quiet){
   if(!S.alive)return;
   const startNW=netWorth();
   S.age++;S.used={};S.eUsed=0;addYear();
-  S.rels.forEach(p=>{if(!p.alive)return;p.age++;p.rel-=R(0,4);
-    const risk=p.type==='Pet'?(p.age>9?.22:.01):p.age>62?Math.pow((p.age-58)/45,3):.0015;
-    if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
-    else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
-    if(p.type==='Child'&&p.alive&&p.age===18){line(`My kid ${fname(p.name)} moved out. The house is very quiet.`);S.st.happy-=3;}
-  });
-  S.rels=S.rels.filter(p=>!p.left);
-  S.st.happy+=R(-6,5)+(has('lazy')?2:0)-(has('anxious')?2:0)-(has('ambitious')&&S.age>=22&&!S.job&&!S.edu.major&&!S.biz.length&&!S.retired?4:0);
-  S.st.health+=S.age>45?-R(0,Math.floor(S.age/14))+(has('athletic')?1:0):R(-3,3);
-  if(S.age>30)S.st.looks-=R(0,2);
-  if(S.age<23)S.st.smarts+=R(0,has('genius')?3:2);
-  if(S.jail>0){S.jail--;S.flags.jailYears++;S.st.happy-=4;line(S.jail===0?'I was released from prison.':`Another year behind bars. ${S.jail} to go.`,S.jail===0?'good':'');}
-  if(S.age===5)line('I started elementary school.');
-  if(S.age===11)line('I started middle school.');
-  if(S.age===14)line('I started high school.');
-  if(S.age===18){if(S.st.smarts>=15){line('I graduated from high school!','good');S.flags.hs=true;mile('Graduated high school')}else{S.flags.hs=false;line('I failed to graduate high school.','bad')}}
-  econYear();
-  if(S.edu.major&&!S.jail){S.edu.yrs++;if(!S.flags.scholarship||MAJORS[S.edu.major].grad)S.sloan+=TUITION;
-    if(S.edu.yrs>=MAJORS[S.edu.major].y){const m=S.edu.major;S.edu.degrees.push(m);line(`I graduated with a degree in ${m}!`,'good');mile(`Earned a ${m} degree`);S.edu.major=null;S.st.smarts+=6;S.st.happy+=10;}
-    else line(`I finished year ${S.edu.yrs} of ${S.edu.major}.${S.flags.scholarship&&!MAJORS[S.edu.major].grad?' My scholarship covered tuition.':' Tuition went on my student loans.'}`);}
-  workYear();
-  if(S.retired&&S.pension)S.money+=S.pension;
-  if(S.gig&&!S.jail){const g=S.gig;S.money+=g.pay;line(`My side gig (${g.n.toLowerCase()}) earned ${fmt(g.pay)}.`,'good');S.st.happy-=g.stress||0;}
-  S.gig=null;
-  {const q0=Q.length;bizYear();
-   if((S.age<18||S.jail)&&Q.length>q0){const mine=Q.splice(q0);const who=S.age<18?'My trustee':'My lawyer';
-     mine.forEach(ev=>{const ch=(typeof ev.ch==='function'?ev.ch():ev.ch).find(c=>!(c[2]&&c[2]()));if(!ch)return;const r=ch[1]();line(`${ev.text} ${who} chose to ${ch[0].charAt(0).toLowerCase()+ch[0].slice(1)}. ${r||''}`.trim());});}}
-  S.angels.forEach(a=>{a.yrs++;if(a.yrs>=4){const x=rnd()-(a.boost||0)-(has('lucky')?.05:0);const m=x<.6?0:x<.85?2:x<.97?8:40;a.done=true;
-    if(m===0)line(`${a.co}, the startup I angel-invested in, shut down. I lost ${fmt(a.amt)}.`,'bad');else{S.money+=a.amt*m;line(`${a.co} was acquired! My ${fmt(a.amt)} became ${fmt(a.amt*m)}.`,'good');if(m>=40)unlock('angel');mile(`Angel investment in ${a.co} returned ${m}x`);}}});
-  S.angels=S.angels.filter(a=>!a.done);
-  propertyYear();
-  norm();
-  if(!S.jail)queueEvents();
-  if(S.age>=18)S.nwHist.push({age:S.age,nw:netWorth()});
-  S.peak=Math.max(S.peak,netWorth());
-  if(S.age%10===0&&S.age>=20)Q.push(decadeReview());
-  checkDeath();
-  checkAch();
+  for(const step of YEAR_STEPS)step.run();
   save();
   const ls=S.log[S.log.length-1].lines;lastYearCls=ls.some(l=>l.c==='good')?'good':ls.some(l=>l.c==='bad')?'bad':null;
   if(!quiet){render();sfx(lastYearCls||'age');if(navigator.vibrate)try{navigator.vibrate(8)}catch(e){}
