@@ -1372,25 +1372,39 @@ function chartEl(data){
   const X=a=>pl+(a-x0)/(x1-x0||1)*(W-pl-pr),Y=v=>pt+(1-(v-y0)/(y1-y0||1))*(H-pt-pb);
   const d=data.map((p,i)=>`${i?'L':'M'}${X(p.age).toFixed(1)},${Y(p.nw).toFixed(1)}`).join('');
   const w=document.createElement('div');w.innerHTML=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth over time"><line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line)"/><path d="${d}" fill="none" stroke="var(--smarts)" stroke-width="2.5" stroke-linejoin="round"/><text x="${pl}" y="10">${fmt(y1)}</text><text x="${pl}" y="${H-3}">Age ${x0}</text><text x="${W-pr}" y="${H-3}" text-anchor="end">Age ${x1}</text></svg>`;return w.firstChild;}
-/* ---- personal monthly expenses (what age-up actually charges, divided by 12) ---- */
-function expenseItems(){const it=[],m=v=>Math.round(v/12);
+/* ---- personal cash flow: what age-up pays and charges, per year ---- */
+function cashFlow(){const inc=[],exp=[];
   const atHome=S.age<22&&living(['Mother','Father']).length&&!homes().length;
+  const pct=S.ret.pct/100;let tax=0,ret=0;
+  const salary=(n,g)=>{if(!g)return;inc.push([n,g]);const c=Math.round(g*pct);ret+=c;tax+=g-c-netPay(g-c);};
+  if(S.job&&!S.jail)salary(`💼 Salary: ${title(S.job)}`,S.job.s);
+  if(!S.jail&&S.age>=18)S.biz.filter(b=>b.salary>0&&!b.ousted).forEach(b=>salary(`🏢 Salary from ${b.name}`,b.salary));
+  const div=S.biz.reduce((t,b)=>t+(divPol(b)&&b.lastPre>0?b.lastPre*divPol(b)/100*b.own:0),0);
+  if(div){inc.push(['💸 Dividends (based on last year)',div]);tax+=div*divTax();}
+  const rent=homes().filter(a=>a.rent).reduce((t,a)=>t+a.v*.055,0);if(rent){inc.push(['🏘️ Rental income',rent]);tax+=rent*.2;}
+  if(S.gig&&!S.jail)inc.push([`🛵 Side gig: ${S.gig.n.toLowerCase()}`,S.gig.pay]);
+  if(S.retired&&S.pension)inc.push(['🏖️ Pension',S.pension]);
+  if(S.flags.talentPay&&!S.jail&&S.age<70)inc.push(['⭐ Talent income',S.flags.talentPay]);
   if(S.age>=18&&!S.jail&&!atHome){const lc=livingCost(),own=homes().some(a=>!a.rent);
-    const parts=own?[['🍽️ Food and groceries',.35],['🚗 Transport',.2],['💡 Utilities and phone',.2],['🛍️ Personal and other',.25]]:[['🏠 Rent',.55],['🍽️ Food and groceries',.18],['🚗 Transport',.1],['💡 Utilities and phone',.08],['🛍️ Personal and other',.09]];
-    parts.forEach(([n,f])=>it.push([n,m(lc*f)]));}
+    (own?[['🍽️ Food and groceries',.35],['🚗 Transport',.2],['💡 Utilities and phone',.2],['🛍️ Personal and other',.25]]:[['🏠 Rent',.55],['🍽️ Food and groceries',.18],['🚗 Transport',.1],['💡 Utilities and phone',.08],['🛍️ Personal and other',.09]]).forEach(([n,f])=>exp.push([n,lc*f]));}
   const hs=homes(),mo=hs.filter(a=>a.mort&&a.mort.bal>0);
-  if(mo.length)it.push([`🏦 Mortgage${mo.length>1?` (${mo.length} homes)`:''}`,m(mo.reduce((t,a)=>t+Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)),0))]);
-  if(hs.length)it.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,m(hs.reduce((t,a)=>t+a.v*.01,0))]);
-  if(S.sloan>0&&S.job)it.push(['🎓 Student loan',m(Math.min(S.sloan*1.04,S.job.s*.1))]);
-  if(S.job){const contrib=Math.round(S.job.s*S.ret.pct/100);it.push(['🧾 Income tax',m(S.job.s-contrib-netPay(S.job.s-contrib))]);if(contrib)it.push(['🏖️ Retirement savings',m(contrib)]);}
-  if(S.money<0)it.push(['💳 Credit card interest (7%)',m(-S.money*.07)]);
-  return it.filter(x=>x[1]>0);}
-function expenseTable(){const it=expenseItems(),tot=it.reduce((a,x)=>a+x[1],0);
-  if(!it.length)return h('p',{className:'sub'},'No monthly expenses right now.');
-  const inc=S.job?Math.round(S.job.s/12):0;
-  return h('div',{},h('p',{className:'label'},'My monthly expenses'),
-    h('dl',{},...it.flatMap(([n,v])=>[h('dt',{},n),h('dd',{},fmt(v))]),h('dt',{},h('b',{},'Total per month')),h('dd',{},h('b',{},fmt(tot)))),
-    h('p',{className:'sub'},`${fmt(tot*12)} a year.${inc?` That's ${Math.round(tot/inc*100)}% of my ${fmt(inc)} monthly salary before tax.`:''} Business costs are paid by each business and aren't included.`));}
+  if(mo.length)exp.push([`🏦 Mortgage${mo.length>1?` (${mo.length} homes)`:''}`,mo.reduce((t,a)=>t+Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)),0)]);
+  if(hs.length)exp.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,hs.reduce((t,a)=>t+a.v*.01,0)]);
+  if(S.sloan>0&&S.job)exp.push(['🎓 Student loan',Math.min(S.sloan*1.04,S.job.s*.1)]);
+  if(tax)exp.push(['🧾 Taxes',tax]);if(ret)exp.push(['🏖️ Retirement savings',ret]);
+  if(S.money<0)exp.push(['💳 Credit card interest (7%)',-S.money*.07]);
+  const r=a=>a.filter(x=>x[1]>0).map(([n,v])=>[n,Math.round(v)]);return {inc:r(inc),exp:r(exp)};}
+function expenseTable(){const {inc,exp}=cashFlow(),ti=inc.reduce((a,x)=>a+x[1],0),te=exp.reduce((a,x)=>a+x[1],0),net=ti-te;
+  if(!inc.length&&!exp.length)return h('p',{className:'sub'},'No income or expenses yet.');
+  const g='display:grid;grid-template-columns:1fr auto auto;gap:4px 14px;margin:0 0 8px;font-size:15px';
+  const line=(n,v,o={})=>[h('span',{style:o.b?'font-weight:700':''},n),h('span',{style:`text-align:right;opacity:.7${o.b?';font-weight:700':''}`,className:o.c||''},fmt(v/12)),h('span',{style:`text-align:right${o.b?';font-weight:700':''}`,className:o.c||''},fmt(v))];
+  const hd=t=>[h('span',{className:'label',style:'margin:8px 0 0'},t),h('span',{className:'label',style:'margin:8px 0 0;text-align:right'},'Month'),h('span',{className:'label',style:'margin:8px 0 0;text-align:right'},'Year')];
+  return h('div',{},h('h4',{},'My cash flow'),h('div',{style:g},
+    ...hd('Income'),...inc.flatMap(([n,v])=>line(n,v)),...line('Total income',ti,{b:1}),
+    ...hd('Expenses'),...exp.flatMap(([n,v])=>line(n,v)),...line('Total expenses',te,{b:1}),
+    h('span',{style:'grid-column:1/-1;border-top:1px solid var(--line);margin:4px 0'}),
+    ...line(net>=0?'✅ Cash flow positive':'⚠️ Cash flow negative',net,{b:1,c:net>=0?'good':'bad'})),
+    h('p',{className:'sub'},`${net>=0?`I keep about ${fmt(net)} a year.`:`I'm spending ${fmt(-net)} a year more than I earn. My cash will shrink.`} Estimate for this year. Business costs are paid by each business, and investment gains aren't included.`));}
 function tabOverview(s){
   const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0);
   s.append(h('dl',{},h('dt',{},'Net worth'),h('dd',{},fmt(netWorth())),h('dt',{},'Cash'),h('dd',{className:S.money<0?'bad':''},fmt(S.money)),
