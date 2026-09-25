@@ -97,3 +97,8 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 ## Business financials
 - `b.fh` keeps up to 10 years of {age,rev,ops,pre,net,cf,cash}, recorded after the cash flow statement each year. `opsCost(pnl)` = cost of goods + wages + owner pay + rent + marketing + other.
 - New business tab 'fins' (`finsTab`): three headline figures with change from last year, P&L, cash flow statement, and a 5-year history. `bizSummary()` shows a table across all businesses at the top of the Business tab.
+
+## CEO decisions, production shortfall, Market / My assets
+- `ceoManage(b)` runs yearly before renewPlans when a CEO runs the business: nudges prices (up if sold out, down if stock left), turns on auto production, sets marketing from margin and mandate (`b.mand` grow/bal/cut), pays down loans on cut, opens outlets (grow/bal) and may borrow. Anything above `ceoLim(b)` (b.ceoLim, default $50k, -1 = no limit) becomes an approval popup. Controls live in runnerBlock.
+- `planShort` replaces the silent production cut: pay the rest from my cash, take a bank loan, or make less. A CEO borrows automatically within its limit.
+- Money tabs: 'prop' is now "Market" (home/car listings), 'assets' is "My assets".
