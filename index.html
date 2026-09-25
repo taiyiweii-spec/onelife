@@ -1836,9 +1836,8 @@ const GOODS=['truck','cafe','restaurant','bar','farm','fashion','dealership'],SV
 const HIDDEN=['lawfirm','realty','construction','tech','label','games'];
 const hasProd=t=>GOODS.includes(t)||SVCS.includes(t);
 const isGoods=b=>hasProd(b.type);const isSvc=b=>SVCS.includes(b.type);const isMaker=b=>GOODS.includes(b.type);
-const SEASONS=[['🌱','Spring'],['☀️','Summer'],['🍂','Autumn'],['❄️','Winter']];
-// goods: [id,name,icon,price,costRatio,demand,competition,seasons,perishable]
-// services: [id,name,icon,price,costRatio,demand,competition,seasons,laborIntensity,unitLabel]
+// goods: [id,name,icon,price,costRatio,demand,competition,seasons (no longer used),perishable]
+// services: [id,name,icon,price,costRatio,demand,competition,seasons (no longer used),laborIntensity,unitLabel]
 const PCAT_RAW={
  truck:[['tacos','Tacos','🌮',10,.32,75,70,[1,1.3,1,.8],1],['burgers','Burgers','🍔',12,.38,80,80,[1,1.2,1,.9],1],['kebab','Kebab wraps','🥙',11,.33,60,45,[1,1.1,1,.9],1],['icecream','Ice cream','🍦',6,.25,55,50,[1,1.9,.7,.4],1],['hotdogs','Hot dogs','🌭',7,.3,50,40,[1,1.3,1,.8],1],['churros','Churros','🥨',5,.2,40,25,[.9,1,1.1,1.1],1],['ramen','Ramen bowls','🍜',13,.35,55,35,[1,.6,1.2,1.6],1],['fries','Loaded fries','🍟',8,.25,65,60,[1,1.1,1,.9],1]],
  cafe:[['espresso','Espresso drinks','☕',5,.22,85,85,[1,.7,1.1,1.3],1],['iced','Iced coffee','🧊',6,.25,70,60,[1,1.7,.8,.5],1],['boba','Bubble tea','🧋',6,.3,65,55,[1,1.5,.9,.6],1],['croissant','Croissants','🥐',4,.35,60,50,[1,1,1,1],1],['matcha','Matcha latte','🍵',6,.3,45,30,[1,1,1,1],1],['cheesecake','Cheesecake','🍰',7,.35,40,35,[.9,.9,1,1.2],1],['cocoa','Hot chocolate','🍫',5,.25,35,25,[.8,.3,1.2,1.7],1],['smoothie','Smoothies','🥤',7,.35,45,40,[1.1,1.6,.8,.5],1]],
@@ -1896,7 +1895,7 @@ const estDemand=(b,pr,price)=>Math.round(prodBase(b,pr)*effLocs(b)*commonEst(b)*
 const ptier=b=>{if(!isGoods(b))return b.price;const ps=(b.products||[]).map(p=>p.price/bp(b,pdef(b,p.id)));if(!ps.length)return 'std';const r=ps.reduce((a,x)=>a+x,0)/ps.length;return r>1.15?'premium':r<.88?'budget':'std';};
 function newProduct(b,P){return {id:P.id,name:P.n,price:bp(b,P),qty:0,inv:0,rating:50,sup:null,yrs:0,boost:0,last:null,ws:false,auto:true};}
 // Auto production: plan about what customers will want next year, less stock already on hand.
-const autoQty=(b,pr)=>{const est=estDemand(b,pr,pr.price),want=pr.last&&pr.last.price===pr.price?(est+pr.last.dem)/2*1.05:est*1.1;
+const autoQty=(b,pr)=>{const est=estDemand(b,pr,pr.price),want=pr.last&&pr.last.price===pr.price?(est*.25+pr.last.dem*.75)*1.03:est*.9;
   return Math.min(prodCap(b,pr),Math.max(0,Math.round(want)-(isSvc(b)||pdef(b,pr.id).pe?0:(pr.inv||0))));};
 function seedProducts(b){if(!isGoods(b))return;b.products=b.products||[];if(b.products.length)return;
   const P=[...PCAT[b.type]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0];const pr=newProduct(b,P);b.products.push(pr);pr.qty=Math.min(prodCap(b,pr),Math.max(1,estDemand(b,pr,pr.price)));}
@@ -1906,12 +1905,16 @@ function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;c
   (b.products||[]).forEach(pr=>{const P=pdef(b,pr.id);if(!P)return;const uc=unitCost(b,pr),sp=supOf(pr);let made,c;
     if(pr.paidQty!=null){made=pr.paidQty;c=pr.paid||0;prepaid+=c;}
     else{made=Math.min(Math.round(pr.qty||0),prodCap(b,pr));c=planCost(b,pr,made);}
-    const D=prodBase(b,pr)*effLocs(b)*common*prodMult(b,pr,pr.price);const tot=P.s.reduce((a,x)=>a+x,0),wcap=pr.ws&&isMaker(b)?wsCap(b,P):0;
-    let stock=pr.inv||0,sold=0,waste=0,ws=0,short=false;const sea=[];
-    P.s.forEach(w=>{let arr=made/4;if(made>0&&rnd()<(100-sp.rel)/250){arr/=2;short=true;refund+=c/8;}stock+=arr;const d=D*w/tot,s=Math.min(stock,d);stock-=s;sold+=s;
-      let wv=0;if(wcap){wv=Math.min(stock,wcap/4);stock-=wv;ws+=wv;}let wst=0;if(P.pe){wst=stock;stock=0;waste+=wst;}const out=s<d-.5;if(out)soldOut=true;sea.push({d:Math.round(d),s:Math.round(s),w:Math.round(wst),ws:Math.round(wv),out});});
+    // One demand for the whole year. An unreliable supplier sometimes delivers short (an eighth of the year's supply, refunded).
+    const D=prodBase(b,pr)*effLocs(b)*common*prodMult(b,pr,pr.price),wcap=pr.ws&&isMaker(b)?wsCap(b,P):0;
+    let stock=pr.inv||0,arr=made,short=false;
+    if(made>0&&rnd()<Math.min(.9,(100-sp.rel)/62.5)){arr*=7/8;short=true;refund+=c/8;}
+    stock+=arr;const sold=Math.min(stock,D);stock-=sold;
+    let ws=0;if(wcap){ws=Math.min(stock,wcap);stock-=ws;}
+    let waste=0;if(P.pe){waste=stock;stock=0;}
+    if(sold<D-.5)soldOut=true;
     const hold=P.pe?0:Math.round(stock*uc*.05),r=Math.round(sold*pr.price+ws*bp(b,P)*.6);rev+=r;cost+=c+hold;
-    pr.inv=Math.round(stock);pr.last={sold:Math.round(sold),ws:Math.round(ws),made,waste:Math.round(waste),rev:r,cost:c+hold,hold,dem:Math.round(D),sea,uc,price:pr.price,short};pr.yrs=(pr.yrs||0)+1;pr.paidQty=null;pr.paid=0;
+    pr.inv=Math.round(stock);pr.last={sold:Math.round(sold),ws:Math.round(ws),made,waste:Math.round(waste),rev:r,cost:c+hold,hold,dem:Math.round(D),uc,price:pr.price,short};pr.yrs=(pr.yrs||0)+1;pr.paidQty=null;pr.paid=0;
     const tq=sp.q+(b.q-60)*.5;pr.rating=clamp(Math.round((pr.rating||50)+(tq-(pr.rating||50))*.3));if(pr.boost)pr.boost=Math.max(0,+(pr.boost-.05).toFixed(2));
     const svc=isSvc(b);lines.push(`${P.ic} ${pr.name}: ${svc?`booked ${fmtN(sold)} of ${fmtN(made)} ${P.u} offered`:`sold ${fmtN(sold)} of ${fmtN(Math.round(D))} wanted`}${ws>=1?`, ${fmtN(ws)} sold wholesale`:''}${!svc&&waste>=1?`, ${fmtN(waste)} spoiled`:''}${pr.inv?`, ${fmtN(pr.inv)} left in stock`:''}.${short?` ${sp.n} came up short on a delivery.`:''}`);});
   lines.forEach(t=>line(t));
@@ -1945,7 +1948,7 @@ function rdPicker(b){const m=$('modal');m.innerHTML='';const cap=spendPower(b),s
   m.append(h('h3',{},svc?'🧪 Launch a new service':'🧪 Research a new product'),h('p',{className:'sub'},`Paid from business cash first, then mine. Available ${fmt(cap)}.`));
   PCAT[b.type].filter(P=>!b.products.some(p=>p.id===P.id)).forEach(P=>{const c=rdCost(b,P);
     m.append(h('div',{style:'border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 8px'},
-      h('b',{},`${P.ic} ${P.n}`),h('small',{style:'display:block;color:var(--muted)'},`Suggested price ${fmtP(bp(b,P))} per ${svc?P.u.replace(/s$/,''):'unit'}. ${svc?`About ${Math.round(upStaff(b,P))} ${P.u} per staff member a year.`:`Cost to make about ${fmtP(P.price*P.cr*cscale(b))}. ${P.pe?'Perishable.':'Keeps in storage.'}`} Peaks in ${SEASONS[P.s.indexOf(Math.max(...P.s))][1].toLowerCase()}.`),
+      h('b',{},`${P.ic} ${P.n}`),h('small',{style:'display:block;color:var(--muted)'},`Suggested price ${fmtP(bp(b,P))} per ${svc?P.u.replace(/s$/,''):'unit'}. ${svc?`About ${Math.round(upStaff(b,P))} ${P.u} per staff member a year.`:`Cost to make about ${fmtP(P.price*P.cr*cscale(b))}. ${P.pe?'Perishable.':'Keeps in storage.'}`}`),
       ...mbar('Demand',demScore(b.type,P),'good'),...mbar('Competition',compScore(b.type,P),'bad'),
       h('button',{className:'choice',style:'margin:4px 0 0',disabled:cap<c,on:()=>{payFrom(b,c);const pr=newProduct(b,P);pr.qty=Math.min(prodCap(b,pr),Math.max(1,estDemand(b,pr,pr.price)));b.products.push(pr);mile(`Launched ${P.n} at ${b.name}`);line(`🧪 ${b.name} launched ${P.n}.`,'good');save();planModal(b,pr,true);}},`${svc?'Launch':'Research'} for ${fmt(c)}`)));});
   m.append(h('button',{className:'choice alt',on:closeModal},'Close'));$('modalWrap').classList.add('open');}
@@ -1970,9 +1973,9 @@ function supplierSearch(b,pr){const P=pdef(b,pr.id),key='ss'+b.id+pr.id,used=S.u
 function productModal(b,pr){const P=pdef(b,pr.id),L=pr.last,ro=!canManage()||b.ousted,svc=isSvc(b),sp=supOf(pr);const m=$('modal');m.innerHTML='';
   m.append(h('h3',{},`${P.ic} ${pr.name}`),h('p',{className:'sub'},`Customer rating ${stars(pr.rating||50)}. ${svc?'Provider':'Supplier'}: ${sp.n} (quality ${sp.q}, reliability ${sp.rel}%). Cost per unit ${fmtP(unitCost(b,pr))}.${svc?` Space for up to ${fmtN(prodCap(b,pr))} ${P.u} a year.`:` Can make up to ${fmtN(prodCap(b,pr))} a year. In stock ${fmtN(pr.inv||0)}.`}`),
     ...mbar('Market demand',demScore(b.type,P),'good'),...mbar('Competition',compScore(b.type,P),'bad'));
-  if(L){m.append(h('p',{className:'label'},'Last year by season'));const tb=h('div',{style:'overflow-x:auto'});const c4=svc?'Unused':P.pe?'Spoiled':'Wholesale';
-    tb.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.85rem"><tr style="color:var(--muted)"><th style="text-align:left">Season</th><th>Wanted</th><th>${svc?'Booked':'Sold'}</th><th>${c4}</th></tr>${L.sea.map((x,i)=>`<tr><td>${SEASONS[i][0]} ${SEASONS[i][1]}</td><td style="text-align:center">${fmtN(x.d)}</td><td style="text-align:center">${fmtN(x.s)}${x.out?' ⚠️':''}</td><td style="text-align:center">${svc||P.pe?fmtN(x.w):fmtN(x.ws||0)}</td></tr>`).join('')}</table>`;
-    m.append(tb,h('p',{className:'sub'},`${svc?'Offered':'Made'} ${fmtN(L.made)}, ${svc?'booked':'sold'} ${fmtN(L.sold)}${L.ws?`, plus ${fmtN(L.ws)} wholesale`:''}. Revenue ${fmt(L.rev)}, cost ${fmt(L.cost)}${L.hold?` (incl. ${fmt(L.hold)} storage)`:''}.${L.sea.some(x=>x.out)?' ⚠️ means sold out that season.':''}`));}
+  if(L){m.append(h('p',{className:'label'},'Last year'),h('dl',{},h('dt',{},'Customers wanted'),h('dd',{},fmtN(L.dem)),h('dt',{},svc?'Offered':'Made'),h('dd',{},fmtN(L.made)),h('dt',{},svc?'Booked':'Sold'),h('dd',{},`${fmtN(L.sold)}${L.dem>L.sold+1?' (sold out)':''}`),
+      ...(L.ws?[h('dt',{},'Sold wholesale'),h('dd',{},fmtN(L.ws))]:[]),...(L.waste?[h('dt',{},svc?'Unused':'Spoiled'),h('dd',{},fmtN(L.waste))]:[])));
+    m.append(h('p',{className:'sub'},`${svc?'Offered':'Made'} ${fmtN(L.made)}, ${svc?'booked':'sold'} ${fmtN(L.sold)}${L.ws?`, plus ${fmtN(L.ws)} wholesale`:''}. Revenue ${fmt(L.rev)}, cost ${fmt(L.cost)}${L.hold?` (incl. ${fmt(L.hold)} storage)`:''}.`));}
   const rb=Math.round(rdCost(b,P)*.3),rbUsed=S.used['rb'+b.id+pr.id],ss=S.used['ss'+b.id+pr.id]||0;
   m.append(h('button',{className:'choice',disabled:ro,on:()=>{closeModal();planModal(b,pr);}},`📅 ${svc?'Capacity plan':'Production plan'}`),
     h('button',{className:'choice alt',disabled:ro||ss>=3,on:()=>{closeModal();supplierSearch(b,pr);}},`🔍 Find a new ${supWord(b)} (${3-ss} of 3 searches left this year)`));
