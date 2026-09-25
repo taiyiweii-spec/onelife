@@ -2249,9 +2249,26 @@ function marketSalary(b){const T=Tof(b);const rev=b.yrs>0?Math.max(0,b.lastRev):
   let base;if(rev<=1e6)base=rev*.12;else if(rev<=28e6)base=120000+(rev-1e6)*.04;else base=1200000+(rev-28e6)*.008;
   return Math.round(Math.max(35000,Math.min(20000000,base))*role/1000)*1000;}
 const maxSalary=b=>Math.round(marketSalary(b)*1.5*capMult(b)/1000)*1000;
+function staffCard(b){const need=needStaff(b),auto=b.autoStaff!==false,box=h('div',{className:'supcard',style:'margin:0 0 12px'});
+  const mx=Math.max(need*2,b.staff+5,5),base=Math.round(wagePer(b)/payMult(b));
+  const sLbl=h('p',{className:'sub',style:'margin:4px 0'}),pLbl=h('p',{className:'sub',style:'margin:4px 0'});
+  const sTxt=n=>{const r=need?n/need:1;return `${n} staff (needs ${need}) · wages ${fmt(n*wagePer(b))}/yr. ${r<1?`⚠️ Understaffed: only about ${Math.round(r*100)}% of customers can be served.`:r>1.05?`Overstaffed: service up to ${Math.round(Math.min(1.2,r)*100-100)}% better, but you pay for ${n-need} extra.`:'✅ Just right.'}${n<b.staff?` Letting ${b.staff-n} go will hurt morale.`:''}`;};
+  const pTxt=v=>{const w=Math.round(base*v/100),m=Math.round((v/100-1)*(v<100?53:40));return `${v}% of market pay · ${fmt(w)} each, ${fmt(w*b.staff)}/yr in total. Morale ${m>0?'+':''}${m} a year.${v<85?' Staff may quit or strike.':''}`;};
+  const ss=h('input',{type:'range',className:'slider',min:0,max:mx,step:1,value:String(b.staff),'aria-label':'Number of staff'});
+  ss.oninput=()=>{sLbl.textContent=sTxt(+ss.value);};
+  ss.onchange=()=>{const n=+ss.value,fired=b.staff-n;b.autoStaff=false;if(fired>0)b.morale=clamp(b.morale-Math.min(15,fired*2));b.staff=n;stay(fired>0?`${b.name} let ${fired} staff go.`:fired<0?`${b.name} hired ${-fired} staff.`:undefined);};
+  const ps=h('input',{type:'range',className:'slider',min:70,max:150,step:5,value:String(Math.round(payMult(b)*100)),'aria-label':'Staff pay'});
+  ps.oninput=()=>{pLbl.textContent=pTxt(+ps.value);};
+  ps.onchange=()=>{const v=+ps.value;b.payPct=v;b.pay=v<95?'low':v>105?'high':'market';stay(`Staff pay at ${b.name} is now ${v}% of market.`);};
+  sLbl.textContent=sTxt(b.staff);pLbl.textContent=pTxt(Math.round(payMult(b)*100));
+  box.append(h('p',{className:'label',style:'margin:0'},`👥 Staff${b.union?' (unionized)':''}`),ss,sLbl,
+    h('button',{className:'choice alt',style:'margin:2px 0 10px','aria-pressed':String(auto),disabled:auto,on:()=>{b.autoStaff=true;syncStaff(b);stay(`${b.name} now hires staff automatically.`)}},auto?'✅ Auto-hiring: staff match what the business needs':'Switch back to auto-hiring'),
+    h('p',{className:'label',style:'margin:0'},'💰 Pay'),ps,pLbl);
+  return box;}
 function syncStaff(b){if(b.autoStaff!==false)b.staff=needStaff(b);}
 const needStaff=b=>{const T=Tof(b);let n=isSvc(b)&&b.products?svcStaff(b):T.tech?Math.max(2,Math.ceil(b.base/150000)):Math.round(T.staff*b.locs*(1-.2*b.auto));return Math.max(0,n-(b.life==='hands'||b.ceo?1:0));};
-const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*({low:.85,market:1,high:1.15}[b.pay])*(b.union?1.1:1));
+const payMult=b=>b.payPct!=null?b.payPct/100:({low:.85,market:1,high:1.15}[b.pay]||1);
+const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*payMult(b)*(b.union?1.1:1));
 const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0)+(b.sl?b.sl.bal:0);let v;
   if(T.tech)v=Math.max(b.lastRev*6,T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
   v+=(b.fac||0)*T.cost*.6;v*=1+Math.min(.12,(b.gens-1)*.04);return Math.max(0,Math.round(v*(b.pub?b.pub.sent:1)));};
@@ -2367,7 +2384,7 @@ function simBiz(b){
   // reputation & morale
   const M=MKTL[mkLv(b)].r;
   b.rep+=(b.q-b.rep)*.15+(ratio<1?-(1-ratio)*35:0)+M+(ptier(b)==='premium'?(b.rep>=65?2:-4):ptier(b)==='budget'?1:0)+(L.r||0)+(soldOut?3:0)+R(-4,4)*(mkLv(b)>=2?.5:1);
-  b.morale+=({low:-8,market:0,high:6}[b.pay])+(b.union?3:0)+fx.morale+(60-b.morale)*.15+R(-3,3);if(b.strike){b.strike=false;}
+  b.morale+=Math.round((payMult(b)-1)*(payMult(b)<1?53:40))+(b.union?3:0)+fx.morale+(60-b.morale)*.15+R(-3,3);if(b.strike){b.strike=false;}
   if(b.morale>=55)b.team.forEach(p=>{if(p.skill<100&&rnd()<.35)p.skill=Math.min(100,p.skill+R(1,3));});
   b.rep=clamp(b.rep);b.morale=clamp(b.morale);
   if(b.awardBoost)b.awardBoost--;if(b.tvBoost)b.tvBoost--;b.push=false;if(b.copy){b.copy--;if(rnd()<.35){b.base=Math.round(b.base*.9);b.copy=0;line(`😤 A copycat launched a knockoff of ${b.prods[b.prods.length-1]}. ${b.name} lost some customers.`,'bad');}}
@@ -2388,7 +2405,7 @@ function simBiz(b){
   if(!b.union&&b.morale<40&&b.staff>=8&&rnd()<.3*cty(b).union&&canManage())Q.push({text:`Staff at ${b.name} want to form a union.`,ch:[
     ['Recognize the union',()=>{b.union=true;b.morale+=20;return 'I recognized the union. Wages rise 10%, and morale jumped.'}],
     ['Fight it ($30,000)',()=>{b.cash-=30000;if(rnd()<.5){b.morale-=10;return 'The union vote failed. The mood is grim.'}b.union=true;b.morale-=15;b.rep-=8;return 'I lost. The union formed anyway, and the story made the papers.'}],
-    ['Raise wages instead',()=>{b.pay='high';b.morale+=15;return 'I raised pay. The union push fizzled.'}]]});
+    ['Raise wages instead',()=>{b.pay='high';b.payPct=Math.max(b.payPct||0,115);b.morale+=15;return 'I raised pay. The union push fizzled.'}]]});
   if(b.union&&b.morale<35&&rnd()<.25){b.strike=true;line(`✊ Staff at ${b.name} are going on strike next year unless morale improves.`,'bad');}
   // board
   // awards
@@ -2608,13 +2625,7 @@ function drawBiz(s,b){
   if(bTab==='people'){
     ensureRunner(b);runnerBlock(s,b);
     if(!b.ousted&&canManage())s.append(salaryRow(b));
-    s.append(h('p',{className:'label'},'Pay'),seg([['low','Below market'],['market','Market rate'],['high','Above market']],b.pay,x=>{b.pay=x;stay()}));
-    const auto=b.autoStaff!==false;
-    s.append(tog('👥 Auto-hire staff',auto?`On. I keep ${b.staff} staff, exactly what the business needs, at ${fmt(wagePer(b))} each. Adjusts automatically as I grow.`:'Off. I hire and let go of staff myself.',auto,()=>{b.autoStaff=!auto;syncStaff(b);stay()}));
-    if(!auto){s.append(h('p',{className:'label'},`Staff: ${b.staff} of ${need} needed, ${fmt(wagePer(b))} each.${b.union?' Unionized.':''}`,b.staff<need?h('span',{className:'warn'},' Understaffed!'):null),
-      h('div',{className:'btns'},row('Hire one','','',()=>{b.staff++;stay()}),row('Let one go','','',()=>{b.staff--;b.morale-=6;stay()},b.staff<=0)));
-      if(b.staff<need)s.append(row(`Hire up to ${need}`,'','',()=>{b.staff=need;stay()}));}
-    else if(b.union)s.append(h('p',{className:'sub'},'Staff are unionized.'));
+    s.append(staffCard(b));
     s.append(h('h4',{},'Key people'));
     if(!b.team.length)s.append(h('p',{className:'sub'},'No key people yet. Specialists raise quality and stars draw customers.'));
     const teamWrap=b.team.length>6?h('div',{style:'max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;margin-bottom:8px'}):s;
@@ -2811,7 +2822,7 @@ function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),
   if(!b.push&&mg>.1&&M!=='cut'&&rnd()<.5){b.push=true;notes.push(`planned a ${T.season.toLowerCase()}`);}
   if(trendHits(b)&&b.ride!==S.trend.k&&M!=='cut'&&skill(c.sales))spend(b.base*b.locs*.08,`ride the ${TRENDS[S.trend.k].n.toLowerCase()}`,()=>{b.ride=S.trend.k;});
   // ---- people ----
-  {const pw=M==='cut'?'low':b.morale<45||M==='grow'?'high':'market';if(b.pay!==pw&&skill(c.people)){b.pay=pw;notes.push(`staff pay ${pw==='market'?'at market':pw==='low'?'below market':'above market'}`);}}
+  {const pw=M==='cut'?'low':b.morale<45||M==='grow'?'high':'market';if(b.pay!==pw&&skill(c.people)){b.pay=pw;b.payPct={low:85,market:100,high:115}[pw];notes.push(`staff pay ${pw==='market'?'at market':pw==='low'?'below market':'above market'}`);}}
   if(b.autoStaff===false){b.autoStaff=true;notes.push('staff hired automatically');}
   {const weak=b.team.filter(p=>!p.kid).sort((x,y)=>x.skill/x.wage-y.skill/y.wage)[0];
     if(weak&&(weak.skill<40||M==='cut'&&mg<.05)&&skill(c.people)){b.team=b.team.filter(x=>x!==weak);b.morale=clamp(b.morale-3);notes.push(`let ${weak.name} go`);}}
