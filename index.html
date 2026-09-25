@@ -145,16 +145,21 @@ dt{color:var(--muted)} dd{margin:0;font-weight:700;text-align:right}
 <div id="toasts" aria-live="polite"></div>
 <script>
 /* ================= helpers ================= */
-const R=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
-const pick=a=>a[Math.floor(Math.random()*a.length)];
+/* Replay dice: every game roll comes from rnd(). The dice position (RS) is saved with the life,
+   so the same life code plus the same choices always gives the same life. */
+let RS=1;
+function rnd(){RS=(RS+0x6D2B79F5)|0;let t=RS;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;}
+const newSeed=()=>100000+Math.floor(Math.random()*900000);
+const R=(a,b)=>Math.floor(rnd()*(b-a+1))+a;
+const pick=a=>a[Math.floor(rnd()*a.length)];
 const clamp=v=>Math.max(0,Math.min(100,Math.round(v)));
 const fmt=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString();
 const pct=n=>(n>=0?'+':'')+n.toFixed(1)+'%';
-const uid=()=>Math.random().toString(36).slice(2,9);
-function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const uid=()=>rnd().toString(36).slice(2,9);
+function gauss(){let u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 const $=id=>document.getElementById(id);
 function h(tag,props={},...kids){const e=document.createElement(tag);for(const k in props){const v=props[k];if(k==='on')e.onclick=v;else if(k==='style')e.setAttribute('style',v);else if(k in e)e[k]=v;else e.setAttribute(k,v);}kids.flat().forEach(c=>c!=null&&c!==false&&e.append(c));return e;}
-function wpick(arr,w){const tot=arr.reduce((a,x)=>a+w(x),0);let r=Math.random()*tot;for(const x of arr){r-=w(x);if(r<=0)return x;}return arr[arr.length-1];}
+function wpick(arr,w){const tot=arr.reduce((a,x)=>a+w(x),0);let r=rnd()*tot;for(const x of arr){r-=w(x);if(r<=0)return x;}return arr[arr.length-1];}
 
 /* ================= data ================= */
 const FM=['Liam','Noah','Mateo','Kai','Theo','Ezra','Omar','Ravi','Jonah','Felix','Marcus','Diego','Sam','Hugo','Arlo','Tobias','Kofi','Luca','Bram','Idris'];
@@ -289,7 +294,7 @@ const CHAL={
 };
 /* ================= state ================= */
 let S=null,Q=[],META={ach:{},tree:[],sound:true,ai:false};
-function save(){try{localStorage.setItem('onelife-save-v3',JSON.stringify(S))}catch(e){}}
+function save(){S.rng=RS;try{localStorage.setItem('onelife-save-v3',JSON.stringify(S))}catch(e){}}
 function load(){try{const v=localStorage.getItem('onelife-save-v3');return v?JSON.parse(v):null}catch(e){return null}}
 function saveMeta(){try{localStorage.setItem('onelife-meta',JSON.stringify(META))}catch(e){}}
 function loadMeta(){try{const v=localStorage.getItem('onelife-meta');if(v)META=Object.assign(META,JSON.parse(v))}catch(e){}}
@@ -326,9 +331,10 @@ const joy=n=>Math.round(n*(has('spender')?2:has('frugal')?.5:1));
 const relGain=n=>Math.round(n*(has('charming')?1.5:1));
 
 function newLife(o={}){
+  const seed=o.gen?(o.seed||0):(o.seed||newSeed());if(!o.gen)RS=seed;
   const g=o.gender||pick(['M','F']);const last=o.last||pick(LAST);
   const traits=rollTraits(o.inherit);
-  S={v:4,id:uid(),dyn:o.dyn||uid(),name:o.name||first(g)+' '+last,gender:g,city:o.city||pick(CITIES),age:o.age||0,alive:true,traits,
+  S={v:4,seed,id:uid(),dyn:o.dyn||uid(),name:o.name||first(g)+' '+last,gender:g,city:o.city||pick(CITIES),age:o.age||0,alive:true,traits,
     st:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)},money:o.money||0,sloan:0,eUsed:0,
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
@@ -339,7 +345,7 @@ function newLife(o={}){
   S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate';b.gens=(b.gens||1)+(o.gen?1:0);});
   if(o.parents)S.rels.push(...o.parents);else{
     S.rels.push(person('Mother','F',R(20,40),last));S.rels.push(person('Father','M',R(22,45),last));
-    if(Math.random()<.5)S.rels.push(person('Sibling',pick(['M','F']),R(1,8),last));}
+    if(rnd()<.5)S.rels.push(person('Sibling',pick(['M','F']),R(1,8),last));}
   if(o.siblings)S.rels.push(...o.siblings);
   if(o.start){S.rels.forEach(p=>p.age+=S.age);S.flags.hs=true;S.edu.degrees=o.degrees||[];if(o.poor)S.flags.poor=true;
     (o.bizTypes||[]).forEach(t=>{const T=BIZ[t];S.biz.push(newBiz(t,pick(T.names)));S.flags.founded=(S.flags.founded||0)+1;});}
@@ -363,23 +369,23 @@ const EV=[
 {id:'tooth',min:6,max:7,cls:'good',auto:()=>{const g=R(1,5);S.money+=g;S.st.happy+=3;return `I lost my first tooth. The tooth fairy left ${fmt(g)}, which felt like a fortune.`}},
 {id:'sandbox',min:3,max:6,text:'A kid at the playground snatched my plastic shovel.',ch:[
   ['Share nicely',()=>{S.st.happy+=2;return 'We built a lopsided sandcastle together.'}],
-  ['Grab it back',()=>{if(Math.random()<.5){S.st.happy+=4;return 'I reclaimed the shovel. Justice.'}S.st.happy-=4;return 'They bit me. We both went home crying.'}],
+  ['Grab it back',()=>{if(rnd()<.5){S.st.happy+=4;return 'I reclaimed the shovel. Justice.'}S.st.happy-=4;return 'They bit me. We both went home crying.'}],
   ['Throw sand at them',()=>{S.st.happy+=3;const p=parent();if(p)p.rel-=5;return 'Direct hit. My parent gave me a long talk in the car.'},null,'hothead']]},
 {id:'bday',min:3,max:10,text:'My parents asked what I want for my birthday.',ch:[
-  ['A puppy',()=>{if(Math.random()<.5){S.rels.push({id:uid(),type:'Pet',gender:'M',name:pick(PETS)+' the dog',age:0,rel:90,alive:true});S.st.happy+=12;return 'They got me a puppy! Best day ever.'}S.st.happy-=5;return 'They said no to the puppy. I sulked for a week.'}],
+  ['A puppy',()=>{if(rnd()<.5){S.rels.push({id:uid(),type:'Pet',gender:'M',name:pick(PETS)+' the dog',age:0,rel:90,alive:true});S.st.happy+=12;return 'They got me a puppy! Best day ever.'}S.st.happy-=5;return 'They said no to the puppy. I sulked for a week.'}],
   ['A video game',()=>{S.st.happy+=8;return 'I got the game and played until my thumbs hurt.'}],
   ['A stack of books',()=>{S.st.smarts+=has('genius')?8:5;return 'I read every single one under the covers with a flashlight.'}]]},
 {id:'bully',min:6,max:12,init:()=>({n:first(pick(['M','F']))+' '+pick(LAST)}),text:c=>`A kid named ${fname(c.n)} keeps picking on me at school.`,ch:[
-  ['Fight back',c=>{const win=Math.random()<(has('hothead')||has('athletic')?.75:.45);remember('bully',{name:c.n,how:win?'won':'lost'});if(win){S.st.happy+=8;return 'I stood up for myself. They never bothered me again.'}S.st.health-=8;S.st.happy-=5;return 'I lost the fight and went home with a black eye.'}],
+  ['Fight back',c=>{const win=rnd()<(has('hothead')||has('athletic')?.75:.45);remember('bully',{name:c.n,how:win?'won':'lost'});if(win){S.st.happy+=8;return 'I stood up for myself. They never bothered me again.'}S.st.health-=8;S.st.happy-=5;return 'I lost the fight and went home with a black eye.'}],
   ['Tell a teacher',c=>{remember('bully',{name:c.n,how:'told'});S.st.happy+=3;return 'The teacher sorted it out. Some kids called me a snitch for a month.'}],
-  ['Try to befriend them',c=>{const ok=Math.random()<(has('charming')||has('kind')?.8:.4);remember('bully',{name:c.n,how:ok?'friend':'lost'});if(ok){S.st.happy+=8;return 'Turns out they were lonely. We became real friends.'}S.st.happy-=5;return 'They laughed at me. It did not work.'}],
+  ['Try to befriend them',c=>{const ok=rnd()<(has('charming')||has('kind')?.8:.4);remember('bully',{name:c.n,how:ok?'friend':'lost'});if(ok){S.st.happy+=8;return 'Turns out they were lonely. We became real friends.'}S.st.happy-=5;return 'They laughed at me. It did not work.'}],
   ['Ignore it',c=>{remember('bully',{name:c.n,how:'ignored'});S.st.happy-=6;return 'It kept happening. School felt miserable for a while.'}]]},
 {id:'talent',min:6,max:9,init:()=>({k:pick(['music','soccer','drawing'])}),text:c=>`My teacher says I have a real gift for ${c.k}.`,ch:[
   ['Beg for lessons',c=>{S.talent={k:c.k,lvl:1,at:S.age};S.st.happy+=5;return `My parents signed me up for ${c.k} lessons.`}],
   ['Meh, not interested',()=>'I went back to eating glue sticks.']]},
 {id:'talent2',pri:1,min:9,max:15,cond:()=>S.talent&&S.talent.lvl===1&&S.age>=S.talent.at+3,text:()=>`My ${S.talent.k==='soccer'?'coach':'teacher'} wants me to enter a regional ${S.talent.k==='soccer'?'tournament':S.talent.k==='music'?'recital':'art show'}.`,ch:[
   ['Practice all summer',()=>{const fit=(has('athletic')&&S.talent.k==='soccer')||(has('creative')&&S.talent.k!=='soccer');S.talent.lvl=2;S.talent.at=S.age;
-    if(Math.random()<(fit?.8:.55)){S.st.happy+=10;mile(`Won a regional ${S.talent.k} competition`);return 'I practiced until everything ached, and I won first place!'}S.st.happy+=3;return 'I came fourth, but I got a lot better.'}],
+    if(rnd()<(fit?.8:.55)){S.st.happy+=10;mile(`Won a regional ${S.talent.k} competition`);return 'I practiced until everything ached, and I won first place!'}S.st.happy+=3;return 'I came fourth, but I got a lot better.'}],
   ['Skip it',()=>{S.talent.lvl=0;return 'I skipped it. My teacher looked quietly disappointed.'}]]},
 {id:'talent3',pri:1,min:15,max:18,cond:()=>S.talent&&S.talent.lvl===2&&S.age>=S.talent.at+3,text:()=>`A scout saw me ${S.talent.k==='soccer'?'play':S.talent.k==='music'?'perform':'exhibit my work'} and offered me a university scholarship.`,ch:[
   ['Accept the scholarship',()=>{S.talent.lvl=3;S.talent.at=S.age;S.flags.scholarship=true;S.st.happy+=15;mile(`Earned a ${S.talent.k} scholarship`);return 'Free tuition! My parents screamed.'}],
@@ -389,37 +395,37 @@ const EV=[
   ['I\'m too busy',()=>{S.talent.lvl=0;return 'I said no. Sometimes I still wonder.'}]]},
 {id:'sciencefair',min:9,max:13,text:'The school science fair is coming up.',ch:[
   ['Build a baking-soda volcano',()=>{S.st.smarts+=2;S.st.happy+=3;return 'It erupted all over the judge. Honorable mention.'}],
-  ['Build a robot',()=>{if(Math.random()<(has('genius')?.8:.35)){S.st.smarts+=6;S.st.happy+=8;mile('Won the school science fair');return 'My robot won first prize!'}S.st.smarts+=3;return 'My robot fell over during judging. Still learned a lot.'}],
+  ['Build a robot',()=>{if(rnd()<(has('genius')?.8:.35)){S.st.smarts+=6;S.st.happy+=8;mile('Won the school science fair');return 'My robot won first prize!'}S.st.smarts+=3;return 'My robot fell over during judging. Still learned a lot.'}],
   ['Skip it',()=>'I skipped it and watched cartoons.']]},
 {id:'hamster',min:5,max:10,text:'The class hamster needs someone to look after it over the holidays.',ch:[
-  ['Volunteer',()=>{if(Math.random()<.8){S.st.happy+=5;return 'Mr. Nibbles and I had a lovely holiday.'}S.st.happy-=8;return 'Mr. Nibbles escaped into the walls. He was never seen again.'}],
+  ['Volunteer',()=>{if(rnd()<.8){S.st.happy+=5;return 'Mr. Nibbles and I had a lovely holiday.'}S.st.happy-=8;return 'Mr. Nibbles escaped into the walls. He was never seen again.'}],
   ['Let someone else',()=>'Somebody else took Mr. Nibbles home.']]},
 /* ---- teens ---- */
 {id:'cig',min:13,max:17,text:'Someone at a party offered me a cigarette.',ch:[
   ['Try it',()=>{remember('smoker');S.st.health-=4;S.st.happy+=2;return 'I coughed a lot but felt cool for about a minute.'}],['Say no',()=>{S.st.happy+=2;return 'I passed. Nobody cared.'}]]},
-{id:'crush',min:14,max:17,init:()=>({n:first(S.gender==='M'?(Math.random()<.85?'F':'M'):(Math.random()<.85?'M':'F'))+' '+pick(LAST)}),text:c=>`My crush, ${fname(c.n)}, smiled at me in the hallway.`,ch:[
-  ['Ask them out',c=>{if(Math.random()<S.st.looks/120+(has('charming')?.3:.15)){remember('crush',{name:c.n});S.st.happy+=12;return 'They said yes! We went for milkshakes and held hands.'}S.st.happy-=8;return 'They laughed and said no. I replayed it in my head for years.'}],
+{id:'crush',min:14,max:17,init:()=>({n:first(S.gender==='M'?(rnd()<.85?'F':'M'):(rnd()<.85?'M':'F'))+' '+pick(LAST)}),text:c=>`My crush, ${fname(c.n)}, smiled at me in the hallway.`,ch:[
+  ['Ask them out',c=>{if(rnd()<S.st.looks/120+(has('charming')?.3:.15)){remember('crush',{name:c.n});S.st.happy+=12;return 'They said yes! We went for milkshakes and held hands.'}S.st.happy-=8;return 'They laughed and said no. I replayed it in my head for years.'}],
   ['Play it cool',c=>{remember('crush',{name:c.n,never:true});return 'I smiled back and kept walking.'}]]},
 {id:'tutor',min:15,max:17,text:'My teacher offered me free after-school tutoring.',ch:[['Accept',()=>{S.st.smarts+=has('genius')?10:7;return 'My grades went up.'}],['Decline',()=>'I had better things to do.']]},
 {id:'uncle',min:14,max:17,text:'My uncle offered to explain how investing works.',ch:[['Sure',()=>{S.st.smarts+=4;S.money+=500;return 'He explained index funds and gave me $500 to start with.'}],['Sounds boring',()=>'I passed on the finance lesson.']]},
 {id:'party',min:14,max:17,text:'My friends are sneaking out to a party tonight.',ch:[
-  ['Sneak out too',()=>{S.st.happy+=6;if(Math.random()<.25){const p=parent();if(p)p.rel-=10;return 'I had a blast, then got caught climbing back in the window.'}return 'Best night of the year. Nobody found out.'}],
+  ['Sneak out too',()=>{S.st.happy+=6;if(rnd()<.25){const p=parent();if(p)p.rel-=10;return 'I had a blast, then got caught climbing back in the window.'}return 'Best night of the year. Nobody found out.'}],
   ['Stay home',()=>'I stayed home and heard all about it on Monday.'],
-  ['Throw my own party while my parents are away',()=>{S.st.happy+=12;if(Math.random()<.4){living(['Mother','Father']).forEach(p=>p.rel-=25);return 'Legendary party. Also, someone broke the TV. I was grounded until graduation.'}return 'Legendary party. We cleaned up just in time.'},null,'reckless']]},
+  ['Throw my own party while my parents are away',()=>{S.st.happy+=12;if(rnd()<.4){living(['Mother','Father']).forEach(p=>p.rel-=25);return 'Legendary party. Also, someone broke the TV. I was grounded until graduation.'}return 'Legendary party. We cleaned up just in time.'},null,'reckless']]},
 {id:'exam',min:14,max:17,text:"Big exam tomorrow and I haven't studied at all.",ch:[
   ['Cram all night',()=>{S.st.smarts+=3;S.st.health-=2;return 'I survived on energy drinks and scraped a B.'}],
-  ['Cheat',()=>{if(Math.random()<.7){S.st.happy+=2;return 'Nobody noticed. I felt a little gross about it.'}S.st.happy-=10;return 'I got caught. Detention, and a call home.'}],
+  ['Cheat',()=>{if(rnd()<.7){S.st.happy+=2;return 'Nobody noticed. I felt a little gross about it.'}S.st.happy-=10;return 'I got caught. Detention, and a call home.'}],
   ['Wing it',()=>{S.st.happy+=6;return 'I walked in cold and got an A. Teachers hate me.'},null,'genius']]},
-{id:'driving',min:16,max:17,auto:()=>{if(Math.random()<.5+S.st.smarts/200){S.st.happy+=6;return 'I passed my driving test on the first try!'}return 'I failed my driving test. I may have driven over a cone. Several cones.'}},
+{id:'driving',min:16,max:17,auto:()=>{if(rnd()<.5+S.st.smarts/200){S.st.happy+=6;return 'I passed my driving test on the first try!'}return 'I failed my driving test. I may have driven over a cone. Several cones.'}},
 {id:'teenviral',min:13,max:17,w:.2,cls:'good',auto:()=>{S.st.happy+=10;S.st.looks+=3;return 'A silly dance video I posted got two million views. Strangers recognize me now.'}},
 /* ---- adult life ---- */
 {id:'flu',rep:1,min:18,max:99,w:.6,cls:'bad',auto:()=>{S.st.health-=R(3,10);return 'I came down with a nasty flu.'}},
 {id:'scam',min:18,max:80,text:'A stranger online offered me a "guaranteed" crypto investment for $2,000.',ch:[
-  ['Invest',()=>{S.money-=2000;if(Math.random()<.1){S.money+=6000;return 'Somehow it tripled. I made $4,000!'}return 'The website vanished the next day, along with my $2,000.'}],['Block them',()=>'I blocked them.']]},
+  ['Invest',()=>{S.money-=2000;if(rnd()<.1){S.money+=6000;return 'Somehow it tripled. I made $4,000!'}return 'The website vanished the next day, along with my $2,000.'}],['Block them',()=>'I blocked them.']]},
 {id:'speeding',rep:1,min:18,max:95,cond:hasCar,text:'I got pulled over for speeding.',ch:[
   ['Pay the $250 ticket',()=>{S.money-=250;return 'I paid the ticket.'}],
-  ['Fight it in court',()=>{if(Math.random()<.5)return 'The judge dismissed it!';S.money-=600;return 'I lost and paid $600 with court fees.'}],
-  ['Charm the officer',()=>{if(Math.random()<.7)return 'We chatted about their dog. They let me off with a warning.';S.money-=250;return 'They were immune to my charm. $250 ticket.'},null,'charming']]},
+  ['Fight it in court',()=>{if(rnd()<.5)return 'The judge dismissed it!';S.money-=600;return 'I lost and paid $600 with court fees.'}],
+  ['Charm the officer',()=>{if(rnd()<.7)return 'We chatted about their dog. They let me off with a warning.';S.money-=250;return 'They were immune to my charm. $250 ticket.'},null,'charming']]},
 {id:'wedding',rep:1,min:20,max:65,text:'An old friend invited me to their wedding.',ch:[['Go',()=>{S.money-=300;S.st.happy+=7;return 'Great party. I danced until my shoes gave out.'}],['Skip it',()=>'I sent a card instead.']]},
 {id:'raffle',rep:1,min:18,max:99,w:.5,cls:'good',auto:()=>{const w=R(50,500);S.money+=w;return `I won ${fmt(w)} in a grocery store raffle.`}},
 {id:'coat',min:18,max:99,w:.5,cls:'good',auto:()=>{S.money+=40;return 'I found $40 in an old coat pocket. Past me is a hero.'}},
@@ -433,7 +439,7 @@ const EV=[
 {id:'trip',rep:1,min:22,max:75,cond:partner,text:'My partner wants to go on a trip together.',ch:[
   ['Plan something ($2,000)',()=>{S.money-=2000;partner().rel+=relGain(15);S.st.happy+=joy(8);return 'We had an amazing week away.'}],['Stay home',()=>{partner().rel-=8;return 'They were disappointed.'}]]},
 {id:'cousin',min:22,max:80,cond:()=>S.money>5000,text:'My cousin asked to borrow $2,000.',ch:[
-  ['Lend it',()=>{if(Math.random()<.5)return 'They paid me back a few months later.';S.money-=2000;remember('cousin');return 'I never saw that money again.'}],
+  ['Lend it',()=>{if(rnd()<.5)return 'They paid me back a few months later.';S.money-=2000;remember('cousin');return 'I never saw that money again.'}],
   ['Refuse',()=>'I said no. Family dinner was awkward.']]},
 {id:'cousin2',pri:1,min:25,max:99,cond:()=>mem('cousin')&&S.age>=mem('cousin').at+6,cls:'good',auto:()=>{S.money+=6000;return 'Out of nowhere, my cousin hit it big in Vegas and paid back that old $2,000 loan... as $6,000.'}},
 {id:'cat',min:5,max:100,text:'A stray cat followed me home.',ch:[
@@ -458,7 +464,7 @@ const EV=[
 {id:'neighbor2',pri:1,min:27,max:99,cond:()=>mem('neighbor')&&S.age>=mem('neighbor').at+2,init:()=>mem('neighbor'),
   text:c=>c.good?`${c.n}, the neighbor I apologized to, turns out to be a retired stockbroker. Over coffee they whispered: "Nimbus Tech. Trust me."`:`My feud with ${c.n} next door escalated. They're suing me over a "property line issue".`,
   ch:c=>c.good?[['Thank them',()=>{S.tip='NMBS';remember('tipNMBS');return 'I made a note. Maybe I should buy some Nimbus Tech.'}]]:[
-    ['Fight it in court ($5,000)',()=>{S.money-=5000;if(Math.random()<(c.war?.35:.5))return 'I won! The fence stays where it is.';const d=R(10000,40000);S.money-=d;return `I lost and paid ${fmt(d)} in damages.`}],
+    ['Fight it in court ($5,000)',()=>{S.money-=5000;if(rnd()<(c.war?.35:.5))return 'I won! The fence stays where it is.';const d=R(10000,40000);S.money-=d;return `I lost and paid ${fmt(d)} in damages.`}],
     ['Settle for $8,000',()=>{S.money-=8000;return `I paid ${c.n} to go away. We still don't wave.`}]]},
 /* ---- sibling storyline ---- */
 {id:'sib',min:25,max:60,cond:()=>sibling()&&S.money>=15000,init:()=>({p:sibling()}),text:c=>`My ${c.p.gender==='M'?'brother':'sister'} ${fname(c.p.name)} is drowning in debt and asked me for $15,000.`,ch:[
@@ -469,7 +475,7 @@ const EV=[
   text:c=>c.m.how==='refused'?`${fname(c.p.name)} and I haven't talked in years. They just texted: "can we talk?"`:c.m.how==='gift'?`${fname(c.p.name)} used my gift to start a bakery. It's doing great.`:`${fname(c.p.name)} called about the $15,000 I lent them.`,
   ch:c=>c.m.how==='refused'?[['Reconnect',()=>{c.p.rel+=35;S.st.happy+=8;return 'We talked for three hours. It felt like old times.'}],['Leave it on read',()=>{c.p.rel-=10;return 'I left it on read.'}]]
    :c.m.how==='gift'?[['Visit the bakery',()=>{S.money+=5000;S.st.happy+=8;c.p.rel+=10;return 'They handed me $5,000 and a lifetime supply of croissants.'}]]
-   :Math.random()<.6?[['Answer',()=>{S.money+=20000;c.p.rel+=15;return 'They paid me back $20,000, with interest, and a hug.'}]]
+   :rnd()<.6?[['Answer',()=>{S.money+=20000;c.p.rel+=15;return 'They paid me back $20,000, with interest, and a hug.'}]]
    :[['Answer',()=>{c.p.rel-=15;S.st.happy-=6;return 'They lost it all again and asked for more. I said no this time.'}]]},
 /* ---- marriage storyline ---- */
 {id:'marr',rep:1,min:22,max:90,w:2,cond:()=>spouse()&&spouse().rel<45&&!mem('marr'),init:()=>({p:spouse()}),text:c=>`${fname(c.p.name)} and I keep fighting about everything.`,ch:[
@@ -479,62 +485,62 @@ const EV=[
 {id:'marr2',pri:1,min:24,max:99,cond:()=>mem('marr')&&S.age>=mem('marr').at+2&&spouse()&&spouse().id===mem('marr').id,init:()=>({p:spouse()}),
   text:c=>c.p.rel>=55?`${fname(c.p.name)} surprised me by asking to renew our vows.`:`${fname(c.p.name)} sat me down and said they want a separation.`,
   ch:c=>{const done=()=>{delete S.mem.marr;};return c.p.rel>=55?[['Say yes',()=>{done();S.money-=5000;S.st.happy+=15;c.p.rel+=10;return 'We renewed our vows on a beach. Everyone cried.'}]]
-   :[['Fight for us',()=>{done();if(Math.random()<.5+(has('charming')?.2:0)){c.p.rel+=30;return 'We worked through it. We\'re stronger now.'}return divorce(c.p)}],['Agree to divorce',()=>{done();return divorce(c.p)}]]}},
+   :[['Fight for us',()=>{done();if(rnd()<.5+(has('charming')?.2:0)){c.p.rel+=30;return 'We worked through it. We\'re stronger now.'}return divorce(c.p)}],['Agree to divorce',()=>{done();return divorce(c.p)}]]}},
 /* ---- illness storyline ---- */
 {id:'ill',min:35,max:80,w:.5,text:"I've felt dizzy and exhausted for weeks.",ch:[
   ['See a specialist ($2,000)',()=>{S.money-=2000;remember('ill',{early:true});return 'I booked tests right away.'}],
   ['Tough it out',()=>{remember('ill',{early:false});return 'I told myself it was just stress.'}]]},
 {id:'ill2',pri:1,min:36,max:99,cond:()=>mem('ill')&&!mem('ill').done&&S.age>=mem('ill').at+1,text:()=>mem('ill').early?'The specialist caught a heart condition early. A short treatment should fix it.':'It turned out to be a serious heart condition. Treatment costs $40,000.',
   ch:()=>{const m=mem('ill');m.done=true;return m.early?[['Get treated',()=>{S.st.health+=6;S.money-=3000;return 'Treatment went smoothly. I feel better than I have in years.'}]]
-   :[['Pay for treatment',()=>{S.money-=40000;S.st.health+=10;return 'It was expensive and scary, but it worked.'}],['Try a cheaper option ($5,000)',()=>{S.money-=5000;if(Math.random()<.5){S.st.health-=25;return 'It didn\'t work. My health took a serious hit.'}return 'Somehow the cheaper option worked.'}]]}},
+   :[['Pay for treatment',()=>{S.money-=40000;S.st.health+=10;return 'It was expensive and scary, but it worked.'}],['Try a cheaper option ($5,000)',()=>{S.money-=5000;if(rnd()<.5){S.st.health-=25;return 'It didn\'t work. My health took a serious hit.'}return 'Somehow the cheaper option worked.'}]]}},
 /* ---- work ---- */
 {id:'credit',rep:1,min:18,max:70,cond:()=>S.job,text:'A coworker took credit for my work in a meeting.',ch:[
-  ['Confront them',()=>{if(Math.random()<(has('hothead')?.65:.5)){S.job.perf+=10;return 'I set the record straight and my boss noticed.'}S.job.perf-=8;return 'It turned into a shouting match. My boss was not impressed.'}],
+  ['Confront them',()=>{if(rnd()<(has('hothead')?.65:.5)){S.job.perf+=10;return 'I set the record straight and my boss noticed.'}S.job.perf-=8;return 'It turned into a shouting match. My boss was not impressed.'}],
   ['Let it go',()=>{S.st.happy-=5;return 'I let it slide, but it stung.'}]]},
 {id:'headhunter',rep:1,min:20,max:65,cond:()=>S.job&&S.job.lvlYrs>=1,text:()=>`A headhunter called. Another company wants me as a ${title(S.job)} for about 18% more pay.`,ch:[
   ['Take the new job',()=>{remember('oldboss',{c:S.job.c});S.job.s=Math.round(S.job.s*1.18);S.job.lvlYrs=0;S.job.perf=50;S.st.happy+=5;return `I switched companies. New salary: ${fmt(S.job.s)}.`}],
   ['Stay where I am',()=>{S.job.perf+=5;return 'I stayed loyal. My boss seemed to appreciate it.'}]]},
 {id:'fraud',min:22,max:65,cond:()=>S.job&&S.job.lvl>=1,text:'My boss quietly asked me to help hide some accounting fraud.',ch:[
   ['Go along with it',()=>{const g=R(5000,20000);S.money+=g;remember('fraud');return `I kept quiet and got a ${fmt(g)} "bonus". I sleep a little worse now.`}],
-  ['Report it',()=>{if(Math.random()<(has('kind')?.75:.6)){S.job.perf+=25;S.st.happy+=10;remember('whistle');unlock('whistle');mile('Blew the whistle on fraud at work');return 'I blew the whistle. My boss was fired and I was praised.'}const t=title(S.job);S.job=null;S.st.happy-=10;return `I reported it, but leadership retaliated. I lost my job as a ${t}.`}],
+  ['Report it',()=>{if(rnd()<(has('kind')?.75:.6)){S.job.perf+=25;S.st.happy+=10;remember('whistle');unlock('whistle');mile('Blew the whistle on fraud at work');return 'I blew the whistle. My boss was fired and I was praised.'}const t=title(S.job);S.job=null;S.st.happy-=10;return `I reported it, but leadership retaliated. I lost my job as a ${t}.`}],
   ['Stay out of it',()=>{S.st.happy-=5;return 'I pretended not to hear and felt uneasy about it.'}]]},
 {id:'burnout',rep:1,min:18,max:70,cond:()=>S.job&&S.job.style==='hustle',w:2,text:'I feel completely burned out from work.',ch:[
   ['Take time off',()=>{S.job.perf-=10;S.st.happy+=10;S.st.health+=5;return 'I took a few weeks off and recharged.'}],
   ['Push through',()=>{S.st.health-=8;S.st.happy-=8;S.job.perf+=4;return 'I kept grinding, but it took a toll.'}]]},
 {id:'romance',min:18,max:60,cond:()=>S.job&&!partner(),text:'A cute coworker keeps flirting with me.',ch:[
-  ['Ask them out',()=>{if(Math.random()<.5+S.st.looks/300+(has('charming')?.15:0)){const g=S.gender==='M'?'F':'M';const c=person('Partner',Math.random()<.85?g:S.gender,S.age+R(-4,4),pick(LAST));S.rels.push(c);return `${fname(c.name)} and I started dating!`}S.job.perf-=5;return 'It got awkward. They were not interested.'}],
+  ['Ask them out',()=>{if(rnd()<.5+S.st.looks/300+(has('charming')?.15:0)){const g=S.gender==='M'?'F':'M';const c=person('Partner',rnd()<.85?g:S.gender,S.age+R(-4,4),pick(LAST));S.rels.push(c);return `${fname(c.name)} and I started dating!`}S.job.perf-=5;return 'It got awkward. They were not interested.'}],
   ['Keep it professional',()=>'I kept things professional.']]},
 {id:'xmasparty',rep:1,min:18,max:70,cond:()=>S.job,text:"It's the company holiday party.",ch:[
-  ['Go and have fun',()=>{S.st.happy+=5;if(Math.random()<(has('reckless')?.35:.15)){S.job.perf-=8;return 'I had a few too many and did karaoke on a table in front of the CEO.'}S.job.perf+=3;return 'I had a great time and bonded with coworkers.'}],['Skip it',()=>'I stayed home in pajamas.']]},
+  ['Go and have fun',()=>{S.st.happy+=5;if(rnd()<(has('reckless')?.35:.15)){S.job.perf-=8;return 'I had a few too many and did karaoke on a table in front of the CEO.'}S.job.perf+=3;return 'I had a great time and bonded with coworkers.'}],['Skip it',()=>'I stayed home in pajamas.']]},
 {id:'replyall',min:20,max:70,cond:()=>S.job,cls:'bad',auto:()=>{S.job.perf-=12;S.st.happy-=5;return 'I accidentally hit "reply all" on an email complaining about my boss. To 400 people.'}},
 {id:'mentor',min:20,max:55,cond:()=>S.job,text:'A senior leader offered to mentor me.',ch:[['Accept',()=>{S.job.perf+=10;S.st.smarts+=3;return 'Our monthly coffees changed how I think about my career.'}],['Politely decline',()=>'I said I was too busy.']]},
 {id:'bosskid',min:24,max:65,cond:()=>S.job&&S.job.lvl>=1,text:"My boss's 22-year-old kid was just hired as my manager.",ch:[
   ['Suck it up',()=>{S.st.happy-=6;return 'They scheduled a meeting about meetings. I survived.'}],
-  ['Complain to HR',()=>{if(Math.random()<.4){S.job.perf+=5;return 'HR agreed. The kid was moved to a "special projects" role.'}S.job.perf-=10;return 'HR sided with the family. I am now on thin ice.'}],
+  ['Complain to HR',()=>{if(rnd()<.4){S.job.perf+=5;return 'HR agreed. The kid was moved to a "special projects" role.'}S.job.perf-=10;return 'HR sided with the family. I am now on thin ice.'}],
   ['Quit on the spot',()=>{const t=title(S.job);S.job=null;S.st.happy+=5;return `I quit my job as a ${t}. Dramatic, but satisfying.`}]]},
-{id:'acquired',min:22,max:65,cond:()=>S.job&&!CAREERS[S.job.c].pub,auto:()=>{if(Math.random()<.5){const b=R(5000,40000);S.money+=b;return `My company was acquired and my stock options paid out ${fmt(b)}.`}S.job.perf-=5;S.st.happy-=4;return 'My company was acquired. Everyone is nervous about layoffs.'}},
+{id:'acquired',min:22,max:65,cond:()=>S.job&&!CAREERS[S.job.c].pub,auto:()=>{if(rnd()<.5){const b=R(5000,40000);S.money+=b;return `My company was acquired and my stock options paid out ${fmt(b)}.`}S.job.perf-=5;S.st.happy-=4;return 'My company was acquired. Everyone is nervous about layoffs.'}},
 /* ---- callbacks ---- */
 {id:'bullyboss',min:25,max:50,w:3,cond:()=>mem('bully')&&S.job&&S.age>=mem('bully').at+12,init:()=>mem('bully'),
   text:c=>c.how==='friend'?`My new manager is ${c.name}, the "bully" I befriended back in grade school. They remembered.`:`My new manager is ${c.name}... the kid who ${c.how==='won'?'I beat in a schoolyard fight':'bullied me'} in school.`,
   ch:c=>c.how==='friend'?[['Hug it out',()=>{S.job.perf+=20;S.st.happy+=10;unlock('forgive');return 'They fast-tracked me for a promotion. Kindness pays.'}]]:[
-    ['Bury the hatchet',()=>{if(Math.random()<(has('charming')||has('kind')?.8:.5)){S.job.perf+=10;return 'We laughed about it over lunch. They are actually decent now.'}S.job.perf-=10;return 'They still hold a grudge. My reviews are suddenly worse.'}],
+    ['Bury the hatchet',()=>{if(rnd()<(has('charming')||has('kind')?.8:.5)){S.job.perf+=10;return 'We laughed about it over lunch. They are actually decent now.'}S.job.perf-=10;return 'They still hold a grudge. My reviews are suddenly worse.'}],
     ['Remind them who won',()=>{S.job.perf-=5;S.st.happy+=10;return 'I mentioned the fight in our first one-on-one. Worth it.'},()=>c.how!=='won','hothead'],
     ['Quit',()=>{const t=title(S.job);S.job=null;return `Nope. I quit my job as a ${t}.`}]]},
 {id:'walletback',min:22,max:50,w:3,cond:()=>mem('wallet')&&!mem('wallet').kept&&S.age>=mem('wallet').at+8,init:()=>mem('wallet'),cls:'good',auto:c=>{const g=has('kind')?10000:5000;S.money+=g;return `${c.name}, whose wallet I returned years ago, tracked me down. They run a company now and sent a ${fmt(g)} "late reward".`}},
 {id:'walletkarma',min:20,max:60,w:2,cond:()=>mem('wallet')&&mem('wallet').kept&&S.age>=mem('wallet').at+5,cls:'bad',auto:()=>{S.money-=300;return 'Karma: I lost my own wallet with $300 in it. Nobody returned it.'}},
 {id:'crush2',min:28,max:45,w:3,cond:()=>mem('crush')&&!partner()&&S.age>=mem('crush').at+10,init:()=>mem('crush'),text:c=>`At a school reunion, I ran into ${c.name}, my old crush. They're single.`,ch:[
-  ['Ask them out',c=>{if(Math.random()<(c.never?.5:.8)+(has('charming')?.1:0)){const g=S.gender==='M'?'F':'M';const p={id:uid(),type:'Partner',gender:g,name:c.name,age:S.age,rel:80,alive:true,crush:true};S.rels.push(p);return 'We talked all night. We are dating now!'}return 'They laughed kindly and said they were seeing someone.'}],
+  ['Ask them out',c=>{if(rnd()<(c.never?.5:.8)+(has('charming')?.1:0)){const g=S.gender==='M'?'F':'M';const p={id:uid(),type:'Partner',gender:g,name:c.name,age:S.age,rel:80,alive:true,crush:true};S.rels.push(p);return 'We talked all night. We are dating now!'}return 'They laughed kindly and said they were seeing someone.'}],
   ['Just catch up',()=>'We caught up and swapped numbers.']]},
 {id:'smoker2',min:45,max:65,w:3,cond:()=>mem('smoker'),text:'My doctor spotted something worrying on my lung scan. Those teenage cigarettes caught up with me.',ch:[
   ['Follow the treatment ($8,000)',()=>{S.money-=8000;S.st.health+=5;return 'Treatment worked. Past me owes present me an apology.'}],['Ignore it',()=>{S.st.health-=15;return 'I ignored it. My breathing got worse.'}]]},
 {id:'blackmail',pri:1,min:25,max:90,cond:()=>mem('fraud')&&S.age>=mem('fraud').at+5,text:'An old coworker knows about the fraud cover-up. They want $25,000 to keep quiet.',ch:[
   ['Pay them',()=>{S.money-=25000;return 'I paid. They promised it was a one-time thing.'}],
-  ['Refuse',()=>{if(Math.random()<.5)return 'They were bluffing. Nothing happened.';S.flags.record=true;let out='They went to the press. ';if(S.job){out+=`I was fired as a ${title(S.job)}. `;S.job=null;}if(Math.random()<.4){S.jail=R(1,3);out+=`I was sentenced to ${S.jail} years.`}else{S.money-=15000;out+='I paid $15,000 in fines.'}return out}]]},
+  ['Refuse',()=>{if(rnd()<.5)return 'They were bluffing. Nothing happened.';S.flags.record=true;let out='They went to the press. ';if(S.job){out+=`I was fired as a ${title(S.job)}. `;S.job=null;}if(rnd()<.4){S.jail=R(1,3);out+=`I was sentenced to ${S.jail} years.`}else{S.money-=15000;out+='I paid $15,000 in fines.'}return out}]]},
 {id:'book',pri:1,min:26,max:90,cond:()=>mem('whistle')&&S.age>=mem('whistle').at+4,text:'A publisher wants my whistleblower story. Advance: $80,000.',ch:[
   ['Write the book',()=>{S.money+=80000;S.st.happy+=10;mile('Published a whistleblower memoir');return 'I wrote it. It was a modest bestseller.'}],['Keep it private',()=>'Some stories are better left alone.']]},
 {id:'coldcase',pri:1,min:20,max:90,cond:()=>mem('burglary')&&S.age>=mem('burglary').at+4&&!S.jail,text:'Detectives reopened an old burglary case. They have new DNA evidence.',ch:[
-  ['Hire a lawyer ($20,000)',()=>{S.money-=20000;if(Math.random()<.8)return 'My lawyer got the evidence thrown out.';S.jail=3;S.flags.record=true;return 'Even my lawyer couldn\'t save me. 3 years.'}],
-  ['Wing it',()=>{if(Math.random()<.4)return 'The lab mixed up the samples. Case dropped.';S.jail=R(3,5);S.flags.record=true;if(S.job)S.job=null;return `I was convicted and sentenced to ${S.jail} years.`}]]},
+  ['Hire a lawyer ($20,000)',()=>{S.money-=20000;if(rnd()<.8)return 'My lawyer got the evidence thrown out.';S.jail=3;S.flags.record=true;return 'Even my lawyer couldn\'t save me. 3 years.'}],
+  ['Wing it',()=>{if(rnd()<.4)return 'The lab mixed up the samples. Case dropped.';S.jail=R(3,5);S.flags.record=true;if(S.job)S.job=null;return `I was convicted and sentenced to ${S.jail} years.`}]]},
 {id:'oldboss',pri:1,min:23,max:70,cond:()=>mem('oldboss')&&S.age>=mem('oldboss').at+3&&S.job,text:'My old boss wants me back, offering 25% more than I make now.',ch:[
   ['Go back',()=>{delete S.mem.oldboss;S.job.s=Math.round(S.job.s*1.25);S.job.perf=60;return `I went back for ${fmt(S.job.s)}. Nice to be wanted.`}],['Stay put',()=>{delete S.mem.oldboss;return 'I thanked them and stayed.'}]]},
 {id:'bizback',pri:1,min:20,max:80,cond:()=>mem('bizfail')&&S.age>=mem('bizfail').at+2&&S.biz.length<3&&S.age>=18,init:()=>mem('bizfail'),text:c=>`A loyal customer of my old business, ${c.name}, begged me to reopen it and offered $50,000 to help.`,ch:[
@@ -556,7 +562,7 @@ const EV=[
 {id:'treasure',min:20,max:95,w:.05,cond:()=>homes().length,auto:()=>{const v=R(5000,60000);S.money+=v;mile('Found buried treasure in the garden');return `Digging in my garden, I found a rusty box of old coins. A dealer paid ${fmt(v)}.`},cls:'good'},
 {id:'gameshow',min:21,max:80,w:.05,text:'I got picked to be a contestant on a TV game show!',ch:[
   ['Play it safe',()=>{S.money+=10000;return 'I walked away with $10,000 and a sensible haircut.'}],
-  ['Go for the big prize',()=>{if(Math.random()<.3+(has('genius')?.2:0)){S.money+=250000;unlock('gameshow');mile('Won $250,000 on a game show');return 'Final answer... CORRECT! I won $250,000!'}return 'I got the last question wrong and went home with a toaster.'}]]},
+  ['Go for the big prize',()=>{if(rnd()<.3+(has('genius')?.2:0)){S.money+=250000;unlock('gameshow');mile('Won $250,000 on a game show');return 'Final answer... CORRECT! I won $250,000!'}return 'I got the last question wrong and went home with a toaster.'}]]},
 {id:'doppel',min:15,max:80,w:.04,text:'I met a stranger who looks exactly like me. Same face, same laugh.',ch:[
   ['Chat with them',()=>{S.st.happy+=6;return 'We were born on the same day in different hospitals. We still email.'}],['Run',()=>'I ran. Some mysteries should stay mysteries.']]},
 {id:'greataunt',min:18,max:80,w:.04,cls:'good',auto:()=>{const v=R(20000,200000);S.money+=v;return `A lawyer called: a great-aunt I never met left me ${fmt(v)}. Rest in peace, Aunt ${first('F')}.`}},
@@ -568,7 +574,7 @@ const EV=[
 ];
 /* ================= economy & markets ================= */
 function econYear(){
-  const e=S.econ,old=e.phase,x=Math.random();
+  const e=S.econ,old=e.phase,x=rnd();
   if(old==='normal')e.phase=x<.15?'boom':x<.27?'recession':'normal';
   else if(old==='boom')e.phase=x<.15?'crash':x<.5?'normal':'boom';
   else if(old==='recession')e.phase=x<.4?'normal':x<.5?'crash':'recession';
@@ -578,9 +584,9 @@ function econYear(){
   const [mu,sd]=PHASE[e.phase].m;const mret=mu+gauss()*sd;
   TICK.forEach(t=>{const q=S.mkt[t.s];let r;
     if(t.fixed!=null)r=t.fixed;
-    else if(t.crypto){const y=Math.random();r=y<.3?-50+gauss()*12:y<.65?-5+gauss()*20:y<.9?45+gauss()*20:130+gauss()*50;if(e.phase==='crash')r-=30;}
-    else if(t.meme){const y=Math.random();r=y<.1?-99:y<.65?-70+gauss()*10:y<.9?30+gauss()*20:y<.985?200+gauss()*60:1200;}
-    else if(t.penny){r=Math.random()<.07?-100:gauss()*70;}
+    else if(t.crypto){const y=rnd();r=y<.3?-50+gauss()*12:y<.65?-5+gauss()*20:y<.9?45+gauss()*20:130+gauss()*50;if(e.phase==='crash')r-=30;}
+    else if(t.meme){const y=rnd();r=y<.1?-99:y<.65?-70+gauss()*10:y<.9?30+gauss()*20:y<.985?200+gauss()*60:1200;}
+    else if(t.penny){r=rnd()<.07?-100:gauss()*70;}
     else r=t.drift+t.beta*mret+gauss()*t.sd;
     if(S.tip===t.s){r=150+gauss()*30;const own=(S.hold[t.s]||0)*q.p;if(own>0){line(`${t.n} shares rocketed ${Math.round(r)}% this year. That tip was real!`,'good');if(mem('tipVLTR')&&t.s==='VLTR')unlock('timetravel');}}
     r=Math.max(-100,r);q.chg=r;q.p=q.p*(1+r/100);
@@ -600,7 +606,7 @@ function propertyYear(){
     S.money-=Math.round(a.v*.01);
     if(a.mort&&a.mort.bal>0){const int=a.mort.bal*a.mort.rate;const pay=Math.min(a.mort.pay,a.mort.bal+int);a.mort.bal=Math.max(0,Math.round(a.mort.bal+int-pay));S.money-=Math.round(pay);
       if(a.mort.bal===0){a.mort=null;line(`I paid off the mortgage on my ${a.n.toLowerCase()}!`,'good');unlock('debtfree');}}
-    if(a.rent){const y=Math.random();
+    if(a.rent){const y=rnd();
       if(y<.12)line(`My tenant at the ${a.n.toLowerCase()} stopped paying rent this year.`,'bad');
       else{let r=Math.round(a.v*.055);if(y<.22){const fix=Math.round(a.v*.02);r-=fix;line(`Repairs at my rental cost ${fmt(fix)}.`,'bad');}rentIn+=r;}}
   });
@@ -619,7 +625,7 @@ function workYear(){
   const j=S.job;if(!j)return;const C=CAREERS[j.c];
   if(S.jail){line(`I lost my job as a ${title(j)} while in prison.`,'bad');S.job=null;return;}
   const lay={boom:.01,normal:.02,recession:.07,crash:.14}[S.econ.phase]*(C.pub?.35:1);
-  if(Math.random()<lay){const sev=Math.round(j.s*.1);S.money+=sev;line(`I was laid off from my job as a ${title(j)}. I got ${fmt(sev)} in severance.`,'bad');S.job=null;S.st.happy-=12;return;}
+  if(rnd()<lay){const sev=Math.round(j.s*.1);S.money+=sev;line(`I was laid off from my job as a ${title(j)}. I got ${fmt(sev)} in severance.`,'bad');S.job=null;S.st.happy-=12;return;}
   const contrib=Math.round(j.s*S.ret.pct/100),match=Math.round(j.s*Math.min(S.ret.pct,5)/100*.5);
   S.ret.bal+=contrib+match;S.money+=Math.round((j.s-contrib)*.72);
   const style={slack:-8,normal:0,hustle:8}[j.style||'normal'];
@@ -632,7 +638,7 @@ function workYear(){
   else if(j.perf<60){j.warn=0;j.s=Math.round(j.s*1.03);msg='Meets expectations. 3% raise.';}
   else if(j.perf<85){j.warn=0;j.s=Math.round(j.s*1.05);const b=Math.round(j.s*.05);S.money+=Math.round(b*.72);msg=`Exceeds expectations. 5% raise and a ${fmt(b)} bonus.`;cls='good';}
   else{j.warn=0;j.s=Math.round(j.s*1.06);const b=Math.round(j.s*R(10,20)/100);S.money+=Math.round(b*.72);msg=`Outstanding! 6% raise and a ${fmt(b)} bonus.`;cls='good';
-    if(canPromote(j)&&Math.random()<.55){line(`Performance review: ${msg}`,cls);line(promote(j),'good');return;}}
+    if(canPromote(j)&&rnd()<.55){line(`Performance review: ${msg}`,cls);line(promote(j),'good');return;}}
   line(`Performance review: ${msg}`,cls);trackBest();
 }
 function trackBest(){if(S.job&&(!S.bestJob||S.job.s>S.bestJob.s))S.bestJob={t:title(S.job),s:S.job.s};}
@@ -663,7 +669,7 @@ function queueEvents(){
   const due=EV.filter(e=>e.pri&&eligible(e));due.slice(0,2).forEach(fire);
   if(S.aiNext&&S.aiNext.age<=S.age){const a=S.aiNext;S.aiNext=null;if(S.age-a.age<=1){queueAI(a);return;}}
   if(due.length)return;
-  if(Math.random()<.6){const pool=EV.filter(e=>!e.pri&&eligible(e));if(pool.length)fire(wpick(pool,e=>(e.w||1)*((e.w||1)<.1&&has('lucky')?3:1)));}
+  if(rnd()<.6){const pool=EV.filter(e=>!e.pri&&eligible(e));if(pool.length)fire(wpick(pool,e=>(e.w||1)*((e.w||1)<.1&&has('lucky')?3:1)));}
 }
 
 /* ================= aging ================= */
@@ -674,8 +680,8 @@ function ageUp(quiet){
   S.age++;S.used={};S.eUsed=0;addYear();
   S.rels.forEach(p=>{if(!p.alive)return;p.age++;p.rel-=R(0,4);
     const risk=p.type==='Pet'?(p.age>9?.22:.01):p.age>62?Math.pow((p.age-58)/45,3):.0015;
-    if(Math.random()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
-    else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&Math.random()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
+    if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
+    else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
     if(p.type==='Child'&&p.alive&&p.age===18){line(`My kid ${fname(p.name)} moved out. The house is very quiet.`);S.st.happy-=3;}
   });
   S.rels=S.rels.filter(p=>!p.left);
@@ -699,7 +705,7 @@ function ageUp(quiet){
   {const q0=Q.length;bizYear();
    if((S.age<18||S.jail)&&Q.length>q0){const mine=Q.splice(q0);const who=S.age<18?'My trustee':'My lawyer';
      mine.forEach(ev=>{const ch=(typeof ev.ch==='function'?ev.ch():ev.ch).find(c=>!(c[2]&&c[2]()));if(!ch)return;const r=ch[1]();line(`${ev.text} ${who} chose to ${ch[0].charAt(0).toLowerCase()+ch[0].slice(1)}. ${r||''}`.trim());});}}
-  S.angels.forEach(a=>{a.yrs++;if(a.yrs>=4){const x=Math.random()-(a.boost||0)-(has('lucky')?.05:0);const m=x<.6?0:x<.85?2:x<.97?8:40;a.done=true;
+  S.angels.forEach(a=>{a.yrs++;if(a.yrs>=4){const x=rnd()-(a.boost||0)-(has('lucky')?.05:0);const m=x<.6?0:x<.85?2:x<.97?8:40;a.done=true;
     if(m===0)line(`${a.co}, the startup I angel-invested in, shut down. I lost ${fmt(a.amt)}.`,'bad');else{S.money+=a.amt*m;line(`${a.co} was acquired! My ${fmt(a.amt)} became ${fmt(a.amt*m)}.`,'good');if(m>=40)unlock('angel');mile(`Angel investment in ${a.co} returned ${m}x`);}}});
   S.angels=S.angels.filter(a=>!a.done);
   propertyYear();
@@ -727,9 +733,9 @@ function skipYears(n){
 }
 function checkDeath(){
   let p=.0008;if(S.age>55)p+=Math.pow((S.age-55)/48,3);if(S.st.health<15)p+=(15-S.st.health)/55;if(S.st.health<=0||S.age>=115)p=1;
-  if(Math.random()<p){
-    const rare=Math.random()<.04;
-    S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&Math.random()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
+  if(rnd()<p){
+    const rare=rnd()<.04;
+    S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&rnd()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
     S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');
     if(S.age<18)unlock('speedrun');if(S.age>=100)unlock('century');
     const ob=obituary();S.obit=ob;
@@ -902,7 +908,7 @@ function jobSheet(){openSheet(s=>{
   s.append(h('h3',{},'Work & school'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));
   if(!S.alive)return s.append(h('p',{className:'sub'},'This life has ended.'));
   if(S.jail){s.append(h('p',{className:'sub'},`I'm in prison with ${S.jail} year${S.jail>1?'s':''} left.`),
-    row('Attempt escape','20% chance. Getting caught adds 3 years.','',()=>{S.used.esc=true;if(Math.random()<(has('reckless')?.3:.2)){S.jail=0;unlock('escape');mile('Escaped from prison');act('I escaped from prison!','good')}else{S.jail+=3;act('I was caught trying to escape. 3 years added.','bad')}},S.used.esc,1));return;}
+    row('Attempt escape','20% chance. Getting caught adds 3 years.','',()=>{S.used.esc=true;if(rnd()<(has('reckless')?.3:.2)){S.jail=0;unlock('escape');mile('Escaped from prison');act('I escaped from prison!','good')}else{S.jail+=3;act('I was caught trying to escape. 3 years added.','bad')}},S.used.esc,1));return;}
   if(S.age<5)return s.append(h('p',{className:'sub'},'Too young for school. Nap time.'));
   if(S.age<18){s.append(h('p',{className:'sub'},`I'm in ${S.age<11?'elementary':S.age<14?'middle':'high'} school.`),
     row('Study harder','Boost smarts','',()=>{S.used.study=true;S.st.smarts+=Math.round(R(2,6)*(has('genius')?1.5:1));stay('I hit the books hard this year.')},S.used.study,1),
@@ -921,11 +927,11 @@ function jobSheet(){openSheet(s=>{
     const next=j.lvl<C.t.length-1?C.t[j.lvl+1][0]:null;const minYrs=has('ambitious')?1:2;
     s.append(row('Work harder','Big performance boost','',()=>{S.used.work=true;j.perf+=R(6,14);S.st.happy-=2;stay('I put in extra hours at work.')},S.used.work,2),
       row('Network with leadership','Small boost, builds goodwill','',()=>{S.used.net=true;j.perf+=R(2,7)+(has('charming')?3:0);S.st.happy+=1;stay('I networked with the leadership team.')},S.used.net,1),
-      row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(Math.random()<j.perf/140){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
+      row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(rnd()<j.perf/140){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
       row('Ask for a promotion',next?`Next: ${next}. Needs performance 65%+, ${minYrs} yr${minYrs>1?'s':''} in role, smarts ${reqSm(C,j.lvl+1)}+`:'Already at the top','',()=>{S.used.promo=true;
         if(j.perf<65||j.lvlYrs<minYrs||S.st.smarts<reqSm(C,j.lvl+1)){j.perf-=4;return stay("My boss said I'm not ready for a promotion yet.",'bad')}
-        if(Math.random()<j.perf/110)stay(promote(j),'good');else{j.perf-=4;stay('I was passed over for the promotion.','bad')}},S.used.promo||!next,1),
-      row('Steal office supplies','Tiny profit, real risk','',()=>{S.used.steal=true;if(Math.random()<.12){const t=title(j);S.job=null;stay(`I got caught stealing supplies and was fired as a ${t}.`,'bad')}else{S.money+=R(50,300);stay('I "borrowed" some office supplies. Nobody noticed.')}},S.used.steal),
+        if(rnd()<j.perf/110)stay(promote(j),'good');else{j.perf-=4;stay('I was passed over for the promotion.','bad')}},S.used.promo||!next,1),
+      row('Steal office supplies','Tiny profit, real risk','',()=>{S.used.steal=true;if(rnd()<.12){const t=title(j);S.job=null;stay(`I got caught stealing supplies and was fired as a ${t}.`,'bad')}else{S.money+=R(50,300);stay('I "borrowed" some office supplies. Nobody noticed.')}},S.used.steal),
       row('Quit','Leave this job','',()=>{const t=title(j);S.job=null;stay(`I quit my job as a ${t}.`)}));
     if(S.age>=60)s.append(row('Retire',C.pub?'Public-sector pension: 50% of salary yearly':'Live off savings and retirement account','',()=>{S.pension=C.pub?Math.round(j.s*.5):0;S.retired=true;const t=title(j);S.job=null;mile(`Retired as a ${t}`);stay(`I retired from being a ${t}.${S.pension?` Pension: ${fmt(S.pension)}/yr.`:''}`,'good')}));
   }
@@ -945,7 +951,7 @@ function jobSheet(){openSheet(s=>{
       const why=S.flags.hs===false?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasCar()?'Needs a car':C.clean&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;
       s.append(row(t,why||`${C.n}. Up to ${C.t[C.t.length-1][0].toLowerCase()}.`,fmt(sal),()=>{S.used.apply=true;
         const chance=(.55+(S.st.smarts-need)/200+S.st.looks/500+(has('charming')?.05:0))*hireMult;
-        if(Math.random()<chance){const had=S.job;hire(id);stay(`I got hired as a ${t}!${had?' I left my old job.':''}`,'good')}
+        if(rnd()<chance){const had=S.job;hire(id);stay(`I got hired as a ${t}!${had?' I left my old job.':''}`,'good')}
         else stay(`I interviewed to be a ${t} but didn't get it.`,'bad')},!!why||S.used.apply,1));});
   }
   if(!S.edu.major&&S.flags.hs){
@@ -1060,15 +1066,15 @@ function personSheet(p){openSheet(s=>{
   s.append(row('Spend time together','','',()=>{mark('t');p.rel+=relGain(R(4,12));S.st.happy+=3;stay(`I spent quality time with ${fn}.`)},k('t'),1),
     row('Compliment','','',()=>{mark('c');p.rel+=relGain(R(2,6));stay(`I told ${fn} something nice.`)},k('c')));
   if(p.type!=='Pet')s.append(row('Argue','','',()=>{mark('a');p.rel-=Math.round(R(8,18)*(has('hothead')?1.5:1));S.st.happy-=4;stay(`${fn} and I had a big argument.`,'bad')},k('a')));
-  if(['Mother','Father'].includes(p.type))s.append(row('Ask for money','','',()=>{mark('m');if(!S.flags.poor&&Math.random()<p.rel/140){const g=R(20,S.age<18?100:1500);S.money+=g;stay(`${fn} gave me ${fmt(g)}.`,'good')}else{p.rel-=4;stay(`${fn} said no.`,'bad')}},k('m')));
+  if(['Mother','Father'].includes(p.type))s.append(row('Ask for money','','',()=>{mark('m');if(!S.flags.poor&&rnd()<p.rel/140){const g=R(20,S.age<18?100:1500);S.money+=g;stay(`${fn} gave me ${fmt(g)}.`,'good')}else{p.rel-=4;stay(`${fn} said no.`,'bad')}},k('m')));
   if(p.type==='Child'&&S.age>=18&&p.age>=16)s.append(row('Give $10,000','','',()=>{mark('g');S.money-=10000;p.rel+=15;stay(`I gave ${fn} $10,000.`)},k('g')||S.money<10000));
   if(p.type==='Partner'){
-    const propose=pre=>()=>{mark('p');if(p.rel>60&&Math.random()<(pre?.6:.8)){p.type='Spouse';p.prenup=pre;S.money-=R(5000,20000);S.st.happy+=15;mile(`Married ${fn}`);if(p.crush)unlock('reunion');if(pre)p.rel-=10;stay(`${fn} said yes${pre?' and signed the prenup':''}! We got married.`,'good')}else{p.rel-=10;S.st.happy-=10;stay(`${fn} said no to my proposal.`,'bad')}};
+    const propose=pre=>()=>{mark('p');if(p.rel>60&&rnd()<(pre?.6:.8)){p.type='Spouse';p.prenup=pre;S.money-=R(5000,20000);S.st.happy+=15;mile(`Married ${fn}`);if(p.crush)unlock('reunion');if(pre)p.rel-=10;stay(`${fn} said yes${pre?' and signed the prenup':''}! We got married.`,'good')}else{p.rel-=10;S.st.happy-=10;stay(`${fn} said no to my proposal.`,'bad')}};
     s.append(row('Propose','Needs a strong relationship','',propose(false),k('p')||S.age<18,1),row('Propose with a prenup','Protects my money in a divorce. Less likely to get a yes.','',propose(true),k('p')||S.age<18,1),
       row('Break up','','',()=>{S.flags.exes++;S.exes.push(p.name);S.rels=S.rels.filter(x=>x!==p);act(`I broke up with ${fn}.`,'bad')}));}
   if(p.type==='Spouse')s.append(row('Divorce',p.prenup?'The prenup protects my money':'They get half of my cash, investments, retirement, property and business stakes','',()=>act(divorce(p),'bad')));
   if(['Partner','Spouse'].includes(p.type)){const fertile=S.age>=18&&S.age<=(S.gender==='F'?45:65)&&(p.gender==='F'?p.age<=45:true)&&p.gender!==S.gender;
-    s.append(row('Try for a baby',fertile?'':p.gender===S.gender?'Try adopting from the People screen':'Not possible right now','',()=>{mark('b');if(Math.random()<.45){const g=pick(['M','F']);const kid=person('Child',g,0,lastName());kid.rel=90;S.rels.push(kid);S.st.happy+=15;mile(`Welcomed baby ${fname(kid.name)}`);stay(`We welcomed a baby ${g==='M'?'boy':'girl'}, ${fname(kid.name)}!`,'good')}else stay('No baby news this year.')},k('b')||!fertile,1));}
+    s.append(row('Try for a baby',fertile?'':p.gender===S.gender?'Try adopting from the People screen':'Not possible right now','',()=>{mark('b');if(rnd()<.45){const g=pick(['M','F']);const kid=person('Child',g,0,lastName());kid.rel=90;S.rels.push(kid);S.st.happy+=15;mile(`Welcomed baby ${fname(kid.name)}`);stay(`We welcomed a baby ${g==='M'?'boy':'girl'}, ${fname(kid.name)}!`,'good')}else stay('No baby news this year.')},k('b')||!fertile,1));}
 });}
 
 /* ================= Activities ================= */
@@ -1080,12 +1086,12 @@ function actSheet(){openSheet(s=>{
     ['📚','Library',5,true,1,()=>{S.st.smarts+=Math.round(R(1,5)*(has('genius')?1.5:1));return 'I spent hours reading at the library.'}],
     ['🧘','Meditate',8,true,1,()=>{S.st.happy+=R(4,9)*(has('anxious')?2:1);return 'I meditated and felt calmer.'}],
     ['🩺','Doctor',0,false,1,()=>{if(S.age>=18)S.money-=150;S.st.health+=R(5,14);return `I saw a doctor${S.age>=18?' ($150)':''}.`}],
-    ['🤝','Volunteer',12,false,1,()=>{S.st.happy+=R(3,8)*(has('kind')?2:1);if(has('kind')&&Math.random()<.2){S.money+=2000;return 'I volunteered at the shelter. A grateful donor sent me $2,000 for my trouble.'}return 'I volunteered at the local shelter.'}],
+    ['🤝','Volunteer',12,false,1,()=>{S.st.happy+=R(3,8)*(has('kind')?2:1);if(has('kind')&&rnd()<.2){S.money+=2000;return 'I volunteered at the shelter. A grateful donor sent me $2,000 for my trouble.'}return 'I volunteered at the local shelter.'}],
     ['💘','Find love',16,false,1,findLove,!!partner()],
     ['🏖️','Vacation',18,false,2,()=>{S.money-=3000;S.st.happy+=joy(R(10,20));return 'I took a vacation ($3,000). Much needed.'},S.money<3000],
     ['🎟️','Lottery',18,false,0,lottery,S.money<10],
     ['🎰','Casino',18,false,1,casino,S.money<100],
-    ['💉','Plastic surgery',18,false,1,()=>{S.money-=9000;if(Math.random()<.7){S.st.looks+=R(8,20);return 'My plastic surgery ($9,000) went great.'}S.st.looks-=R(5,15);return 'My surgery ($9,000) was botched.'},S.money<9000],
+    ['💉','Plastic surgery',18,false,1,()=>{S.money-=9000;if(rnd()<.7){S.st.looks+=R(8,20);return 'My plastic surgery ($9,000) went great.'}S.st.looks-=R(5,15);return 'My surgery ($9,000) was botched.'},S.money<9000],
     ['🛍️','Shoplift',10,false,1,()=>crime(.3,[20,300],'shoplifting',[0,1])],
     ['🔓','Burglary',16,false,1,()=>crime(.45,[1000,15000],'burglary',[2,5])],
   ];
@@ -1095,17 +1101,17 @@ function actSheet(){openSheet(s=>{
 function findLove(){
   const g=S.gender==='M'?pick(['F','F','F','M']):pick(['M','M','M','F']);const c=person('Partner',g,Math.max(16,S.age+R(-4,4)),pick(LAST));
   choiceModal(null,`I met ${c.name}, ${c.age}. Ask them out?`,[
-    ['Ask them out',()=>{if(Math.random()<.35+S.st.looks/200+(has('charming')?.15:0)){S.rels.push(c);stay(`${fname(c.name)} said yes! We're dating now.`,'good')}else{S.st.happy-=5;stay(`${fname(c.name)} turned me down.`,'bad')}}],
+    ['Ask them out',()=>{if(rnd()<.35+S.st.looks/200+(has('charming')?.15:0)){S.rels.push(c);stay(`${fname(c.name)} said yes! We're dating now.`,'good')}else{S.st.happy-=5;stay(`${fname(c.name)} turned me down.`,'bad')}}],
     ['Not interested',()=>{}]]);
 }
-function lottery(){S.money-=10;const r=Math.random(),m=has('lucky')?5:1;
+function lottery(){S.money-=10;const r=rnd(),m=has('lucky')?5:1;
   if(r<.0004*m){S.money+=2000000;S.st.happy+=40;S.flags.lotto=true;unlock('jackpot');mile('Won the $2,000,000 lottery jackpot');return 'I WON THE LOTTERY JACKPOT: $2,000,000!'}
   if(r<.02*m){S.money+=500;return 'I bought a $10 lottery ticket and won $500!'}return 'I bought a $10 lottery ticket. Nothing.'}
 function casino(){const bet=Math.max(100,Math.round(S.money*.1));
-  if(Math.random()<(has('lucky')?.5:.46)){S.money+=bet;S.st.happy+=6;return `I bet ${fmt(bet)} at the casino and doubled it!`}S.money-=bet;S.st.happy-=6;return `I lost ${fmt(bet)} at the casino.`}
+  if(rnd()<(has('lucky')?.5:.46)){S.money+=bet;S.st.happy+=6;return `I bet ${fmt(bet)} at the casino and doubled it!`}S.money-=bet;S.st.happy-=6;return `I lost ${fmt(bet)} at the casino.`}
 function crime(catchP,[lo,hi],what,[jmin,jmax]){
   S.flags.crimes++;if(has('reckless'))catchP-=.1;
-  if(Math.random()>catchP){const g=R(lo,hi);S.money+=g;if(what==='burglary')remember('burglary');return `I got away with ${what} and pocketed ${fmt(g)}.`}
+  if(rnd()>catchP){const g=R(lo,hi);S.money+=g;if(what==='burglary')remember('burglary');return `I got away with ${what} and pocketed ${fmt(g)}.`}
   if(S.age<18){S.st.happy-=10;const p=parent();if(p)p.rel-=15;return `I was caught ${what}. My parents grounded me for months.`}
   S.flags.record=true;const yrs=R(jmin,jmax);
   if(!yrs){S.money-=800;return `I was caught ${what} and fined $800.`}
@@ -1134,7 +1140,7 @@ function continueAs(k){
   const estate=Math.max(0,Math.round(liquid*.85/heirs));
   const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
   const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
-  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,homeIdx:S.homeIdx,dyn:S.dyn,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
+  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
   S.biz.forEach(b=>{if(b.successor===k.id){b.rep=Math.min(100,b.rep+10);b.successor=null;line(`I was trained to run ${b.name}. The staff trust me already.`,'good');}b.team=b.team.filter(p=>p.childId!==k.id);b.cands=null;});
   checkAch();
 }
@@ -1252,9 +1258,9 @@ function prodName(b){const T=Tof(b);const left=T.prods.filter(p=>!b.prods.includ
 function worldBizYear(){
   // trends
   if(S.trend){S.trend.yrs--;if(S.trend.yrs<=0){if(S.age>=18&&S.biz.length)line(`📉 The ${TRENDS[S.trend.k].n.toLowerCase()} is over.`);S.biz.forEach(b=>{if(b.ride===S.trend.k){b.ride=null;b.dated=2;}});S.trend=null;}}
-  else if(Math.random()<.3){const k=pick(Object.keys(TRENDS));S.trend={k,yrs:R(3,5)};if(S.age>=18)line(`🔥 New trend: the ${TRENDS[k].n.toLowerCase()}. It boosts ${TRENDS[k].t.map(t=>BIZ[t].n.toLowerCase()+'s').join(', ')}.`);}
+  else if(rnd()<.3){const k=pick(Object.keys(TRENDS));S.trend={k,yrs:R(3,5)};if(S.age>=18)line(`🔥 New trend: the ${TRENDS[k].n.toLowerCase()}. It boosts ${TRENDS[k].t.map(t=>BIZ[t].n.toLowerCase()+'s').join(', ')}.`);}
   // regulation
-  if(Math.random()<.12){const r=pick(['wage','food','tax','taxcut','deliv','zoning']);const R_=S.regs;let m='';
+  if(rnd()<.12){const r=pick(['wage','food','tax','taxcut','deliv','zoning']);const R_=S.regs;let m='';
     if(r==='wage'){R_.wage=+(R_.wage*1.08).toFixed(3);m='The government raised the minimum wage. Staff costs are up 8%.';}
     if(r==='food'){R_.foodTax=Math.min(.1,R_.foodTax+.03);m='A new food and sugar tax raised costs for food businesses.';}
     if(r==='tax'){R_.tax=Math.min(.3,R_.tax+.03);m='Corporate taxes went up.';}
@@ -1268,11 +1274,11 @@ function worldBizYear(){
   S.rivals.forEach(r=>{r.str+=R(-8,6)-(S.econ.phase==='crash'?8:0);r.yrs++;});
   S.rivals.filter(r=>r.str<12||!S.biz.some(b=>b.id===r.vs)).forEach(r=>{if(r.str<12&&S.biz.some(b=>b.id===r.vs)){line(`🏳️ My rival ${r.name} closed down.${r.who?` ${fname(r.who)} must be furious.`:''}`,'good');if(r.who)S.st.happy+=5;}});
   S.rivals=S.rivals.filter(r=>r.str>=12&&S.biz.some(b=>b.id===r.vs));
-  S.biz.forEach(b=>{if(!S.rivals.some(r=>r.vs===b.id)&&b.yrs>=1&&Math.random()<.2)spawnRival(b);});
+  S.biz.forEach(b=>{if(!S.rivals.some(r=>r.vs===b.id)&&b.yrs>=1&&rnd()<.2)spawnRival(b);});
   // marketplace
   S.forSale=S.age>=18?Array.from({length:3},()=>{const k=pick(Object.keys(BIZ).filter(k=>!BIZ[k].req));const T=BIZ[k];const rep=R(15,70),locs=R(1,3);const est=Math.round((T.cost*.5*locs)*(.5+rep/100)*R(60,110)/100);return {id:uid(),type:k,name:pick(T.names),rep,locs,price:Math.max(20000,est)};}):[];
   // mentees
-  S.mentees.forEach(m=>{m.yrs++;if(m.yrs>=5){m.done=true;const x=Math.random();if(x<.7)line(`${m.n}, the founder I mentored, shut down their company.`);else{const g=x<.94?R(50000,300000):R(1000000,6000000);S.money+=g;line(`${m.n}, the founder I mentored, sold their company. My small stake paid ${fmt(g)}!`,'good');mile(`Mentee ${m.n} paid off with ${fmt(g)}`);}}});
+  S.mentees.forEach(m=>{m.yrs++;if(m.yrs>=5){m.done=true;const x=rnd();if(x<.7)line(`${m.n}, the founder I mentored, shut down their company.`);else{const g=x<.94?R(50000,300000):R(1000000,6000000);S.money+=g;line(`${m.n}, the founder I mentored, sold their company. My small stake paid ${fmt(g)}!`,'good');mile(`Mentee ${m.n} paid off with ${fmt(g)}`);}}});
   S.mentees=S.mentees.filter(m=>!m.done);
 }
 function spawnRival(b){
@@ -1281,7 +1287,7 @@ function spawnRival(b){
   if(mem('crush'))past.push(['crush',mem('crush').name,'my high school crush']);
   (S.exes||[]).forEach(n=>past.push(['ex',n,'my ex']));
   const sib=sibling();if(sib)past.push(['sib',sib.name,`my own ${sib.gender==='M'?'brother':'sister'}`]);
-  let who=null,rel='';if(past.length&&Math.random()<.45){const p=pick(past);who=p[1];rel=p[2];}
+  let who=null,rel='';if(past.length&&rnd()<.45){const p=pick(past);who=p[1];rel=p[2];}
   const strat=pick(['budget chain','trendy boutique','premium','aggressive']);
   const nm=who?`${fname(who)}'s ${T.n}`:`${pick(['Urban','Prime','Nova','Big City','Golden','Blue Door'])} ${T.n}`;
   const r={id:uid(),name:nm,type:b.type,strat,str:R(35,75),who,vs:b.id,yrs:0};S.rivals.push(r);
@@ -1316,12 +1322,12 @@ function simBiz(b){
   const syn=1+synergy(b).reduce((a,x)=>a+x[2],0);
   const extra=(b.awardBoost>0?1.08:1)*(b.tvBoost>0?1.15:1)*(b.push?1.08:1)*(1+Math.min(.12,(b.gens-1)*.04))*(1+(S.fame||0)/1000)*(has('hustler')?1.05:1)*(T.art&&has('creative')?1.08:1)*(b.type==='construction'&&S.careers.includes('trade')?1.1:1)*(b.lever==='celeb'?1+(S.fame||0)/200:1);
   let common=(1+econ)*(.5+b.rep/100)*(L.d||1)*mk*trendF*rivalFactor(b)*syn*extra*Math.max(.25,1+gauss()*T.vol*(L.v||1));
-  if(T.weather){const w=Math.random();if(w<.12){common*=.55;line(`🌵 A drought hit ${b.name}. Harvest was terrible.`,'bad');}else if(w>.9){common*=1.3;line(`🌦️ Perfect weather gave ${b.name} a bumper crop.`,'good');}}
+  if(T.weather){const w=rnd();if(w<.12){common*=.55;line(`🌵 A drought hit ${b.name}. Harvest was terrible.`,'bad');}else if(w>.9){common*=1.3;line(`🌦️ Perfect weather gave ${b.name} a bumper crop.`,'good');}}
   common*=Math.min(1,ratio);if(b.strike)common*=.75;
   const idx=b.contract?b.contract.idx:S.supIdx;if(b.contract){b.contract.yrs--;if(b.contract.yrs<=0)b.contract=null;}
   const sales=sellItems(b,common,idx);const soldOut=sales.soldOut;
   let rev=sales.rev;
-  let hit=false;if(T.hit&&Math.random()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
+  let hit=false;if(T.hit&&rnd()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
   const conRev=b.contracts.reduce((a,c)=>a+c.rev,0);b.contracts.forEach(c=>c.yrs--);b.contracts=b.contracts.filter(c=>c.yrs>0);
   let royal=0;if(b.fr){const grow=Math.round(R(0,3)*(b.rep/70));b.fr.n+=grow;royal=Math.round(b.fr.n*b.base*.9*.06);}
   const cogs=Math.round(sales.cogs+conRev*T.cogs*idx);
@@ -1345,36 +1351,36 @@ function simBiz(b){
   b.rep+=(b.q-b.rep)*.15+(ratio<1?-(1-ratio)*35:0)+M+(L.r||0)+(soldOut?3:0)+R(-4,4)*(b.loyal?.5:1);
   b.morale+=({low:-8,market:0,high:6}[b.pay])+(b.union?3:0)+(b.life==='hands'?2:0)+(60-b.morale)*.15+R(-3,3);if(b.strike){b.strike=false;}
   b.rep=clamp(b.rep);b.morale=clamp(b.morale);
-  if(b.awardBoost)b.awardBoost--;if(b.tvBoost)b.tvBoost--;b.push=false;if(b.copy){b.copy--;if(Math.random()<.35){b.base=Math.round(b.base*.9);b.copy=0;line(`😤 A copycat launched a knockoff of ${b.prods[b.prods.length-1]}. ${b.name} lost some customers.`,'bad');}}
+  if(b.awardBoost)b.awardBoost--;if(b.tvBoost)b.tvBoost--;b.push=false;if(b.copy){b.copy--;if(rnd()<.35){b.base=Math.round(b.base*.9);b.copy=0;line(`😤 A copycat launched a knockoff of ${b.prods[b.prods.length-1]}. ${b.name} lost some customers.`,'bad');}}
   if(b.bribed)b.bribed--;
   // R&D
-  if(b.rd){b.rd.yrs--;if(b.rd.yrs<=0){const ok=Math.random()<.5+b.q/300+(has('genius')?.1:0);const n=b.rd.n;b.rd=null;
+  if(b.rd){b.rd.yrs--;if(b.rd.yrs<=0){const ok=rnd()<.5+b.q/300+(has('genius')?.1:0);const n=b.rd.n;b.rd=null;
     if(ok){b.prods.push(n);b.base=Math.round(b.base*(T.tech||T.hit?1.3:1.12));b.rep+=5;line(`🧪 ${b.name} launched ${n}. Customers love it!`,'good');mile(`Launched ${n} at ${b.name}`);
       if(canManage())Q.push({text:`Should I patent ${n} for $25,000? Without it, a copycat might knock it off.`,ch:[['Patent it',()=>{b.cash-=25000;b.patents++;return `I patented ${n}.`}],['Skip it',()=>{b.copy=2;return 'I skipped the patent.'}]]});else b.copy=2;}
     else line(`🧪 ${b.name}'s new product, ${n}, flopped in testing.`,'bad');}}
   // franchise quality risk
-  if(b.fr&&b.q<55&&Math.random()<.2){b.rep-=8;line(`A badly run ${b.name} franchise made the local news. Reputation took a hit.`,'bad');}
+  if(b.fr&&b.q<55&&rnd()<.2){b.rep-=8;line(`A badly run ${b.name} franchise made the local news. Reputation took a hit.`,'bad');}
   // manager theft
   const thief=b.team.find(p=>p.quirk==='Sticky fingers'&&p.role==='Manager');
-  if(thief&&Math.random()<.3){const st=Math.round(Math.max(5000,b.lastRev*R(3,8)/100));b.cash-=st;
-    if(Math.random()<.5)Q.push({text:`My manager at ${b.name}, ${thief.name}, has been skimming. ${fmt(st)} is missing.`,ch:[['Fire them',()=>{b.team=b.team.filter(p=>p!==thief);return `I fired ${fname(thief.name)}.`}],['Press charges',()=>{b.team=b.team.filter(p=>p!==thief);if(Math.random()<.5){b.cash+=Math.round(st/2);return 'They were convicted and paid back half.'}return 'The case fell apart. At least they\'re gone.'}],['Give them a second chance',()=>{thief.quirk='Reliable';return `${fname(thief.name)} swore it would never happen again.`}]]});}
+  if(thief&&rnd()<.3){const st=Math.round(Math.max(5000,b.lastRev*R(3,8)/100));b.cash-=st;
+    if(rnd()<.5)Q.push({text:`My manager at ${b.name}, ${thief.name}, has been skimming. ${fmt(st)} is missing.`,ch:[['Fire them',()=>{b.team=b.team.filter(p=>p!==thief);return `I fired ${fname(thief.name)}.`}],['Press charges',()=>{b.team=b.team.filter(p=>p!==thief);if(rnd()<.5){b.cash+=Math.round(st/2);return 'They were convicted and paid back half.'}return 'The case fell apart. At least they\'re gone.'}],['Give them a second chance',()=>{thief.quirk='Reliable';return `${fname(thief.name)} swore it would never happen again.`}]]});}
   // union
-  if(!b.union&&b.morale<40&&b.staff>=8&&Math.random()<.3&&canManage())Q.push({text:`Staff at ${b.name} want to form a union.`,ch:[
+  if(!b.union&&b.morale<40&&b.staff>=8&&rnd()<.3&&canManage())Q.push({text:`Staff at ${b.name} want to form a union.`,ch:[
     ['Recognize the union',()=>{b.union=true;b.morale+=20;return 'I recognized the union. Wages rise 10%, and morale jumped.'}],
-    ['Fight it ($30,000)',()=>{b.cash-=30000;if(Math.random()<.5){b.morale-=10;return 'The union vote failed. The mood is grim.'}b.union=true;b.morale-=15;b.rep-=8;return 'I lost. The union formed anyway, and the story made the papers.'}],
+    ['Fight it ($30,000)',()=>{b.cash-=30000;if(rnd()<.5){b.morale-=10;return 'The union vote failed. The mood is grim.'}b.union=true;b.morale-=15;b.rep-=8;return 'I lost. The union formed anyway, and the story made the papers.'}],
     ['Raise wages instead',()=>{b.pay='high';b.morale+=15;return 'I raised pay. The union push fizzled.'}]]});
-  if(b.union&&b.morale<35&&Math.random()<.25){b.strike=true;line(`✊ Staff at ${b.name} are going on strike next year unless morale improves.`,'bad');}
+  if(b.union&&b.morale<35&&rnd()<.25){b.strike=true;line(`✊ Staff at ${b.name} are going on strike next year unless morale improves.`,'bad');}
   // board
-  if(b.inv>=.3&&!b.ousted&&((b.lastPre<0&&b.prevPre<0)||b.rep<35||(b.overpaid||0)>=2)&&b.yrs>=2&&Math.random()<.45){b.ousted=true;b.life='absent';line(`🪑 The board of ${b.name} voted to remove me as CEO. I still own my shares.`,'bad');mile(`Ousted as CEO of ${b.name}`);}
+  if(b.inv>=.3&&!b.ousted&&((b.lastPre<0&&b.prevPre<0)||b.rep<35||(b.overpaid||0)>=2)&&b.yrs>=2&&rnd()<.45){b.ousted=true;b.life='absent';line(`🪑 The board of ${b.name} voted to remove me as CEO. I still own my shares.`,'bad');mile(`Ousted as CEO of ${b.name}`);}
   // awards
-  if(b.q>=75&&b.rep>=75&&Math.random()<.2*(L.award||1)){const a=`Best ${Tof(b).n} in ${S.city.split(',')[0]}`;b.awards.push(`${a} (${S.age})`);b.awardBoost=2;b.rep+=5;S.fame=Math.min(100,(S.fame||0)+5);line(`🏆 ${b.name} won "${a}"!`,'good');mile(`${b.name} won ${a}`);unlock('award');}
+  if(b.q>=75&&b.rep>=75&&rnd()<.2*(L.award||1)){const a=`Best ${Tof(b).n} in ${S.city.split(',')[0]}`;b.awards.push(`${a} (${S.age})`);b.awardBoost=2;b.rep+=5;S.fame=Math.min(100,(S.fame||0)+5);line(`🏆 ${b.name} won "${a}"!`,'good');mile(`${b.name} won ${a}`);unlock('award');}
   // public stock
   if(b.pub)b.pub.sent=Math.max(.3,Math.min(3,b.pub.sent*(1+S.mkt.MKT.chg/100*1.2+gauss()*.15)));
-  if(b.pub&&b.own<.4&&!b.ousted&&Math.random()<.1&&canManage())Q.push(takeoverEvent(b));
+  if(b.pub&&b.own<.4&&!b.ousted&&rnd()<.1&&canManage())Q.push(takeoverEvent(b));
   reviews(b,hit,soldOut);
   line(`${T.ic} ${b.name}: revenue ${fmt(b.lastRev)}, ${pre>=0?'profit':'loss'} ${fmt(Math.abs(pre))}.${ratio<1?` Understaffed: ${b.staff} of ${need}.`:''}`,pre>=0?'':'bad');
-  if(Math.random()<.3)bizEvent(b);
-  if(b.yrs>=4&&b.co&&Math.random()<.12&&canManage())Q.push(coOutEvent(b));
+  if(rnd()<.3)bizEvent(b);
+  if(b.yrs>=4&&b.co&&rnd()<.12&&canManage())Q.push(coOutEvent(b));
   b.rep=clamp(b.rep);b.morale=clamp(b.morale);
   // cash crunch
   if(b.cash<0){
@@ -1408,29 +1414,29 @@ function bizEvent(b){
   if(T.weather||b.type==='hotel')ev.push([1,()=>[cov(Math.round(T.cost*.2),`A flood swept through ${b.name}.`),'bad']]);
   if(T.food)ev.push([b.skipQC?4:2,()=>{if(b.bribed)return [`A health inspector visited ${b.name} and, thanks to my "donation", found nothing.`,''];const f=R(5000,20000);b.cash-=f;b.rep-=10;return [`${b.name} failed a health inspection and paid ${fmt(f)} in fines.`,'bad']}]);
   if((b.items||[]).some(it=>it.sup.q<45)&&b.skipQC)ev.push([3,()=>{const c=Math.round(b.lastRev*.1);b.cash-=c;b.rep-=20;return [`${b.name} had to recall a batch of faulty products. It cost ${fmt(c)} and a lot of trust.`,'bad']}]);
-  if(b.taxDodge)ev.push([3,()=>{Q.push({text:`Tax auditors are looking into ${b.name}'s books.`,ch:[['Pay back taxes and penalties',()=>{const p=Math.round(Math.max(20000,b.lastRev*.08));b.cash-=p;b.taxDodge=false;return `I paid ${fmt(p)} and stopped the tax games.`}],['Hide the evidence',()=>{if(Math.random()<.5){return 'The auditors went away. For now.'}S.flags.record=true;S.jail=R(1,3);b.taxDodge=false;S.biz.forEach(x=>{if(x.life==='hands')x.life='delegate'});mile('Went to prison for tax fraud');return `It didn't work. I was convicted of tax fraud and sentenced to ${S.jail} years.`}]]});return [`An auditor called ${b.name}.`,'bad']}]);
+  if(b.taxDodge)ev.push([3,()=>{Q.push({text:`Tax auditors are looking into ${b.name}'s books.`,ch:[['Pay back taxes and penalties',()=>{const p=Math.round(Math.max(20000,b.lastRev*.08));b.cash-=p;b.taxDodge=false;return `I paid ${fmt(p)} and stopped the tax games.`}],['Hide the evidence',()=>{if(rnd()<.5){return 'The auditors went away. For now.'}S.flags.record=true;S.jail=R(1,3);b.taxDodge=false;S.biz.forEach(x=>{if(x.life==='hands')x.life='delegate'});mile('Went to prison for tax fraud');return `It didn't work. I was convicted of tax fraud and sentenced to ${S.jail} years.`}]]});return [`An auditor called ${b.name}.`,'bad']}]);
   if(b.prem<b.locs)ev.push([1,()=>{Q.push({text:`The landlord at ${b.name} wants to raise rent by 20%.`,ch:[['Accept it',()=>{b.rentMult*=1.2;return 'I signed the new lease.'}],['Move to a cheaper spot',()=>{b.rep-=8;b.cash-=Math.round(T.cost*.15);return 'We moved. Some regulars lost track of us.'}],[`Buy the building (${fmt(T.fixed*3)})`,()=>{b.cash-=T.fixed*3;b.prem++;return 'I bought the building. No more landlord.'},()=>b.cash<T.fixed*3]]});return [`A letter arrived from ${b.name}'s landlord.`,'']}]);
-  if(b.online||T.tech||['clinic','lawfirm'].includes(b.type))ev.push([1,()=>{Q.push({text:`Hackers breached ${b.name}'s customer data.`,ch:[['Disclose it and fix it',()=>{b.cash-=Math.round(Math.max(20000,b.lastRev*.03));b.rep-=5;return 'I came clean and paid for a security overhaul.'}],['Cover it up',()=>{if(Math.random()<.3){b.rep-=30;b.cash-=100000;return 'A reporter found out. The cover-up was worse than the breach.'}return 'Nobody found out. I feel queasy about it.'}]]});return [`${b.name} had a security scare.`,'bad']}]);
+  if(b.online||T.tech||['clinic','lawfirm'].includes(b.type))ev.push([1,()=>{Q.push({text:`Hackers breached ${b.name}'s customer data.`,ch:[['Disclose it and fix it',()=>{b.cash-=Math.round(Math.max(20000,b.lastRev*.03));b.rep-=5;return 'I came clean and paid for a security overhaul.'}],['Cover it up',()=>{if(rnd()<.3){b.rep-=30;b.cash-=100000;return 'A reporter found out. The cover-up was worse than the breach.'}return 'Nobody found out. I feel queasy about it.'}]]});return [`${b.name} had a security scare.`,'bad']}]);
   ev.push([1,()=>{Q.push({text:`A reporter revealed that ${b.name}'s supplier uses sweatshop labor.`,ch:[['Switch suppliers now',()=>{b.cash-=Math.round(b.lastRev*.04);b.rep+=3;return 'I switched immediately. Customers noticed.'}],['Stay quiet',()=>{b.rep-=12;return 'I said nothing. It did not blow over.'}]]});return ['',''];}]);
-  ev.push([1,()=>{Q.push({text:`An angry customer's video about ${b.name} is going viral.`,ch:[['Apologize publicly',()=>{b.rep+=3;return 'A heartfelt apology turned it around.'}],['Fire back online',()=>{if(Math.random()<.4){b.rep+=8;return 'My comeback went more viral than the complaint. Legend.'}b.rep-=15;return 'It made things much worse.'},null,'hothead'],['Ignore it',()=>{b.rep-=8;return 'It died down eventually.'}]]});return ['','']}]);
+  ev.push([1,()=>{Q.push({text:`An angry customer's video about ${b.name} is going viral.`,ch:[['Apologize publicly',()=>{b.rep+=3;return 'A heartfelt apology turned it around.'}],['Fire back online',()=>{if(rnd()<.4){b.rep+=8;return 'My comeback went more viral than the complaint. Legend.'}b.rep-=15;return 'It made things much worse.'},null,'hothead'],['Ignore it',()=>{b.rep-=8;return 'It died down eventually.'}]]});return ['','']}]);
   const star=b.team.find(p=>p.quirk==='Star'||p.skill>=80);
-  if(star)ev.push([2,()=>{Q.push({text:`${star.name}, my best person at ${b.name}, wants a 5% ownership stake or they'll quit.`,ch:[['Give them 5%',()=>{b.own=Math.max(.05,b.own-.05);star.loyal=true;return `${fname(star.name)} is now a part owner.`}],['Offer a 30% raise',()=>{star.wage=Math.round(star.wage*1.3);if(Math.random()<.6)return 'They took the raise.';b.team=b.team.filter(p=>p!==star);return 'They quit anyway.'}],['Let them go',()=>{b.team=b.team.filter(p=>p!==star);b.morale-=5;return `${fname(star.name)} left.`}]]});return ['','']}]);
+  if(star)ev.push([2,()=>{Q.push({text:`${star.name}, my best person at ${b.name}, wants a 5% ownership stake or they'll quit.`,ch:[['Give them 5%',()=>{b.own=Math.max(.05,b.own-.05);star.loyal=true;return `${fname(star.name)} is now a part owner.`}],['Offer a 30% raise',()=>{star.wage=Math.round(star.wage*1.3);if(rnd()<.6)return 'They took the raise.';b.team=b.team.filter(p=>p!==star);return 'They quit anyway.'}],['Let them go',()=>{b.team=b.team.filter(p=>p!==star);b.morale-=5;return `${fname(star.name)} left.`}]]});return ['','']}]);
   const riv=S.rivals.find(r=>r.vs===b.id);
   if(riv){ev.push([2,()=>{Q.push({text:`${riv.name} started a price war with ${b.name}.`,ch:[['Match their prices',()=>{(b.items||[]).forEach(it=>it.price=Math.round(it.price*.85*100)/100);riv.str-=10;return 'I cut prices. Margins hurt, but so did theirs.'}],['Hold my prices',()=>{b.rep-=3;b.base=Math.round(b.base*.95);return 'I held firm and lost some price-hunters.'}],['Outspend them on marketing',()=>{b.cash-=40000;riv.str-=15;b.rep+=4;return 'I spent $40,000 drowning them out.'}]]});return ['','']}]);
     if(star)ev.push([1,()=>{Q.push({text:`${riv.name} is trying to poach ${star.name} from ${b.name}.`,ch:[['Counter with a raise',()=>{star.wage=Math.round(star.wage*1.25);return `${fname(star.name)} stayed.`}],['Let them go',()=>{b.team=b.team.filter(p=>p!==star);riv.str+=8;return `${fname(star.name)} jumped ship to the rival.`}]]});return ['','']}]);
     if(bizVal(b)>50000&&!b.ousted)ev.push([1,()=>{const off=Math.round(bizVal(b)*b.own*R(90,130)/100);Q.push({text:`${riv.name}${riv.who?`, run by ${riv.who},`:''} offered to buy my stake in ${b.name} for ${fmt(off)}.`,ch:[['Negotiate',()=>{setTimeout(()=>negotiate({title:`Selling ${b.name}`,offer:off,lev:.5+b.rep/200,onDeal:p=>{S.money+=p;companyEnd(b,`was sold to rival ${riv.name}`);S.biz=S.biz.filter(x=>x!==b);return `I sold ${b.name} to ${riv.name} for ${fmt(p)}.`}}),50);return 'I sat down to negotiate.'}],['Refuse',()=>{riv.str+=5;return 'I told them it is not for sale.'}]]});return ['','']}]);}
-  if(b.yrs>=3&&S.mem&&mem('bully')&&!S.flags.bullyBiz&&Math.random()<.3)ev.push([1,()=>{S.flags.bullyBiz=true;b.rep+=R(-5,5);return [`${mem('bully').name}, my old school bully, left a one-star review of ${b.name}. Petty.`,'']}]);
+  if(b.yrs>=3&&S.mem&&mem('bully')&&!S.flags.bullyBiz&&rnd()<.3)ev.push([1,()=>{S.flags.bullyBiz=true;b.rep+=R(-5,5);return [`${mem('bully').name}, my old school bully, left a one-star review of ${b.name}. Petty.`,'']}]);
   const [,fn]=wpick(ev,e=>e[0]);const [t,c]=fn();if(t)line(t,c);
 }
 function takeoverEvent(b){return {text:`A corporate raider is quietly buying up ${b.name} shares to take control.`,ch:[
   ['Buy back 10% of the company',()=>{const cost=Math.round(bizVal(b)*.1);S.money-=cost;b.own+=.1;b.inv=Math.max(0,b.inv-.1);unlock('takeover');return `I bought back 10% for ${fmt(cost)}.`},()=>S.money<bizVal(b)*.1],
-  ['Poison pill ($500,000 in legal fees)',()=>{S.money-=500000;if(Math.random()<.7){unlock('takeover');return 'The poison pill worked. The raider gave up.'}b.ousted=true;return 'The raider won anyway. I was pushed out as CEO.'},()=>S.money<500000],
+  ['Poison pill ($500,000 in legal fees)',()=>{S.money-=500000;if(rnd()<.7){unlock('takeover');return 'The poison pill worked. The raider gave up.'}b.ousted=true;return 'The raider won anyway. I was pushed out as CEO.'},()=>S.money<500000],
   ['Let it happen',()=>{b.ousted=true;return `I lost control of ${b.name}, but kept my shares.`}]]};}
 function coOutEvent(b){const val=Math.round(bizVal(b)*b.co.share);const p=S.rels.find(r=>r.id===b.co.pid);
   return {text:`My co-founder ${b.co.name} wants out of ${b.name}. Their ${Math.round(b.co.share*100)}% is worth about ${fmt(val)}.`,ch:[
     ['Buy them out',()=>{S.money-=val;b.own+=b.co.share;if(p)p.rel+=10;const n=b.co.name;b.co=null;return `I bought out ${fname(n)}. It's all mine now.`},()=>S.money<val],
     ['Let them sell to investors',()=>{b.inv+=b.co.share;const n=b.co.name;b.co=null;return `${fname(n)} sold to outside investors.`}],
-    ['Refuse',()=>{if(p)p.rel-=20;if(Math.random()<.3){S.money-=Math.round(val*.3);return `${fname(b.co.name)} sued me. I paid ${fmt(val*.3)} to settle.`}return `${fname(b.co.name)} is furious but stuck.`}]]};}
+    ['Refuse',()=>{if(p)p.rel-=20;if(rnd()<.3){S.money-=Math.round(val*.3);return `${fname(b.co.name)} sued me. I paid ${fmt(val*.3)} to settle.`}return `${fname(b.co.name)} is furious but stuck.`}]]};}
 
 function closeBiz(b,bust){
   S.biz=S.biz.filter(x=>x!==b);S.rivals=S.rivals.filter(r=>r.vs!==b.id);
@@ -1450,8 +1456,8 @@ function companyEnd(b,fate){
 function negotiate({title,offer,lev,onDeal,onWalk}){
   let cur=offer,round=0;const step=()=>{round++;
     const ch=[[`Accept ${fmt(cur)}`,()=>stay(onDeal(cur),'good')],
-      ['Counter for 20% more',()=>{if(Math.random()<.25+lev*.5){cur=Math.round(cur*1.2);toast('They accepted your counter.');step();}else if(Math.random()<.4){stay(onWalk?onWalk():'They walked away from the table.','bad');}else{toast('They held firm.');step();}}],
-      ['Bluff about another offer',()=>{if(Math.random()<.35+lev*.3+(has('charming')?.15:0)){cur=Math.round(cur*1.35);toast('The bluff worked!');step();}else if(Math.random()<.55){stay(onWalk?onWalk():'They called my bluff and walked away.','bad');}else{toast('They didn\'t buy it, but stayed.');step();}}],
+      ['Counter for 20% more',()=>{if(rnd()<.25+lev*.5){cur=Math.round(cur*1.2);toast('They accepted your counter.');step();}else if(rnd()<.4){stay(onWalk?onWalk():'They walked away from the table.','bad');}else{toast('They held firm.');step();}}],
+      ['Bluff about another offer',()=>{if(rnd()<.35+lev*.3+(has('charming')?.15:0)){cur=Math.round(cur*1.35);toast('The bluff worked!');step();}else if(rnd()<.55){stay(onWalk?onWalk():'They called my bluff and walked away.','bad');}else{toast('They didn\'t buy it, but stayed.');step();}}],
       ['Walk away',()=>stay(onWalk?onWalk():'I walked away from the deal.')]];
     choiceModal(title,`Round ${round} of 3. Their offer: ${fmt(cur)}.`,round>=3?[ch[0],ch[3]]:ch);};
   step();
@@ -1464,7 +1470,7 @@ const PITCHQ=[
 ];
 function pitch(title,onScore){
   if(sampleFn&&META.ai)return aiPitch(title,onScore);
-  const qs=[...PITCHQ].sort(()=>Math.random()-.5).slice(0,2);let tot=0,i=0;
+  const qs=[...PITCHQ].sort(()=>rnd()-.5).slice(0,2);let tot=0,i=0;
   const ask=()=>{const [q,as]=qs[i];choiceModal(`🎤 ${title}`,`Question ${i+1} of 2: "${q}"`,as.map(([l,f])=>[l,()=>{tot+=Math.min(100,f());i++;if(i<qs.length)ask();else onScore(Math.round(tot/qs.length));}]));};ask();
 }
 function aiPitch(title,onScore){
@@ -1493,14 +1499,14 @@ function tabBiz(s){S.biz.forEach(syncStaff);
   // founder
   s.append(h('h4',{},'Me as a founder'),h('p',{className:'label'},`Founder fame ${S.fame||0}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${S.fame||0}%;background:var(--looks)`})));
   const f=S.fame||0,ran=S.biz.some(b=>b.yrs>=3)||S.flags.founded>=2;
-  s.append(row('🎤 Paid speaking gig',f<15?'Needs 15% fame':'Talk about my journey at a conference','',()=>{S.used.speak=true;const p=Math.round(2000+f*1000*Math.random());S.money+=p;S.fame=Math.min(100,f+2);stay(`I gave a keynote and got paid ${fmt(p)}.`,'good')},f<15||S.used.speak,1),
+  s.append(row('🎤 Paid speaking gig',f<15?'Needs 15% fame':'Talk about my journey at a conference','',()=>{S.used.speak=true;const p=Math.round(2000+f*1000*rnd());S.money+=p;S.fame=Math.min(100,f+2);stay(`I gave a keynote and got paid ${fmt(p)}.`,'good')},f<15||S.used.speak,1),
     row('📖 Write a business book',S.flags.book?'Already written':f<30?'Needs 30% fame':'A big advance, and more fame','',()=>{S.flags.book=true;const p=Math.round(f*5000*R(8,14)/10);S.money+=p;S.fame=Math.min(100,f+8);mile('Published a business book');stay(`My book "${pick(['Grind & Glory','Zero to Open','The Hustle Handbook','Built Different'])}" earned a ${fmt(p)} advance.`,'good')},f<30||S.flags.book,2),
     row('📺 Pitch on "Founder Pit" TV',S.flags.tv?'Already appeared':!S.biz.length?'Needs a business':'Pitch a panel of investors on live TV','',()=>{S.flags.tv=true;const b=S.biz[0];pitch('Founder Pit',sc=>{if(sc>=55){const inv=Math.round(Math.max(100000,bizVal(b)*.15));b.cash+=inv;b.inv+=.1;b.own=Math.max(.05,b.own-.1);b.tvBoost=2;S.fame=Math.min(100,(S.fame||0)+10);mile(`Won investment on Founder Pit for ${b.name}`);stay(`The panel loved it (score ${sc})! ${b.name} got ${fmt(inv)} for 10% and a TV sales bump.`,'good')}else{b.tvBoost=1;S.fame=Math.min(100,(S.fame||0)+4);stay(`The panel passed (score ${sc}), but the airtime still helped sales.`)}})},S.flags.tv||!S.biz.length,1),
     row('🎬 Guest judge on "Founder Pit"',f<60?'Needs 60% fame':'$150,000 and more fame','',()=>{S.used.judge=true;S.money+=150000;S.fame=Math.min(100,f+3);stay('I guest-judged on Founder Pit. Very dramatic. $150,000.','good')},f<60||S.used.judge,1),
     row('🧑‍🏫 Mentor a young founder',!ran?'Needs a business run for 3+ years':'Coach them for a small equity stake','',()=>{S.used.mentor=true;const n=first(pick(['M','F']))+' '+pick(LAST);S.mentees.push({n,yrs:0});stay(`I started mentoring ${n}. They gave me a small stake.`)},!ran||S.used.mentor,1),
-    row('🏛️ Lobby local politicians','$50,000 donation to push rules my way. Risky.','',()=>{S.used.lobby=true;S.money-=50000;const x=Math.random();
-      if(x<.12){S.fame=Math.max(0,f-15);S.biz.forEach(b=>b.rep-=15);let m='A reporter exposed my lobbying. Reputation hit across all my businesses.';if(Math.random()<.3){S.money-=100000;m+=' I was fined $100,000.';}stay(m,'bad')}
-      else if(x<.6){if(S.regs.wage>1&&Math.random()<.5){S.regs.wage=+(S.regs.wage/1.08).toFixed(3);stay('My lobbying worked: the last minimum wage hike was rolled back.','good')}else{S.regs.tax=Math.max(.12,S.regs.tax-.03);stay('My lobbying worked: business taxes were cut.','good')}}
+    row('🏛️ Lobby local politicians','$50,000 donation to push rules my way. Risky.','',()=>{S.used.lobby=true;S.money-=50000;const x=rnd();
+      if(x<.12){S.fame=Math.max(0,f-15);S.biz.forEach(b=>b.rep-=15);let m='A reporter exposed my lobbying. Reputation hit across all my businesses.';if(rnd()<.3){S.money-=100000;m+=' I was fined $100,000.';}stay(m,'bad')}
+      else if(x<.6){if(S.regs.wage>1&&rnd()<.5){S.regs.wage=+(S.regs.wage/1.08).toFixed(3);stay('My lobbying worked: the last minimum wage hike was rolled back.','good')}else{S.regs.tax=Math.max(.12,S.regs.tax-.03);stay('My lobbying worked: business taxes were cut.','good')}}
       else stay('The politicians took my money and did nothing.','bad')},S.used.lobby||S.money<50000,1));
   // holding
   if(S.biz.length>=2&&!S.holding)s.append(row('🏢 Form a holding company','$25,000. Move cash between businesses and cut business taxes by 10%','',()=>{S.money-=25000;S.holding=`${lastName()} Holdings`;mile(`Formed ${S.holding}`);stay(`I formed ${S.holding}.`,'good')},S.money<25000));
@@ -1588,8 +1594,8 @@ function drawBiz(s,b){
       else s.append(row('🏪 Start franchising','Others open your brand and pay royalties. Needs 3+ locations, 65% reputation',fmt(100000),()=>{payFrom(b,100000);b.fr={n:0};mile(`Started franchising ${b.name}`);stay(`${b.name} is now a franchise brand.`,'good')},b.locs<3||b.rep<65||Math.max(0,b.cash)+S.money<100000));}
     s.append(h('h4',{},'Contracts'));
     b.contracts.forEach(c=>s.append(h('p',{className:'sub'},`📄 ${c.gov?'Government':'Corporate'} contract: ${fmt(c.rev)}/yr, ${c.yrs} yr left.`)));
-    s.append(row('💼 Bid on a corporate contract','Needs 50% reputation. 2 years of steady sales','',()=>{S.used['cc'+b.id]=true;if(Math.random()<.45+(b.rep-50)/200){const r=Math.round(b.base*b.locs*.12);b.contracts.push({rev:r,yrs:2});stay(`${b.name} won a corporate contract worth ${fmt(r)} a year!`,'good')}else stay('We lost the bid.','bad')},b.rep<50||S.used['cc'+b.id],1));
-    if(T.gov)s.append(row('🏛️ Bid on a government contract','Needs 55% reputation. 4 years of big, steady sales, with paperwork','',()=>{S.used['gc'+b.id]=true;if(Math.random()<.3+(b.rep-55)/200+(S.used.lobby?.1:0)){const r=Math.round(b.base*b.locs*.25);b.contracts.push({rev:r,yrs:4,gov:true});stay(`${b.name} won a government contract worth ${fmt(r)} a year!`,'good')}else stay('The contract went to someone with better connections.','bad')},b.rep<55||S.used['gc'+b.id],1));
+    s.append(row('💼 Bid on a corporate contract','Needs 50% reputation. 2 years of steady sales','',()=>{S.used['cc'+b.id]=true;if(rnd()<.45+(b.rep-50)/200){const r=Math.round(b.base*b.locs*.12);b.contracts.push({rev:r,yrs:2});stay(`${b.name} won a corporate contract worth ${fmt(r)} a year!`,'good')}else stay('We lost the bid.','bad')},b.rep<50||S.used['cc'+b.id],1));
+    if(T.gov)s.append(row('🏛️ Bid on a government contract','Needs 55% reputation. 4 years of big, steady sales, with paperwork','',()=>{S.used['gc'+b.id]=true;if(rnd()<.3+(b.rep-55)/200+(S.used.lobby?.1:0)){const r=Math.round(b.base*b.locs*.25);b.contracts.push({rev:r,yrs:4,gov:true});stay(`${b.name} won a government contract worth ${fmt(r)} a year!`,'good')}else stay('The contract went to someone with better connections.','bad')},b.rep<55||S.used['gc'+b.id],1));
     s.append(h('h4',{},'Operations'));
     if(!T.tech&&b.auto<2){const ac=Math.round(Math.min(T.cost*.25,300000)*b.locs);s.append(row(`🤖 Automate (level ${b.auto+1})`,'Needs 20% fewer staff. Morale drops, some customers dislike it',fmt(ac),()=>{payFrom(b,ac);b.auto++;b.morale-=12;b.rep-=2;stay(`${b.name} brought in automation.`)},Math.max(0,b.cash)+S.money<ac));}
     if(b.prem<b.locs){const pc=T.fixed*3;s.append(row('🏢 Buy a building',`Stop paying rent on one location. ${b.prem} of ${b.locs} owned`,fmt(pc),()=>{payFrom(b,pc);b.prem++;stay(`${b.name} bought its building.`,'good')},Math.max(0,b.cash)+S.money<pc));}
@@ -1600,7 +1606,7 @@ function drawBiz(s,b){
     s.append(h('p',{className:'sub'},'Shortcuts that save money now. Each one raises the odds of fines, lawsuits, or worse.'));
     s.append(tog('Skip safety inspections','Save money. Lower quality, more accidents, lawsuits and failed inspections',b.skipQC,()=>{b.skipQC=!b.skipQC;stay()}));
     s.append(tog('Creative accounting','Pay 8% tax instead of the real rate. Audits can mean prison',b.taxDodge,()=>{b.taxDodge=!b.taxDodge;stay()}));
-    s.append(row('Bribe an inspector','$10,000. Skip the next 2 years of inspection trouble. 15% chance of getting caught','',()=>{S.used['bribe'+b.id]=true;S.money-=10000;if(Math.random()<.15){S.flags.record=true;S.money-=50000;b.rep-=20;let m='The inspector was wearing a wire. I was fined $50,000.';if(Math.random()<.3){S.jail=R(1,2);S.biz.forEach(x=>{if(x.life==='hands')x.life='delegate'});m+=` I was sentenced to ${S.jail} years.`;mile('Went to prison for bribery');}act(m,'bad')}else{b.bribed=2;stay('The inspector pocketed the envelope and smiled.')}},S.used['bribe'+b.id]||S.money<10000));
+    s.append(row('Bribe an inspector','$10,000. Skip the next 2 years of inspection trouble. 15% chance of getting caught','',()=>{S.used['bribe'+b.id]=true;S.money-=10000;if(rnd()<.15){S.flags.record=true;S.money-=50000;b.rep-=20;let m='The inspector was wearing a wire. I was fined $50,000.';if(rnd()<.3){S.jail=R(1,2);S.biz.forEach(x=>{if(x.life==='hands')x.life='delegate'});m+=` I was sentenced to ${S.jail} years.`;mile('Went to prison for bribery');}act(m,'bad')}else{b.bribed=2;stay('The inspector pocketed the envelope and smiled.')}},S.used['bribe'+b.id]||S.money<10000));
     s.append(h('p',{className:'sub'},'Paying staff below market is on the People tab. It saves money but lowers morale and invites unions.'));
   }
 }
@@ -2016,7 +2022,7 @@ S=load();
 function migrate(){if(S.v===3){S.v=4;Object.assign(S,{fame:S.fame||0,rivals:S.rivals||[],forSale:[],mentees:[],trend:null,regs:{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:1,holding:null,exes:[],chal:null});
   S.biz=S.biz.map(b=>{const n=newBiz(b.type,b.name);const keep={};['id','own','cash','loan','rep','staff','locs','price','base','lastRev','lastPre','yrs','public'].forEach(k=>{if(b[k]!=null)keep[k]=b[k];});
     Object.assign(n,keep,{life:b.me?'hands':'delegate',inv:1-(b.own||1)});if(b.public)n.pub={sent:1};return n;});}}
-if(S&&(S.v===3||S.v===4)){migrate();render();if(!S.alive)showDeath()}else newLife();
+if(S&&(S.v===3||S.v===4)){migrate();if(S.rng!=null)RS=S.rng;render();if(!S.alive)showDeath()}else newLife();
 </script>
 </body>
 </html>

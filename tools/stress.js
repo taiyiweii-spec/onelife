@@ -25,6 +25,7 @@ const out = {lives: [], errors: [], nan: [], timing: [], saveSizes: [], metaSize
 const errKey = new Set();
 function err(where, e) { const k = where + ': ' + (e && e.message); if (errKey.has(k)) return; errKey.add(k); out.errors.push({where, age: S && S.age, msg: e && e.message, stack: (e && e.stack || '').split('\\n').slice(0, 4).join(' | ')}); }
 function safe(where, f) { try { return f(); } catch (e) { err(where, e); } }
+function fnv(str) { let x = 2166136261; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x.toString(16); }
 const enabled = ch => ch.filter(c => !(c[2] && c[2]()));
 function drainQ() {
   let guard = 0;
@@ -126,6 +127,7 @@ while (lives < window.__lives) {
     safe('save', save);
     const re = load(); if (!re || re.age !== S.age) err('save roundtrip', new Error('save did not round-trip at age ' + S.age));
   }
+  out.fp = fnv((out.fp || '') + JSON.stringify(S));
   out.queueLeft += Q.length;
   closeModal();
   life.death = S.age; life.cause = S.cause; life.nw = safe('nw', netWorth); life.biz = S.biz.map(b => b.type + ':' + Math.round(b.cash)); life.kids = kids().filter(k => k.alive).length;
@@ -145,7 +147,7 @@ return out;
 const t = report.timing.sort((a, b) => a - b);
 const q = p => t[Math.floor(t.length * p)].toFixed(2);
 console.log(JSON.stringify({
-  lives: report.lives.length, years: report.years, totalMs: report.totalMs, maxGen: report.gens, bizLaunched: report.bizCount, maxBizAtOnce: report.maxBiz,
+  fingerprint: report.fp, lives: report.lives.length, years: report.years, totalMs: report.totalMs, maxGen: report.gens, bizLaunched: report.bizCount, maxBizAtOnce: report.maxBiz,
   ageUpMs: {p50: q(.5), p95: q(.95), max: t[t.length - 1].toFixed(2)},
   saveBytes: {max: Math.max(...report.saveSizes), avg: Math.round(report.saveSizes.reduce((a, b) => a + b, 0) / report.saveSizes.length)},
   metaBytes: report.metaSize, stuckEvents: report.stuck, queueLeftAtDeath: report.queueLeft,
