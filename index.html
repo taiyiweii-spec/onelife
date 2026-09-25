@@ -357,6 +357,23 @@ const SHOP=[
  {n:'Used hatchback',p:5500,k:'car'},{n:'Family sedan',p:26000,k:'car'},{n:'Electric SUV',p:58000,k:'car'},{n:'Sports coupe',p:115000,k:'car'},
  {n:'Studio apartment',p:165000,k:'home'},{n:'Townhouse',p:340000,k:'home'},{n:'Lakeside house',p:780000,k:'home'},{n:'Hilltop mansion',p:3400000,k:'home'}];
 
+/* ---- property and car market ---- */
+const HOMES=[['Studio apartment',1,35,165000],['Two-bed apartment',2,75,260000],['Townhouse',3,120,340000],['Family house',4,180,520000],['Lakeside house',4,220,780000],['Villa',5,350,1500000],['Hilltop mansion',7,700,3400000]];
+const CARS=[['Used hatchback',5500,1800],['Family sedan',26000,3200],['Pickup truck',38000,4200],['Electric SUV',58000,2600],['Luxury sedan',85000,6500],['Sports coupe',115000,8000],['Supercar',280000,16000]];
+const AREA={city:{n:'City centre',ic:'🏙️',p:1.3,g:1,y:-.6},suburb:{n:'Suburb',ic:'🏡',p:1,g:0,y:0},out:{n:'Outskirts',ic:'🌾',p:.72,g:-1,y:.8}};
+const COND={new:{n:'New build',p:1.1,up:.006},good:{n:'Good condition',p:1,up:.01},fixer:{n:'Fixer-upper',p:.75,up:.025}};
+const hArea=a=>AREA[a.area]||AREA.suburb,hCond=a=>COND[a.cond]||COND.good,hYld=a=>(a.yld||5.5)/100;
+const carRun=a=>Math.round((a.run||Math.max(1500,a.v*.06))*(1+(a.age||0)*.05)*(.6+.4*resC().pp));
+function marketList(){
+  if(S.mkList&&S.mkList.age===S.age&&S.mkList.cty===resKey())return S.mkList;
+  const rent=resC().rent,idx=S.homeIdx,pp=.6+.4*resC().pp;
+  const homesL=Array.from({length:R(6,8)},()=>{const [n,beds,sqm0]=pick(HOMES);const t=HOMES.find(x=>x[0]===n);
+    const area=pick(['city','suburb','suburb','out']),cond=pick(['new','good','good','fixer']),sqm=Math.round(sqm0*R(85,115)/100),fair=t[3]*(sqm/sqm0)*AREA[area].p*COND[cond].p*idx*rent,deal=R(84,116)/100;
+    return {id:uid(),n,beds,sqm,area,cond,fair:Math.round(fair),price:Math.round(fair*deal/1000)*1000,yld:Math.round((5.5+AREA[area].y+R(-15,15)/10)*10)/10};}).sort((a,b)=>a.price-b.price);
+  const carsL=CARS.map(([n,p,run])=>{const used=p<200000&&rnd()<.5,age=used?R(2,9):0;return {id:uid(),n,age,run,price:Math.round(p*pp*Math.pow(.87,age)*R(95,105)/100/100)*100};});
+  S.mkList={age:S.age,cty:resKey(),homes:homesL,cars:carsL};return S.mkList;}
+function dealTag(l){const r=l.price/l.fair;if(S.st.smarts<55)return null;return r<.93?['🏷️ Bargain','good']:r>1.07?['⚠️ Overpriced','bad']:['Fair price',''];}
+
 const ACH={
  millionaire:['💰','Millionaire','Reach a $1M net worth'],
  deca:['🏦','Deca-millionaire','Reach a $10M net worth'],
@@ -734,7 +751,7 @@ const EV=[
 {id:'hip',min:50,max:110,cls:'bad',auto:()=>{S.st.health-=R(5,15);return 'I slipped on ice and hurt my hip.'}},
 {id:'phoneapp',min:65,max:100,text:'My grandkid is trying to teach me a new phone app.',ch:[['Learn it',()=>{S.st.smarts+=2;S.st.happy+=3;return 'I now send everyone way too many stickers.'}],['Absolutely not',()=>'I told them phones were for calling people.']]},
 {id:'midlife',min:40,max:50,text:'Midlife crisis! I suddenly feel like I need to...',ch:[
-  ['Buy a sports car ($115,000)',()=>{S.money-=115000;S.assets.push({n:'Sports coupe',v:115000,k:'car'});S.st.happy+=joy(15);return 'I bought a red sports coupe. I feel 25 again.'},()=>S.money<115000],
+  ['Buy a sports car ($115,000)',()=>{S.money-=115000;S.assets.push({n:'Sports coupe',v:115000,k:'car',run:8000,age:0});S.st.happy+=joy(15);return 'I bought a red sports coupe. I feel 25 again.'},()=>S.money<115000],
   ['Take up surfing',()=>{S.st.health+=6;S.st.happy+=6;return 'I wiped out a lot. Then I caught one wave. Worth it.'}],
   ['Get a dramatic haircut',()=>{S.st.looks+=R(-8,10);S.st.happy+=4;return 'Bold choice. People have opinions.'}],
   ['Quit everything and travel ($10,000)',()=>{S.money-=10000;S.st.happy+=15;if(S.job){const t=title(S.job);S.job=null;return `I quit my job as a ${t} and backpacked across three continents.`}return 'I backpacked across three continents.'},null,'reckless']]},
@@ -903,20 +920,21 @@ function econYear(){
   S.tip=null;
   S.ret.bal=Math.round(S.ret.bal*(1+S.mkt.MKT.chg/100));
   const hr=PHASE[localPhase()].home+gauss()*3;S.homeIdx*=1+hr/100;
-  S.assets.forEach(a=>{if(a.k==='car')a.v=Math.round(a.v*.88);else a.v=Math.round(a.v*(1+(hr+gauss()*2)/100));});
+  S.assets.forEach(a=>{if(a.k==='car'){a.v=Math.round(a.v*.88);a.age=(a.age||0)+1;}else a.v=Math.round(a.v*(1+(hr+hArea(a).g+gauss()*2)/100));});
 }
 
 /* ================= property, debt, costs ================= */
 function propertyYear(){
   let rentIn=0;
   homes().forEach(a=>{
-    S.money-=Math.round(a.v*.01);
+    S.money-=Math.round(a.v*hCond(a).up);
     if(a.mort&&a.mort.bal>0){const int=a.mort.bal*a.mort.rate;const pay=Math.min(a.mort.pay,a.mort.bal+int);a.mort.bal=Math.max(0,Math.round(a.mort.bal+int-pay));S.money-=Math.round(pay);
       if(a.mort.bal===0){a.mort=null;line(`I paid off the mortgage on my ${a.n.toLowerCase()}!`,'good');unlock('debtfree');}}
     if(a.rent){const y=rnd();
       if(y<.12)line(`My tenant at the ${a.n.toLowerCase()} stopped paying rent this year.`,'bad');
-      else{let r=Math.round(a.v*.055);if(y<.22){const fix=Math.round(a.v*.02);r-=fix;line(`Repairs at my rental cost ${fmt(fix)}.`,'bad');}rentIn+=r;}}
+      else{let r=Math.round(a.v*hYld(a));if(y<.22){const fix=Math.round(a.v*.02);r-=fix;line(`Repairs at my rental cost ${fmt(fix)}.`,'bad');}rentIn+=r;}}
   });
+  S.assets.filter(a=>a.k==='car').forEach(a=>{S.money-=carRun(a);if(rnd()<(a.age||0)*.025){const fix=Math.round(Math.max(800,a.v*.15+R(500,2500)));S.money-=fix;line(`My ${a.n.toLowerCase()} broke down. Repairs cost ${fmt(fix)}.`,'bad');}});
   if(rentIn){S.money+=Math.round(rentIn*.8);line(`My rental properties earned ${fmt(rentIn*.8)} after tax.`,'good');}
   const atHome=S.age<22&&living(['Mother','Father']).length&&!homes().length;
   if(S.age>=18&&!S.jail&&!atHome)S.money-=livingCost();
@@ -1355,13 +1373,13 @@ function jobSheet(){openSheet(s=>{
 
 /* ================= Money sheet ================= */
 let mTab='overview',bizView=null,showWorld=false;
-function moneySheet(){bizView=null;launch=null;buyDeal=null;openSheet(drawMoney);}
+function moneySheet(){bizView=null;launch=null;buyDeal=null;propView=null;openSheet(drawMoney);}
 function drawMoney(s){
   if(bizView){const b=S.biz.find(x=>x.id===bizView);if(b)return drawBiz(s,b);bizView=null;}
   const ph=PHASE[localPhase()],wp=PHASE[S.econ.phase];
   s.append(h('h3',{},'Money'),h('p',{className:'sub'},`${resC().ic} ${resC().n}: `,h('span',{className:'econ'},`${ph.ic} ${ph.l}`),' · ',h('button',{className:'back',style:'display:inline;margin:0','aria-expanded':String(showWorld),on:()=>{showWorld=!showWorld;drawSheet();}},`🌍 World markets ${showWorld?'▴':'▾'}`),' ',h('span',{className:'econ'},`${wp.ic} ${wp.l}`)));
   if(mTab==='overview'&&showWorld)s.append(h('p',{className:'label'},'Economies around the world'),h('div',{className:'chips',style:'margin:0 0 12px'},Object.entries(COUNTRIES).map(([k,c])=>h('span',{className:'chip',title:PHASE[phaseOf(k)].l},`${c.ic} ${c.n} ${PHASE[phaseOf(k)].ic}`))));
-  s.append(h('div',{className:'tabs'},[['overview','Overview'],['invest','Investing'],['biz','Business'],['prop','Property'],['ret','Retirement']].map(([v,l])=>h('button',{'aria-pressed':String(mTab===v),on:()=>{mTab=v;flash=null;drawSheet(true)}},l))));
+  s.append(h('div',{className:'tabs'},[['overview','Overview'],['invest','Investing'],['biz','Business'],['prop','Property'],['ret','Retirement']].map(([v,l])=>h('button',{'aria-pressed':String(mTab===v),on:()=>{mTab=v;propView=null;flash=null;drawSheet(true)}},l))));
   if(S.age<18&&mTab!=='overview'&&!(mTab==='biz'&&S.biz.length)&&!(mTab==='prop'&&S.assets.length)){s.append(h('p',{className:'sub'},'I need to be 18 to invest, start a business, or buy property.'));return;}
   if(S.age<18&&mTab!=='overview')s.append(h('p',{className:'sub'},'Held in trust until I turn 18. A trustee runs things for now.'));
   ({overview:tabOverview,invest:tabInvest,biz:tabBiz,prop:tabProp,ret:tabRet})[mTab](s);
@@ -1381,7 +1399,7 @@ function cashFlow(){const inc=[],exp=[];
   if(!S.jail&&S.age>=18)S.biz.filter(b=>b.salary>0&&!b.ousted).forEach(b=>salary(`🏢 Salary from ${b.name}`,b.salary));
   const div=S.biz.reduce((t,b)=>t+(divPol(b)&&b.lastPre>0?b.lastPre*divPol(b)/100*b.own:0),0);
   if(div){inc.push(['💸 Dividends (based on last year)',div]);tax+=div*divTax();}
-  const rent=homes().filter(a=>a.rent).reduce((t,a)=>t+a.v*.055,0);if(rent){inc.push(['🏘️ Rental income',rent]);tax+=rent*.2;}
+  const rent=homes().filter(a=>a.rent).reduce((t,a)=>t+a.v*hYld(a),0);if(rent){inc.push(['🏘️ Rental income',rent]);tax+=rent*.2;}
   if(S.gig&&!S.jail)inc.push([`🛵 Side gig: ${S.gig.n.toLowerCase()}`,S.gig.pay]);
   if(S.retired&&S.pension)inc.push(['🏖️ Pension',S.pension]);
   if(S.flags.talentPay&&!S.jail&&S.age<70)inc.push(['⭐ Talent income',S.flags.talentPay]);
@@ -1389,7 +1407,8 @@ function cashFlow(){const inc=[],exp=[];
     (own?[['🍽️ Food and groceries',.35],['🚗 Transport',.2],['💡 Utilities and phone',.2],['🛍️ Personal and other',.25]]:[['🏠 Rent',.55],['🍽️ Food and groceries',.18],['🚗 Transport',.1],['💡 Utilities and phone',.08],['🛍️ Personal and other',.09]]).forEach(([n,f])=>exp.push([n,lc*f]));}
   const hs=homes(),mo=hs.filter(a=>a.mort&&a.mort.bal>0);
   if(mo.length)exp.push([`🏦 Mortgage${mo.length>1?` (${mo.length} homes)`:''}`,mo.reduce((t,a)=>t+Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)),0)]);
-  if(hs.length)exp.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,hs.reduce((t,a)=>t+a.v*.01,0)]);
+  if(hs.length)exp.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,hs.reduce((t,a)=>t+a.v*hCond(a).up,0)]);
+  const cars=S.assets.filter(a=>a.k==='car');if(cars.length)exp.push([`⛽ Car running costs${cars.length>1?` (${cars.length} cars)`:''}`,cars.reduce((t,a)=>t+carRun(a),0)]);
   if(S.sloan>0&&S.job)exp.push(['🎓 Student loan',Math.min(S.sloan*1.04,S.job.s*.1)]);
   if(tax)exp.push(['🧾 Taxes',tax]);if(ret)exp.push(['🏖️ Retirement savings',ret]);
   if(S.money<0)exp.push(['💳 Credit card interest (7%)',-S.money*.07]);
@@ -1476,31 +1495,49 @@ function activist(t){const q=S.mkt[t.s],st=stakeOf(t),f=S.fame||0,fee=Math.max(5
     [`Push the company to sell itself (${Math.round(P(.15,1.5,300)*100)}%)`,go(P(.15,1.5,300),()=>{const x=R(20,35);q.p*=1+x/100;mile(`Forced a sale process at ${t.n}`);stay(`${t.n} put itself up for sale. Bidders pushed the price up ${x}%.`,'good')},()=>{q.p*=.97;stay(`${t.n} refused to explore a sale.`,'bad')})],
     [`Demand a new CEO (${Math.round(P(.25,2,250)*100)}%)`,go(P(.25,2,250),()=>{const x=Math.round(3+gauss()*15);q.p*=Math.max(.5,1+x/100);stay(`${t.n} replaced its CEO. The market reacted ${x>=0?'well':'badly'}: ${x>=0?'+':''}${x}%.`,x>=0?'good':'bad')},()=>{stay(`${t.n}'s CEO survived my campaign.`,'bad')})],
     ['Cancel',()=>{}]]);}
+let propView=null,mkKind='home';
+const homeDesc=a=>`${hArea(a).ic} ${hArea(a).n}${a.beds?`, ${a.beds} bed${a.beds>1?'s':''}, ${a.sqm} m²`:''}. ${hCond(a).n}.`;
 function tabProp(s){
-  const hs=homes(),ro=!canManage();
-  if(S.assets.length){s.append(h('h4',{},'I own'));S.assets.forEach(a=>s.append(row(a.n,a.k==='home'?`${a.rent?'Rented out':'I live here'}${a.mort?`. Mortgage ${fmt(a.mort.bal)}`:''}`:'Vehicle',fmt(a.v),()=>assetModal(a),ro)));}
+  const hs=homes(),cars=S.assets.filter(a=>a.k==='car'),ro=!canManage();
+  const back=()=>h('button',{className:'back',on:()=>{propView=null;flash=null;drawSheet(true)}},'‹ Property');
+  if(propView==='mine'){s.append(back(),h('h4',{},'My properties'));
+    if(!S.assets.length)s.append(h('p',{className:'sub'},'I don\'t own anything yet.'));
+    if(hs.length)s.append(h('p',{className:'label'},'Homes'));
+    hs.forEach(a=>s.append(row(a.n,`${homeDesc(a)} ${a.rent?`Rented out at ${(hYld(a)*100).toFixed(1)}% a year`:'I live here'}${a.mort?`. Mortgage ${fmt(a.mort.bal)}`:''}`,fmt(a.v),()=>assetModal(a),ro)));
+    if(cars.length)s.append(h('p',{className:'label'},'Cars'));
+    cars.forEach(a=>s.append(row(a.n,`${a.age?`${a.age} yr${a.age>1?'s':''} old`:'New'}. Running costs ${fmt(carRun(a))}/yr`,fmt(a.v),()=>assetModal(a),ro)));
+    return;}
+  if(propView==='market'){const L=marketList();s.append(back(),h('h4',{},'Market'),
+    h('div',{className:'tabs'},[['home','🏠 Property'],['car','🚗 Cars']].map(([v,l])=>h('button',{'aria-pressed':String(mkKind===v),on:()=>{mkKind=v;drawSheet();}},l))));
+    if(mkKind==='home'){s.append(h('p',{className:'sub'},`New listings every year. Closing costs 2% to buy, 6% in fees to sell.${S.st.smarts<55?' With smarts 55+ I could tell bargains from overpriced homes.':''}`));
+      L.homes.forEach(l=>{const tg=dealTag(l);s.append(row(l.n,`${homeDesc(l)} Rent yield ${l.yld}%.${tg?' '+tg[0]+'.':''}`,fmt(l.price),()=>buyHome(l),S.money<l.price*.22));});}
+    else{s.append(h('p',{className:'sub'},'Cars cost money every year for fuel, insurance and servicing. Older cars break down more.'));
+      L.cars.forEach(l=>s.append(row(l.n,`${l.age?`Used, ${l.age} yrs old`:'New'}. Running costs about ${fmt(carRun({v:l.price,run:l.run,age:l.age}))}/yr${l.price>=80000?'. Turns heads':''}`,fmt(l.price),()=>buyCar(l),S.money<l.price)));}
+    return;}
+  const val=S.assets.reduce((t,a)=>t+a.v,0),debt=hs.reduce((t,a)=>t+(a.mort?a.mort.bal:0),0);
+  s.append(row(`🏠 My properties (${S.assets.length})`,S.assets.length?`${hs.length} home${hs.length===1?'':'s'}, ${cars.length} car${cars.length===1?'':'s'}${debt?`. Mortgages ${fmt(debt)}`:''}`:'Nothing yet',fmt(val),()=>{propView='mine';drawSheet(true);}));
   if(S.age>=18)s.append(h('p',{className:'sub'},`Living costs: ${fmt(livingCost())}/yr${hs.some(a=>!a.rent)?' (I own my home)':' in rent until I own a home'}.`));
-  if(ro)return;
-  s.append(h('h4',{},'Buy'),h('p',{className:'sub'},'Homes add 2% in closing costs to buy and 6% in agent fees to sell.'));
-  SHOP.forEach(it=>{const p=shopPrice(it);
-    s.append(row(it.n,it.k==='car'?'Vehicle':'Property. Rent it out for about 5.5% a year',fmt(p),()=>buyModal(it,p),S.money<(it.k==='home'?p*.22:p)));});
+  if(!ro)s.append(row('🛒 Market','Homes and cars for sale this year','',()=>{propView='market';drawSheet(true);}));
 }
-function buyModal(it,p){
-  if(it.k==='car'){S.money-=p;S.assets.push({n:it.n,v:p,k:'car'});S.st.happy+=joy(6);return stay(`I bought a ${it.n.toLowerCase()} for ${fmt(p)}.`,'good');}
-  const r=loanRate(),loan=Math.round(p*.8),pay=Math.round(annuity(loan,r,30)),close=Math.round(p*.02);
+function buyCar(l){const p=l.price;choiceModal(l.n,`${fmt(p)}. ${l.age?`Used, ${l.age} years old.`:'Brand new.'} Running costs about ${fmt(carRun({v:p,run:l.run,age:l.age}))} a year.`,[
+  ['Buy it',()=>{S.money-=p;S.assets.push({n:l.n,v:p,k:'car',age:l.age,run:l.run});S.st.happy+=joy(p>=80000?10:6);if(p>=80000)S.st.looks+=2;S.mkList.cars=S.mkList.cars.filter(x=>x!==l);stay(`I bought a ${l.age?'used ':''}${l.n.toLowerCase()} for ${fmt(p)}.`,'good')},()=>S.money<p],['Cancel',()=>{}]]);}
+function buyHome(l){const p=l.price,r=loanRate(),loan=Math.round(p*.8),pay=Math.round(annuity(loan,r,30)),close=Math.round(p*.02);
   const canMort=S.job&&pay<=S.job.s*.4&&!badCredit();
-  choiceModal(it.n,`Price ${fmt(p)} plus ${fmt(close)} closing costs. A 30-year mortgage at ${(r*100).toFixed(1)}% needs ${fmt(p*.2)} down and costs ${fmt(pay)} a year.${canMort?'':' To get a mortgage I need a job where that payment is under 40% of my salary, and good credit.'}`,[
-    ['Pay in cash',()=>{S.money-=p+close;S.assets.push({n:it.n,v:p,k:'home',rent:false,mort:null});S.st.happy+=joy(10);mile(`Bought a ${it.n.toLowerCase()}`);stay(`I bought a ${it.n.toLowerCase()} for ${fmt(p)} in cash.`,'good')},()=>S.money<p+close],
-    ['Take a mortgage',()=>{S.money-=Math.round(p*.2)+close;S.assets.push({n:it.n,v:p,k:'home',rent:false,mort:{bal:loan,rate:r,pay}});S.st.happy+=joy(10);mile(`Bought a ${it.n.toLowerCase()}`);stay(`I bought a ${it.n.toLowerCase()} with a mortgage.`,'good')},()=>!canMort||S.money<p*.2+close],
-    ['Cancel',()=>{}]]);
-}
+  const kids=living(['Child']).filter(c=>c.age<18).length;
+  const done=m=>{S.money-=m;S.assets.push({n:l.n,v:p,k:'home',rent:false,mort:m<p?{bal:loan,rate:r,pay}:null,area:l.area,cond:l.cond,beds:l.beds,sqm:l.sqm,yld:l.yld});S.st.happy+=joy(8+Math.min(6,l.beds))+(kids&&l.beds>kids?4:0);S.mkList.homes=S.mkList.homes.filter(x=>x!==l);mile(`Bought a ${l.n.toLowerCase()}`);};
+  choiceModal(l.n,`${homeDesc(l)} Price ${fmt(p)} plus ${fmt(close)} closing costs. Upkeep about ${fmt(p*COND[l.cond].up)}/yr. If rented out, about ${fmt(p*l.yld/100)}/yr. A 30-year mortgage at ${(r*100).toFixed(1)}% needs ${fmt(p*.2)} down and costs ${fmt(pay)} a year.${canMort?'':' To get a mortgage I need a job where that payment is under 40% of my salary, and good credit.'}`,[
+    ['Pay in cash',()=>{done(p+close);stay(`I bought a ${l.n.toLowerCase()} for ${fmt(p)} in cash.`,'good')},()=>S.money<p+close],
+    ['Take a mortgage',()=>{done(Math.round(p*.2)+close);stay(`I bought a ${l.n.toLowerCase()} with a mortgage.`,'good')},()=>!canMort||S.money<p*.2+close],
+    ['Cancel',()=>{}]]);}
 function assetModal(a){
   const eq=saleVal(a)-(a.mort?a.mort.bal:0);const ch=[];
   if(a.k==='home'){ch.push([a.rent?'Move back in':'Rent it out',()=>{a.rent=!a.rent;stay(a.rent?`I started renting out my ${a.n.toLowerCase()}.`:`I moved into my ${a.n.toLowerCase()}.`)}]);
+    if(a.cond!=='new'){const fx=a.cond==='fixer',cost=Math.round(a.v*(fx?.15:.1)),gain=fx?.28:.12;
+      ch.push([`Renovate to ${fx?'good condition':'like new'} (${fmt(cost)}, value +${Math.round(gain*100)}%)`,()=>{S.money-=cost;a.v=Math.round(a.v*(1+gain));a.cond=fx?'good':'new';S.st.happy+=3;stay(`I renovated my ${a.n.toLowerCase()}. It's now worth ${fmt(a.v)}.`,'good')},()=>S.money<cost]);}
     if(a.mort)ch.push([`Pay off mortgage (${fmt(a.mort.bal)})`,()=>{S.money-=a.mort.bal;a.mort=null;unlock('debtfree');stay(`I paid off the mortgage on my ${a.n.toLowerCase()}.`,'good')},()=>S.money<a.mort.bal]);}
   ch.push([`Sell (I'd get ${fmt(eq)})`,()=>{S.money+=eq;S.assets=S.assets.filter(x=>x!==a);stay(`I sold my ${a.n.toLowerCase()} and got ${fmt(eq)}.`)}]);
   ch.push(['Cancel',()=>{}]);
-  choiceModal(a.n,`Worth ${fmt(a.v)}.${a.k==='home'?' Selling costs 6% in fees.':''}${a.mort?` Mortgage left: ${fmt(a.mort.bal)} at ${(a.mort.rate*100).toFixed(1)}%.`:''}`,ch);
+  choiceModal(a.n,`${a.k==='home'?homeDesc(a)+' ':''}Worth ${fmt(a.v)}.${a.k==='home'?' Selling costs 6% in fees.':''}${a.mort?` Mortgage left: ${fmt(a.mort.bal)} at ${(a.mort.rate*100).toFixed(1)}%.`:''}`,ch);
 }
 function tabRet(s){
   s.append(h('p',{className:'sub'},`Balance ${fmt(S.ret.bal)}. It's invested in the market index. I put in a share of my salary before tax, from my job or from salaries I pay myself at my businesses. My employer (or my business) matches half of it, up to 5% of the salary.`));

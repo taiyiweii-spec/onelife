@@ -81,3 +81,8 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 ## Character panel
 - Tap the stat bars (`#statsWrap`) to open `charSheet`: core stats, karma, work ethic (`S.ethic`), fame, credit score (`creditScore()`, derived), skills `S.sk={biz,tech,ppl}`, traits.
 - `yearSkills()` runs each year from `yrWork`. Effects: ethic affects job performance and running your own business; skills and karma feed `hireChance`; people skill feeds raises and networking; business skill feeds investors and `runFx('me')`; the credit score scales loan limits (`creditF`) and `loanRate`.
+
+## Property market
+- Property tab: "My properties" (propView='mine') and "Market" (propView='market', tabs mkKind home/car). `marketList()` builds yearly listings in S.mkList.
+- Homes carry area (AREA: price, growth, yield), cond (COND: price, upkeep), beds, sqm, yld. Renovate from assetModal. `dealTag` shows Bargain/Overpriced with smarts 55+.
+- Cars carry age and run; `carRun` is charged yearly in propertyYear, with breakdown risk rising with age, and appears in the cash flow statement. Old saves fall back to defaults.
