@@ -2312,11 +2312,12 @@ function aiPitch(title,onScore){
 function tog(label,sub,on,fn,dis){return h('button',{className:'row toggle','aria-pressed':String(!!on),disabled:!!dis,on:fn},h('span',{},h('b',{},label),sub?h('small',{},sub):null),h('span',{className:'sw'}));}
 function tabBiz(s){S.biz.forEach(syncStaff);
   if(launch){launchView(s);return;}
-  const T0=S.trend?TRENDS[S.trend.k]:null;
-  if(T0)s.append(h('p',{className:'flash'},`🔥 Trend: ${T0.n} (${S.trend.yrs} yr left). Boosts ${T0.t.map(t=>BIZ[t].n.toLowerCase()+'s').join(', ')}.`));
   if(S.biz.length){s.append(h('h4',{},S.holding?`${S.holding}`:'My businesses'));S.biz.forEach(b=>{const T=Tof(b);const under=b.staff<needStaff(b);
     s.append(row(`${T.ic} ${b.name}`,`${b.ousted?'🪑 Board-controlled. ':''}${under?'⚠️ Understaffed. ':''}${T.n}${b.locs>1?`, ${b.locs} locations`:''}${b.fr?`, ${b.fr.n} franchises`:''}. Last year ${b.lastPre>=0?'profit':'loss'} ${fmt(Math.abs(b.lastPre))}`,fmt(bizVal(b)*b.own),()=>{bizView=b.id;bTab='over';flash=null;drawSheet(true)}));});
     const syn=SYN.filter(([x,y])=>S.biz.some(b=>b.type===x)&&S.biz.some(b=>b.type===y));if(syn.length)s.append(h('p',{className:'sub'},`🔗 Synergies: ${syn.map(x=>`${x[3]} (+${Math.round(x[2]*100)}%)`).join('; ')}.`));}
+  // trend news sits below my own businesses
+  const T0=S.trend?TRENDS[S.trend.k]:null;
+  if(T0)s.append(h('p',{className:'flash'},`🔥 Trend: ${T0.n} (${S.trend.yrs} yr left). Boosts ${T0.t.map(t=>BIZ[t].n.toLowerCase()+'s').join(', ')}.`));
   if(!canManage())return;
   // founder
   s.append(h('h4',{},'Me as a founder'),h('p',{className:'label'},`Founder fame ${S.fame||0}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${S.fame||0}%;background:var(--looks)`})));
