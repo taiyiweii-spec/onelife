@@ -121,3 +121,9 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - Approval `adoptOdds(c)`: baseline 55 plus money, age, partner or marriage, happiness, criminal record, family size, foster and care bonuses, shown with reasons and a Strong / Fair / Long shot tag. Once a year, 1 energy. The application fee (~$1,000) is paid either way; the adoption fee only if approved.
 - Babies can be named (`adoptNameModal`). Adopted children keep the traits and stats from their card (`p.life`), carry `p.adopted` (kind), and foster children are a bit more often rebellious.
 - Tests: a dedicated jsdom adoption test passed 22 of 22 checks; robot fingerprints for seeds 7 and 11 (10 lives) are identical before and after.
+
+## Automatic production picks price and quantity (26 September 2026, user approved)
+- `autoPlan(b,pr,fixed)` tries 29 prices from 75% of the suggestion up to `autoHi(b)` (115% under 65% reputation, so it never triggers the premium reputation penalty; 140% at 65%+) and keeps the best expected profit. `autoPlanAt` blends this year's estimate with last year's real demand scaled by `priceF`, subtracts stock on hand, caps at capacity, and for services subtracts the staff wages each unit needs.
+- Used by `renewPlans` (yearly), new products (`rdPicker`), launches, and the plan screen (the auto toggle shows the pick; moving any slider or the suggested price button switches to manual). "Rough profit" in the plan now includes staff wages for services.
+- CEOs: `ceoManage` sets the price from `autoPlan`; a CEO who fails `skill(c.sales)` is off by 5 to 10%. Then `renewPlans` keeps the CEO's price and only sets quantity.
+- ceobot (owner-run, 12 years): cafe, bar, truck, farm about the same; gym up about 5%; salon up 30 to 60%; fashion mixed. Stress 25 lives seed 7: 0 errors, 0 bad numbers.
