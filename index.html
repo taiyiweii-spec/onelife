@@ -1378,7 +1378,9 @@ function expenseItems(){const it=[],m=v=>Math.round(v/12);
   if(S.age>=18&&!S.jail&&!atHome){const lc=livingCost(),own=homes().some(a=>!a.rent);
     const parts=own?[['🍽️ Food and groceries',.35],['🚗 Transport',.2],['💡 Utilities and phone',.2],['🛍️ Personal and other',.25]]:[['🏠 Rent',.55],['🍽️ Food and groceries',.18],['🚗 Transport',.1],['💡 Utilities and phone',.08],['🛍️ Personal and other',.09]];
     parts.forEach(([n,f])=>it.push([n,m(lc*f)]));}
-  homes().forEach(a=>{it.push([`🔧 Upkeep and property tax: ${a.n.toLowerCase()}`,m(a.v*.01)]);if(a.mort&&a.mort.bal>0)it.push([`🏦 Mortgage: ${a.n.toLowerCase()}`,m(Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)))]);});
+  const hs=homes(),mo=hs.filter(a=>a.mort&&a.mort.bal>0);
+  if(mo.length)it.push([`🏦 Mortgage${mo.length>1?` (${mo.length} homes)`:''}`,m(mo.reduce((t,a)=>t+Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)),0))]);
+  if(hs.length)it.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,m(hs.reduce((t,a)=>t+a.v*.01,0))]);
   if(S.sloan>0&&S.job)it.push(['🎓 Student loan',m(Math.min(S.sloan*1.04,S.job.s*.1))]);
   if(S.job){const contrib=Math.round(S.job.s*S.ret.pct/100);it.push(['🧾 Income tax',m(S.job.s-contrib-netPay(S.job.s-contrib))]);if(contrib)it.push(['🏖️ Retirement savings',m(contrib)]);}
   if(S.money<0)it.push(['💳 Credit card interest (7%)',m(-S.money*.07)]);
