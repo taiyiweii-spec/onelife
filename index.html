@@ -938,6 +938,7 @@ function propertyYear(){
   if(rentIn){S.money+=Math.round(rentIn*.8);line(`My rental properties earned ${fmt(rentIn*.8)} after tax.`,'good');}
   const atHome=S.age<22&&living(['Mother','Father']).length&&!homes().length;
   if(S.age>=18&&!S.jail&&!atHome)S.money-=livingCost();
+  S.money-=careCost();
   if(S.sloan>0){S.sloan=Math.round(S.sloan*1.04);if(S.job){const p=Math.min(S.sloan,Math.round(S.job.s*.1));S.sloan-=p;S.money-=p;if(S.sloan===0)line('I paid off my student loans!','good');}}
   if(S.flags.talentPay&&!S.jail&&S.age<70){S.money+=S.flags.talentPay;}
   // trustee protects minors
@@ -1410,6 +1411,7 @@ function cashFlow(){const inc=[],exp=[];
   if(mo.length)exp.push([`🏦 Mortgage${mo.length>1?` (${mo.length} homes)`:''}`,mo.reduce((t,a)=>t+Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)),0)]);
   if(hs.length)exp.push([`🔧 Upkeep and property tax${hs.length>1?` (${hs.length} homes)`:''}`,hs.reduce((t,a)=>t+a.v*hCond(a).up,0)]);
   const cars=S.assets.filter(a=>a.k==='car');if(cars.length)exp.push([`⛽ Car running costs${cars.length>1?` (${cars.length} cars)`:''}`,cars.reduce((t,a)=>t+carRun(a),0)]);
+  if(careCost())exp.push(['🩺 Care for my child',careCost()]);
   if(S.sloan>0&&S.job)exp.push(['🎓 Student loan',Math.min(S.sloan*1.04,S.job.s*.1)]);
   if(tax)exp.push(['🧾 Taxes',tax]);if(ret)exp.push(['🏖️ Retirement savings',ret]);
   if(S.money<0)exp.push(['💳 Credit card interest (7%)',-S.money*.07]);
@@ -1551,8 +1553,71 @@ function relSheet(){openSheet(s=>{
   s.append(h('h3',{},'People'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));const alive=S.rels.filter(p=>p.alive);
   if(!alive.length)s.append(h('p',{className:'sub'},'No one right now.'));
   alive.forEach(p=>s.append(h('button',{className:'row',on:()=>personSheet(p)},h('span',{},h('b',{},p.name),h('small',{},`${p.type}, age ${p.age}${p.type==='Child'&&p.life&&p.age>=18?` · ${p.life.job?CAREERS[p.life.job.c].t[p.life.job.lvl][0]:p.life.major?'Studying '+p.life.major:'Not working'}${p.life.married?' · married':''}`:''}`)),h('span',{},h('div',{className:'relbar'},h('i',{style:`width:${p.rel}%`}))))));
-  if(canManage()&&S.age>=25){s.append(h('h4',{},'Family'),row('Adopt a child','$15,000 in fees','',()=>{S.used.adopt=true;S.money-=15000;const g=pick(['M','F']);const k=person('Child',g,R(0,8),lastName());k.rel=75;S.rels.push(k);S.st.happy+=12;mile(`Adopted ${fname(k.name)}`);stay(`I adopted ${fname(k.name)}, age ${k.age}. Welcome home.`,'good')},S.used.adopt||S.money<15000,1));}
+  if(canManage()&&S.age>=25){s.append(h('h4',{},'Family'),row('Adopt a child',S.used.adopt?'I already applied this year':'Choose from 3 children waiting for a family','',adoptSheet));}
 });}
+/* ---- adoption: 3 children a year, each with their own traits; agencies approve or turn me down ---- */
+const ADOPT_KIND={baby:{l:'Baby',fee:25000,rel:[80,90],via:'through an agency'},young:{l:'Young child',fee:15000,rel:[65,75],via:'through an agency'},foster:{l:'Older child',fee:2000,rel:[40,55],via:'from foster care'}};
+const ADOPT_NOTE={ambitious:'Wants to win at everything',lazy:'Loves a long nap',charming:'Makes friends with everyone',genius:'Reads everything in sight',athletic:'Never stops running around',reckless:'Climbs everything',frugal:'Saves every coin',spender:'Loves shiny things',lucky:'Always finds lost things',anxious:'Shy at first, then very sweet',creative:'Loves drawing and making things',hothead:'Big feelings, big temper',kind:'Shares everything',hustler:'Already selling lemonade'};
+const ADOPT_SN=[['asthma that needs regular care',4000],['type 1 diabetes',6000],['a hearing impairment',5000],['a heart condition that needs checkups',8000],['Down syndrome',9000]];
+const adoptF=()=>.5+.5*resC().pp;
+const adoptAppFee=()=>Math.round(1000*adoptF()/100)*100;
+function adoptKid(kind,age,taken){const g=pick(['M','F']);let fn=first(g,null,lastName());for(let i=0;i<8&&taken&&taken.includes(fn);i++)fn=first(g,null,lastName());if(taken)taken.push(fn);const tr=[];while(tr.length<2){const t=pick(TR_KEYS);if(!tr.includes(t)&&!CLASH.some(([a,b])=>(t===a&&tr.includes(b))||(t===b&&tr.includes(a))))tr.push(t);}
+  return {g,age:age!=null?age:kind==='baby'?R(0,1):kind==='young'?R(3,8):R(9,15),first:fn,tr,st:{smarts:R(15,95),looks:R(15,95),health:R(60,95)}};}
+function adoptCard(kind,taken){
+  const sib=kind!=='baby'&&rnd()<.25,sn=rnd()<.2?pick(ADOPT_SN):null;
+  const a=adoptKid(kind,null,taken),kidsL=[a];
+  if(sib)kidsL.push(adoptKid(kind,Math.max(kind==='young'?2:6,Math.min(15,a.age+pick([-3,-2,-1,1,2,3]))),taken));
+  if(sn)a.st.health=R(40,75);
+  const fee=Math.round(ADOPT_KIND[kind].fee*(sib?1.6:1)*(sn?.4:1)*adoptF()/100)*100;
+  return {id:uid(),kind,kids:kidsL,fee,sn:sn?{n:sn[0],care:Math.round(sn[1]*adoptF()/100)*100}:null};}
+function adoptPool(){if(!S.adoptPool||S.adoptPool.age!==S.age){const taken=S.rels.map(p=>fname(p.name)).concat([fname(S.name)]);S.adoptPool={age:S.age,list:['baby','young','foster'].map(k=>adoptCard(k,taken))};}return S.adoptPool.list;}
+function adoptOdds(c){const parts=[];const add=(l,v)=>{v=Math.round(v*100);if(v)parts.push([l,v]);};
+  add('Baseline',.55);
+  const nw=netWorth();if(nw<20000)add('Little savings',-.15);else if(nw>=200000)add('Financially secure',.1);
+  if(S.age>55)add(`My age (${S.age})`,-.25);else if(S.age>45)add(`My age (${S.age})`,-.1);
+  const pt=partner();if(spouse())add('Married',.15);else if(pt)add('In a relationship',.05);else add('Single parent',-.05);
+  add(`Happiness (${S.st.happy}%)`,(S.st.happy-50)/250);
+  if(S.flags.record)add('Criminal record',-.3);
+  if(kids().filter(k=>k.alive&&k.age<18).length>=4)add('Already a big family',-.1);
+  if(c&&c.kind==='foster')add('Foster care welcomes more families',.15);
+  if(c&&c.sn)add('Ready to care for extra needs',.1);
+  const ch=Math.max(.05,Math.min(.95,parts.reduce((t,p)=>t+p[1],0)/100));
+  return {ch,parts,tag:ch>=.6?'✅ Strong chance':ch>=.35?'⚖️ Fair chance':'🎯 Long shot'};}
+const adoptNames=c=>c.kids.map(k=>k.first).join(' and ');
+function adoptSheet(){openSheet(s=>{
+  s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},'Adopt a child'),
+    h('p',{className:'sub'},`These children are waiting for a family this year. I can apply for one, once a year (⚡1). If the agency says no, I only lose the ${fmt(adoptAppFee())} application fee. New children appear next year.`));
+  const base=adoptOdds(null);
+  s.append(h('div',{className:'flash'},h('b',{},'What the agency looks at'),h('ul',{style:'margin:6px 0 0;padding-left:18px'},base.parts.map(([l,v])=>h('li',{},`${l}: ${v>0?'+':''}${v}`)))));
+  if(S.used.adopt)s.append(h('p',{className:'sub warn'},'I already applied this year.'));
+  adoptPool().forEach(c=>{const K=ADOPT_KIND[c.kind],o=adoptOdds(c),a=c.kids[0];
+    const ages=c.kids.map(k=>k.age).join(' and ');
+    const desc=c.kids.map(k=>`${k.first}: ${k.tr.map(t=>TRAITS[t].ic+' '+TRAITS[t].n).join(', ')}. ${c.kind==='baby'?'A calm, curious baby':ADOPT_NOTE[k.tr[0]]}.`).join(' ');
+    const why=S.used.adopt?'':S.money<c.fee+adoptAppFee()?`Needs ${fmt(c.fee+adoptAppFee())} in cash`:energyLeft()<1?'No energy left this year':'';
+    s.append(row(`${c.kids.length>1?'👧👦':c.kind==='baby'?'👶':'🧒'} ${adoptNames(c)}${c.kids.length>1?' (siblings)':''}`,
+      `${K.l}${c.kids.length>1?'ren':''} ${K.via}, age ${ages}. ${desc}${c.sn?` ${fname(a.first)} has ${c.sn.n}: care costs about ${fmt(c.sn.care)} a year until 18.`:''} ${why||o.tag}`,
+      fmt(c.fee),()=>adoptApply(c),!!(S.used.adopt||why)));});
+});}
+function adoptApply(c){const o=adoptOdds(c),K=ADOPT_KIND[c.kind],app=adoptAppFee();
+  choiceModal(`Adopt ${adoptNames(c)}?`,`${o.tag} (${Math.round(o.ch*100)}%). The ${fmt(app)} application fee is paid either way. The ${fmt(c.fee)} adoption fee is paid only if I'm approved.${c.kids.length>1?' Siblings stay together, so I would adopt both.':''}`,[
+    ['Apply',()=>{S.used.adopt=true;spend(1);S.money-=app;
+      if(rnd()>=o.ch){S.st.happy-=5;return stay(`The agency turned down my application to adopt ${adoptNames(c)}. It stung.`,'bad');}
+      S.money-=c.fee;S.adoptPool.list=S.adoptPool.list.filter(x=>x!==c);
+      if(c.kind==='baby')return adoptNameModal(c);adoptWelcome(c);}],
+    ['Cancel',()=>{}]]);}
+function adoptNameModal(c){const k=c.kids[0],m=$('modal');m.innerHTML='';
+  const inp=h('input',{type:'text',className:'amt',value:k.first,maxLength:20,'aria-label':'Baby\'s first name'});
+  const ok=h('button',{className:'choice',on:()=>{const n=inp.value.trim().split(/\s+/)[0];if(n)k.first=n.charAt(0).toUpperCase()+n.slice(1);closeModal();adoptWelcome(c);}},'Welcome home');
+  m.append(h('h3',{},'👶 Approved!'),h('p',{className:'sub'},`The agency approved me. The baby's first name for now is ${k.first}. I can keep it or choose a new one.`),inp,ok);
+  $('modalWrap').classList.add('open');inp.focus&&inp.focus();}
+function adoptWelcome(c){const K=ADOPT_KIND[c.kind];
+  c.kids.forEach((a,i)=>{const p=person('Child',a.g,a.age,lastName(),a.first+' '+lastName());p.rel=R(K.rel[0],K.rel[1]);p.adopted=c.kind;
+    const L=kidLife(p);L.st=a.st;L.tr=a.tr;L.rebel=rnd()<(c.kind==='foster'?.3:.15);
+    if(c.sn&&i===0)p.sn={...c.sn};S.rels.push(p);});
+  S.st.happy+=(c.sn?18:12)+(c.kids.length>1?4:0);
+  mile(`Adopted ${adoptNames(c)}`);
+  stay(`I adopted ${adoptNames(c)}${c.kids.length>1?', siblings who stay together':''}, age ${c.kids.map(k=>k.age).join(' and ')}. Welcome home.${c.sn?` I'll pay about ${fmt(c.sn.care)} a year for ${fname(c.kids[0].first)}'s care.`:''}`,'good');}
+const careCost=()=>S.rels.reduce((t,p)=>t+(p.sn&&p.alive&&p.type==='Child'&&p.age<18?p.sn.care:0),0);
 /* ---- children live their own lives; I can only influence them ---- */
 function kidLife(p){if(p.life)return p.life;const mix=k=>Math.max(5,Math.min(99,Math.round((S.st[k]+R(20,90))/2)));
   const tr=[];if(rnd()<.5&&S.traits.length)tr.push(pick(S.traits));while(tr.length<2){const t=pick(Object.keys(TRAITS));if(!tr.includes(t))tr.push(t);}
@@ -1614,7 +1679,7 @@ function kidInfluence(p){const L=kidLife(p),fn=fname(p.name),sug=(k,v,txt)=>{L.s
   ch.push(['Cancel',()=>{}]);choiceModal(`Influence ${fn}`,`${fn} makes their own choices. Relationship ${p.rel}%${L.rebel?', and they are rebellious':''}: the closer we are, the more likely they listen.`,ch);}
 function personSheet(p){openSheet(s=>{
   const fn=fname(p.name);
-  s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},p.name),h('p',{className:'sub'},`${p.type}, age ${p.age}. Relationship ${p.rel}%.${p.prenup?' We have a prenup.':''}`));
+  s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},p.name),h('p',{className:'sub'},`${p.type}, age ${p.age}. Relationship ${p.rel}%.${p.prenup?' We have a prenup.':''}${p.adopted?' Adopted.':''}${p.sn&&p.age<18&&p.type==='Child'?` Has ${p.sn.n}. Care costs ${fmt(p.sn.care)} a year until 18.`:''}`));
   if(!S.alive||S.jail||!p.alive)return;
   const k=id=>S.used[p.id+id],mark=id=>S.used[p.id+id]=true;
   s.append(row('Spend time together','','',()=>{mark('t');p.rel+=relGain(R(4,12));S.st.happy+=3;stay(`I spent quality time with ${fn}.`)},k('t'),1),

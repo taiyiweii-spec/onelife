@@ -112,3 +112,10 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - tools/ceobot.js compares owner-run vs great-CEO businesses over 12 years and flags bad decisions.
 - Outlets: 'Open in a new city' removed (CEO too). Each extra outlet brings in OUTLET_DROP (8%) less than the one before, floor 20% (effLocs/outletShare). b.cities is kept only for display on for-sale chains.
 - A business nobody runs is now neutral (runFx none = no bonus or penalty); the age-up 'nobody runs' warning and tip are gone.
+
+## Adoption with choices (26 September 2026, user approved)
+- People > Adopt a child opens `adoptSheet()`: 3 cards a year in `S.adoptPool` (baby via agency ~$25k, young child 3-8 ~$15k, older child 9-15 from foster care ~$2k; fees scale with `adoptF()` = 0.5 + 0.5 x country pp). Names are unique across cards and the family.
+- 25% of non-baby cards are sibling pairs (adopt both, fee x1.6). 20% of cards have a health condition (`ADOPT_SN`): fee x0.4, child health 40-75, yearly care cost `p.sn.care` until 18 (`careCost()`, charged in `propertyYear`, shown as "Care for my child" in the cash flow table), happiness +18 instead of +12.
+- Approval `adoptOdds(c)`: baseline 55 plus money, age, partner or marriage, happiness, criminal record, family size, foster and care bonuses, shown with reasons and a Strong / Fair / Long shot tag. Once a year, 1 energy. The application fee (~$1,000) is paid either way; the adoption fee only if approved.
+- Babies can be named (`adoptNameModal`). Adopted children keep the traits and stats from their card (`p.life`), carry `p.adopted` (kind), and foster children are a bit more often rebellious.
+- Tests: a dedicated jsdom adoption test passed 22 of 22 checks; robot fingerprints for seeds 7 and 11 (10 lives) are identical before and after.
