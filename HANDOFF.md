@@ -86,3 +86,6 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - Property tab: "My properties" (propView='mine') and "Market" (propView='market', tabs mkKind home/car). `marketList()` builds yearly listings in S.mkList.
 - Homes carry area (AREA: price, growth, yield), cond (COND: price, upkeep), beds, sqm, yld. Renovate from assetModal. `dealTag` shows Bargain/Overpriced with smarts 55+.
 - Cars carry age and run; `carRun` is charged yearly in propertyYear, with breakdown risk rising with age, and appears in the cash flow statement. Old saves fall back to defaults.
+
+## Putting money into a co-owned business
+- `moveCash(b,'in')` with own<100% opens `putInModal`: shareholder loan `b.sl={bal,rate}` (repaid in simBiz by `repayOwnerLoan` before dividends, counted as debt in bizVal, repaid first on close/sale) or new shares at bizVal (auto if own>50%, otherwise a vote, once a year per business, not for listed companies). Plain deposit only at 100% ownership.

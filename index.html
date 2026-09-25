@@ -2199,7 +2199,7 @@ const maxSalary=b=>Math.round(marketSalary(b)*1.5*capMult(b)/1000)*1000;
 function syncStaff(b){if(b.autoStaff!==false)b.staff=needStaff(b);}
 const needStaff=b=>{const T=Tof(b);let n=isSvc(b)&&b.products?svcStaff(b):T.tech?Math.max(2,Math.ceil(b.base/150000)):Math.round(T.staff*b.locs*(1-.2*b.auto));return Math.max(0,n-(b.life==='hands'||b.ceo?1:0));};
 const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*({low:.85,market:1,high:1.15}[b.pay])*(b.union?1.1:1));
-const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0);let v;
+const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0)+(b.sl?b.sl.bal:0);let v;
   if(T.tech)v=Math.max(b.lastRev*6,T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
   v+=(b.fac||0)*T.cost*.6;v*=1+Math.min(.12,(b.gens-1)*.04);return Math.max(0,Math.round(v*(b.pub?b.pub.sent:1)));};
 const stakeVal=()=>S.biz.reduce((a,b)=>a+bizVal(b)*b.own,0);
@@ -2302,6 +2302,7 @@ function simBiz(b){
   let lp=0;if(b.loan.bal>0){const int=b.loan.bal*b.loan.rate;lp=Math.min(b.loan.pay,b.loan.bal+int);b.loan.bal=Math.max(0,Math.round(b.loan.bal+int-lp));}
   b.cash+=net-Math.round(lp)+gpre+gref;
   if(isGoods(b))renewPlans(b);
+  repayOwnerLoan(b);
   const paidDiv=payDividend(b,net-Math.round(lp));
   if(owner){const rc=Math.round(owner*S.ret.pct/100),rm=Math.round(owner*Math.min(S.ret.pct,5)/100*.5);S.ret.bal+=rc+rm;b.cash-=rm;const take=netPay(owner-rc);S.money+=take;line(`I paid myself a ${fmt(owner)} salary from ${b.name} (${fmt(take)} after tax${rc?`, plus ${fmt(rc+rm)} into retirement`:''}).`);
     const mk=marketSalary(b);if(owner>mk*1.15){if(b.co){const p=S.rels.find(r=>r.id===b.co.pid);if(p){p.rel-=5;}}b.overpaid=(b.overpaid||0)+1;}else b.overpaid=0;}
@@ -2418,9 +2419,9 @@ function closeBiz(b,bust){
   S.biz=S.biz.filter(x=>x!==b);S.rivals=S.rivals.filter(r=>r.vs!==b.id);
   if(b.co){const p=S.rels.find(r=>r.id===b.co.pid);if(p&&bust)p.rel-=30;}
   if(bust){S.flags.busts=(S.flags.busts||0)+1;if(b.loan.bal>0||b.credit>0)S.flags.badCreditUntil=S.age+5;S.st.happy-=15;unlock('bust');remember('bizfail',{name:b.name,type:b.type});companyEnd(b,'went out of business');return `${b.name} went out of business.${b.loan.bal>0?' The unpaid loan hurt my credit.':''}${b.co?` My co-founder ${fname(b.co.name)} isn't speaking to me.`:''}`;}
-  const back=Math.round((Math.max(0,b.cash)+BIZ[b.type].cost*.15*b.locs+b.prem*BIZ[b.type].fixed*2.5-b.loan.bal-(b.credit||0))*b.own);S.money+=back;companyEnd(b,'closed its doors');return `I closed ${b.name} and recovered ${fmt(back)}.`;
+  const left=Math.max(0,b.cash)+BIZ[b.type].cost*.15*b.locs+b.prem*BIZ[b.type].fixed*2.5-b.loan.bal-(b.credit||0),slb=b.sl?Math.min(b.sl.bal,Math.max(0,left)):0;const back=Math.round(slb+(left-slb)*b.own);S.money+=back;companyEnd(b,'closed its doors');return `I closed ${b.name} and recovered ${fmt(back)}.`;
 }
-function sellBiz(b,p){S.money+=p;if(p>BIZ[b.type].cost*.5)S.flags.exits=(S.flags.exits||0)+1;S.biz=S.biz.filter(x=>x!==b);S.rivals=S.rivals.filter(r=>r.vs!==b.id);if(p>=1e6)unlock('exit');S.fame=Math.min(100,(S.fame||0)+(p>=1e6?10:2));companyEnd(b,`was sold for ${fmt(p)}`);return `I sold my stake in ${b.name} for ${fmt(p)}.`;}
+function sellBiz(b,p){if(b.sl&&b.sl.bal){S.money+=b.sl.bal;line(`The buyer repaid the ${fmt(b.sl.bal)} ${b.name} owed me.`);b.sl=null;}S.money+=p;if(p>BIZ[b.type].cost*.5)S.flags.exits=(S.flags.exits||0)+1;S.biz=S.biz.filter(x=>x!==b);S.rivals=S.rivals.filter(r=>r.vs!==b.id);if(p>=1e6)unlock('exit');S.fame=Math.min(100,(S.fame||0)+(p>=1e6?10:2));companyEnd(b,`was sold for ${fmt(p)}`);return `I sold my stake in ${b.name} for ${fmt(p)}.`;}
 function companyEnd(b,fate){
   const T=Tof(b);const fn=fname(b.founder);
   const t=`${b.name} (${T.n.toLowerCase()}, founded by ${fn} at ${b.founded}) ${fate} after ${b.yrs} year${b.yrs===1?'':'s'}.${b.peakLocs>1?` At its peak it had ${b.peakLocs} locations`:' At its peak it'} ${b.peakLocs>1?'and ':''}brought in ${fmt(b.peakRev)} a year.${b.awards.length?` It won ${b.awards.length} award${b.awards.length>1?'s':''}, including "${b.awards[0].replace(/ \(\d+\)$/,'')}".`:''}${b.prods.length?` Customers still miss the ${b.prods[0]}.`:''}${b.gens>1?` It stayed in the family for ${b.gens} generations.`:''}${b.reviews[0]?` One reviewer summed it up: "${b.reviews[0].t}"`:''}`;
@@ -2755,7 +2756,23 @@ function amountModal({title,sub,min=0,max,init,btn,note,onOk,step,fmtA=fmt}){
   upd(amt);$('modalWrap').classList.add('open');
 }
 /* keep the old name working everywhere */
+/* ---- putting money in when there are other owners: a loan to the company, or new shares ---- */
+const slRate=()=>Math.round((loanRate()+.01)*1000)/1000;
+function putInModal(b){const pre=Math.max(bizVal(b),BIZ[b.type].cost*.3),voted=S.used['iss'+b.id];
+  choiceModal(`💰 Put money into ${b.name}`,`I own ${(b.own*100).toFixed(1)}%. Other owners share in anything the company has, so I can lend the money or buy new shares.${b.sl&&b.sl.bal?` The company already owes me ${fmt(b.sl.bal)}.`:''}`,[
+    [`💵 Lend it (${(slRate()*100).toFixed(1)}% a year, repaid from company cash)`,()=>{amountModal({title:`Lend to ${b.name}`,sub:`Repaid with interest before any dividends. If the company fails, I only get back what's left.`,max:S.money,btn:a=>`Lend ${fmt(a)}`,
+      note:a=>`Interest about ${fmt(a*slRate())} a year.`,onOk:a=>{S.money-=a;b.cash+=a;const o=b.sl||{bal:0,rate:slRate()};o.rate=o.bal?(o.bal*o.rate+a*slRate())/(o.bal+a):slRate();o.bal+=a;b.sl=o;cfAdd(b,'owner',a);stay(`I lent ${fmt(a)} to ${b.name} at ${(o.rate*100).toFixed(1)}%.`)}});return '';}],
+    [b.pub?'📈 Buy new shares (listed company: buy on the stock market)':voted?'📈 Buy new shares (already voted on this year)':`📈 Buy new shares at a ${fmt(pre)} valuation${b.own>.5?'':' (needs shareholder approval)'}`,()=>{amountModal({title:`New shares in ${b.name}`,sub:`Valued at ${fmt(pre)} before my money. ${b.own>.5?'I control the vote, so it will pass.':b.ousted?'The board removed me, so they are unlikely to agree.':'Other shareholders vote. They agree more easily when the company needs cash.'}`,max:S.money,btn:a=>`Invest ${fmt(a)}`,
+      note:a=>`I'd own ${((b.own*pre+a)/(pre+a)*100).toFixed(1)}%, up from ${(b.own*100).toFixed(1)}%.`,onOk:a=>{S.used['iss'+b.id]=true;
+        const burn=Math.max(10000,b.lastRev*.15),needy=b.cash<burn,odds=b.own>.5?1:b.ousted?.15:needy?.8:b.lastPre>0?.35:.55;
+        if(rnd()>=odds){stay(`The shareholders of ${b.name} voted against issuing me new shares.${needy?'':' The company is doing fine and they didn\'t want to be diluted.'} I could lend the money instead.`,'bad');return;}
+        const k=pre/(pre+a);S.money-=a;b.cash+=a;b.own=(b.own*pre+a)/(pre+a);b.inv=(b.inv||0)*k;if(b.co)b.co.share*=k;if(b.own>.5&&b.ousted){b.ousted=false;b.life='delegate';}cfAdd(b,'owner',a);
+        stay(`${b.own>.5&&odds<1?'The shareholders approved. ':''}I invested ${fmt(a)} in new shares of ${b.name}. I now own ${(b.own*100).toFixed(1)}%.`,'good');}});return '';},()=>!!b.pub||!!voted],
+    ['Cancel',()=>{}]]);}
+function repayOwnerLoan(b){const o=b.sl;if(!o||o.bal<=0||b.cash<=0)return;const int=Math.round(o.bal*o.rate),due=Math.min(o.bal+int,int+Math.round(o.bal*.25)),pay=Math.min(due,Math.max(0,Math.round(b.cash*.5)));if(pay<=0)return;
+  b.cash-=pay;o.bal=Math.max(0,o.bal+int-pay);cfAdd(b,'owner',-pay);S.money+=pay-Math.round(Math.min(pay,int)*.25);line(`${b.name} repaid me ${fmt(pay)} on my loan${o.bal?`. It still owes ${fmt(o.bal)}`:' in full'}.`,'good');if(!o.bal)b.sl=null;}
 function moveCash(b,dir){
+  if(dir==='in'&&b.own<.999)return putInModal(b);
   if(dir==='in')amountModal({title:`💰 Deposit into ${b.name}`,sub:`My cash ${fmt(S.money)}. Deposits are not taxed.${b.own<1?' Other owners benefit too, since it raises the company\'s value.':''}`,max:S.money,btn:a=>`Deposit ${fmt(a)}`,
     note:a=>`The business will have ${fmt(b.cash+a)}.`,onOk:a=>{S.money-=a;b.cash+=a;cfAdd(b,'owner',a);stay(`I deposited ${fmt(a)} into ${b.name}.`)}});
   else amountModal({title:`💵 Withdraw from ${b.name}`,sub:`Business cash ${fmt(b.cash)}. Paid out as a dividend to all owners. ${resC().n} taxes my share at ${Math.round(divTax()*100)}%.`,max:b.cash,btn:a=>`Withdraw ${fmt(a)}`,
@@ -2932,7 +2949,7 @@ function finTab(s,b){
   if(b.ousted){const cost=Math.round(v*b.inv*1.2);s.append(row('Buy out the investors',`Take back control for ${fmt(cost)}`,'',()=>{S.money-=cost;b.own+=b.inv;b.inv=0;b.ousted=false;b.life='delegate';stay(`I bought out the investors and I'm CEO of ${b.name} again.`,'good')},S.money<cost));}
   if(b.cash<Math.max(10000,burn*.5)&&!b.ousted)s.append(h('p',{className:'flash bad'},`⚠️ ${b.name} is low on cash. Put money in, borrow from the bank, draw the credit line, or raise from investors below.`));
   if(!b.ousted){
-    s.append(h('h4',{},'Move money'),h('div',{className:'btns'},row('💰 Deposit',`Put my cash in. I have ${fmt(S.money)}`,'',()=>moveCash(b,'in'),S.money<=0),row('💵 Withdraw',`Taxed ${Math.round(divTax()*100)}% as a dividend in ${resC().n}. Business has ${fmt(b.cash)}`,'',()=>moveCash(b,'out'),b.cash<=0)));
+    s.append(h('h4',{},'Move money'),h('div',{className:'btns'},row(b.own<.999?'💰 Put money in':'💰 Deposit',`${b.own<.999?'Lend it or buy new shares':'Put my cash in'}. I have ${fmt(S.money)}${b.sl&&b.sl.bal?`. It owes me ${fmt(b.sl.bal)}`:''}`,'',()=>moveCash(b,'in'),S.money<=0),row('💵 Withdraw',`Taxed ${Math.round(divTax()*100)}% as a dividend in ${resC().n}. Business has ${fmt(b.cash)}`,'',()=>moveCash(b,'out'),b.cash<=0)));
     s.append(h('h4',{},'Cash flow last year'),cashFlowBlock(b));
     // bank
     const lm=bizLoanMax(b),r=loanRate()+.025;
