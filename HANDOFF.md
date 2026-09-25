@@ -77,3 +77,7 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - Buying a business for sale opens `buyView` (state `buyDeal`): own cash + acquisition loan (`buyLoanMax`, based on last year's profit) + investors (`buyInterest`).
 - Jobs: `S.cexp[career]={yrs,lvl}` tracks experience. `openings()` builds a yearly list (S.jobOpen): static careers (police, teach, nurse, med, law) at entry level, senior roles up to your best level in fields you've worked, plus 3-5 random roles. Up to 3 interviews a year (`S.used.apps`). `applyJob` asks one IVQ question; answers lean on mood, looks or smarts. Odd jobs skip the interview. `hireChance` shows Long shot / Fair chance / Strong fit.
 - deficitEvent: if one source can't cover it all, "put in what I can, then cover the rest" re-queues the event; disabled options say why.
+
+## Character panel
+- Tap the stat bars (`#statsWrap`) to open `charSheet`: core stats, karma, work ethic (`S.ethic`), fame, credit score (`creditScore()`, derived), skills `S.sk={biz,tech,ppl}`, traits.
+- `yearSkills()` runs each year from `yrWork`. Effects: ethic affects job performance and running your own business; skills and karma feed `hireChance`; people skill feeds raises and networking; business skill feeds investors and `runFx('me')`; the credit score scales loan limits (`creditF`) and `loanRate`.

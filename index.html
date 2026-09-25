@@ -44,7 +44,7 @@ header{padding:12px 16px 8px;display:flex;align-items:flex-start;justify-content
 .good{color:var(--good)} .bad{color:var(--bad)} .ai{color:var(--ai)}
 .skip{position:absolute;right:14px;bottom:10px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:700;font-size:.85rem;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .skip:disabled{opacity:.5}
-.stats{padding:10px 18px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:var(--card);border-top:1px solid var(--line);position:relative}
+.stats{cursor:pointer;padding:10px 18px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;background:var(--card);border-top:1px solid var(--line);position:relative}
 .stat{display:grid;grid-template-columns:5.2em 1fr 2.2em;align-items:center;gap:8px;font-size:.82rem}
 .bar{height:9px;border-radius:9px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;border-radius:9px;transition:width .4s ease}
@@ -141,7 +141,7 @@ button.chip{font:inherit;font-size:.75rem;cursor:pointer}
     </div>
   </header>
   <div class="logwrap"><div class="log" id="log" aria-live="polite"></div><button class="skip" id="bUndo" title="Go back one year">↩ Undo year</button></div>
-  <div class="stats" id="statsWrap"><div id="pops" aria-hidden="true"></div><div id="stats" style="display:contents"></div></div>
+  <div class="stats" id="statsWrap" role="button" tabindex="0" aria-label="Open my character stats" title="Tap for all my stats"><div id="pops" aria-hidden="true"></div><div id="stats" style="display:contents"></div></div>
   <nav>
     <button id="bJob"><span class="ic">💼</span>Work</button>
     <button id="bMoney"><span class="ic">💰</span>Money</button>
@@ -473,6 +473,8 @@ function fillDefaults(s){
   if(!s)return s;
   if(!Array.isArray(s.qs))s.qs=[];
   if(typeof s.karma!=='number')s.karma=50;
+  if(typeof s.ethic!=='number')s.ethic=50;
+  if(!s.sk)s.sk={biz:0,tech:0,ppl:0};
   if(!s.born)s.born=(()=>{try{const n=(s.city||'').split(',').slice(1).join(',').trim();return Object.keys(COUNTRIES).find(k=>COUNTRIES[k].n===n)||'us'}catch(e){return 'us'}})();
   if(!Array.isArray(s.log)||!s.log.length)s.log=[{age:s.age||0,lines:[]}];
   if(!Array.isArray(s.miles))s.miles=[];
@@ -552,6 +554,26 @@ const hasCar=()=>S.assets.some(a=>a.k==='car');
 const homes=()=>S.assets.filter(a=>a.k==='home');
 const lastName=()=>S.name.split(' ').slice(1).join(' ');
 const badCredit=()=>S.flags.badCreditUntil&&S.age<S.flags.badCreditUntil;
+/* ---- character stats: karma, work ethic, skills, credit score ---- */
+const cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,Math.round(v)));
+const sk=k=>(S.sk&&S.sk[k])||0;
+function addSk(k,v){S.sk=S.sk||{biz:0,tech:0,ppl:0};S.sk[k]=cl(S.sk[k]+v);}
+function addKarma(v){S.karma=cl((S.karma||50)+v);}
+function addEthic(v){S.ethic=cl((S.ethic==null?50:S.ethic)+v);}
+function creditScore(){if(S.age<18)return 0;
+  const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0)+Math.max(0,-S.money)+(S.sloan||0),inc=S.job?S.job.s:Math.max(20000,S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0));
+  let c=640+Math.min(110,(S.age-18)*4)-Math.min(160,debt/Math.max(1,inc)*25)+(netWorth()>500000?40:netWorth()>100000?20:0)+(S.karma-50)*.4;
+  if(S.flags.wasBankrupt)c-=60;if(badCredit())c=Math.min(c,520)-40;if(S.money<0)c-=40;
+  return cl(c,300,850);}
+const creditLabel=c=>c>=760?'Excellent':c>=690?'Good':c>=620?'Fair':c>=560?'Poor':'Bad';
+const creditF=()=>S.age<18?1:Math.max(.3,Math.min(1.25,(creditScore()-450)/250));
+function yearSkills(){
+  S.biz.forEach(b=>addSk('biz',b.life==='hands'?3:1));
+  if(S.job){const j=S.job;if(j.c==='tech')addSk('tech',2+j.lvl);if(['mkt','fin','law','office','retail','teach','nurse'].includes(j.c)||j.lvl>=2)addSk('ppl',1);
+    addEthic({hustle:3,normal:.5,slack:-3}[j.style||'normal']);}
+  if(S.edu.major==='Computer Science')addSk('tech',3);if(S.edu.major==='Business'||S.edu.major==='MBA')addSk('biz',2);
+  if(has('charming'))addSk('ppl',1);if(has('lazy'))addEthic(-1);if(has('hustler')||has('ambitious'))addEthic(1);
+}
 const price=s=>S.mkt[s].p;
 const investVal=()=>TICK.reduce((a,t)=>a+(S.hold[t.s]||0)*price(t.s),0);
 const saleVal=a=>Math.round(a.k==='home'?a.v*.94:a.v);
@@ -575,7 +597,7 @@ function newLife(o={}){
   const g=o.gender||pick(['M','F']);const grp=nameGroup(ck);const last=o.last||lastN(ck,grp);
   const traits=rollTraits(o.inherit);
   S={v:SAVE_V,seed,id:uid(),dyn:o.dyn||uid(),name:o.name||first(g,ck,last)+' '+last,gender:g,city,born:o.born||ck,age:o.age||0,alive:true,traits,
-    st:o.st?{happy:o.st.happy,health:o.st.health,smarts:o.st.smarts,looks:o.st.looks}:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)},karma:R(25,75),money:o.money||0,sloan:0,eUsed:0,
+    st:o.st?{happy:o.st.happy,health:o.st.health,smarts:o.st.smarts,looks:o.st.looks}:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)},karma:R(25,75),ethic:o.ethic||R(35,65),sk:{biz:0,tech:0,ppl:0},money:o.money||0,sloan:0,eUsed:0,
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
@@ -914,7 +936,7 @@ function workYear(){
   const contrib=Math.round(j.s*S.ret.pct/100),match=Math.round(j.s*Math.min(S.ret.pct,5)/100*.5);
   S.ret.bal+=contrib+match;S.money+=netPay(j.s-contrib);
   const style={slack:-8,normal:0,hustle:8}[j.style||'normal'];
-  j.perf+=style+(S.st.smarts-50)/12+Math.min(3,j.lvlYrs/2)+R(-7,6)+(has('ambitious')?4:0)-(has('lazy')?4:0)+(C.art&&has('creative')?3:0);
+  j.perf+=style+(S.st.smarts-50)/12+((S.ethic||50)-50)/10+Math.min(3,j.lvlYrs/2)+R(-7,6)+(has('ambitious')?4:0)-(has('lazy')?4:0)+(C.art&&has('creative')?3:0);
   if(j.style==='hustle'){S.st.happy-=4;S.st.health-=2;}if(j.style==='slack')S.st.happy+=3;
   j.perf=clamp(j.perf);j.yrs++;j.lvlYrs++;cexp(j.c).yrs++;
   if(j.perf<35&&j.perf>=25)line('My manager warned me that my performance is slipping.','bad');
@@ -953,6 +975,7 @@ function jobBlock(o){const C=CAREERS[o.c],dg=S.edu.degrees,need=C.sm||0;
 function hireChance(o,bonus=0){const C=CAREERS[o.c],x=(S.cexp||{})[o.c],need=reqSm(C,o.lvl);
   let c=.5+(S.st.smarts-need)/200+(S.st.looks-50)/400+(S.st.happy-50)/250+(has('charming')?.05:0)+bonus;
   if(x&&x.yrs)c+=Math.min(.12,x.yrs*.015);
+  c+=((S.ethic||50)-50)/600+sk('ppl')/600+((S.karma||50)-50)/1000+(o.c==='tech'?sk('tech')/400:0)+(o.lvl>=2?sk('biz')/800:0);
   if(o.lvl>0)c-=o.lvl===(x?x.lvl:0)?.12:0;
   if(C.sm===0&&!C.deg)c+=.2;
   c*={boom:1.1,normal:1,recession:.85,crash:.7}[localPhase()];
@@ -974,7 +997,7 @@ function applyJob(o){const C=CAREERS[o.c],t=C.t[o.lvl][0];
     const v=st==='looks'?S.st.looks+(has('charming')?10:0):S.st[st];const bonus=(v-50)/250+R(-5,5)/100;finish(bonus);}]));}
 
 function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
-function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate);}
+function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate+(S.age>=18?(700-creditScore())/12000:0));}
 
 /* ================= relationships ================= */
 function divorce(p){
@@ -1050,7 +1073,7 @@ function yrCollege(){
     if(S.edu.yrs>=MAJORS[S.edu.major].y){const m=S.edu.major;S.edu.degrees.push(m);line(`I graduated with a degree in ${m}!`,'good');mile(`Earned a ${m} degree`);S.edu.major=null;S.st.smarts+=6;S.st.happy+=10;}
     else line(`I finished year ${S.edu.yrs} of ${S.edu.major}.${S.flags.scholarship&&!MAJORS[S.edu.major].grad?' My scholarship covered tuition.':' Tuition went on my student loans.'}`);}
 }
-function yrWork(){ workYear(); }
+function yrWork(){ workYear();if(S.age>=14)yearSkills(); }
 function yrPension(){ if(S.retired&&S.pension)S.money+=S.pension; }
 function yrGig(){
   if(S.gig&&!S.jail){const g=S.gig;S.money+=g.pay;line(`My side gig (${g.n.toLowerCase()}) earned ${fmt(g.pay)}.`,'good');S.st.happy-=g.stress||0;}
@@ -1242,6 +1265,7 @@ function render(){
   const st=$('stats');st.innerHTML='';
   [['Happiness','happy'],['Health','health'],['Smarts','smarts'],['Looks','looks']].forEach(([l,k])=>
     st.append(h('div',{className:'stat'},h('span',{},l),h('div',{className:'bar'},h('i',{style:`width:${S.st[k]}%;background:var(--${k})`})),h('em',{},S.st[k]+'%'))));
+  st.append(h('small',{style:'grid-column:1/-1;text-align:center;opacity:.6;font-size:12px'},'Tap for karma, skills and more ›'));
   $('bAge').innerHTML=S.alive?'<span class="plus">+</span>Age':'<span class="plus">↻</span>Again';
   const ub=$('bUndo');
   ub.disabled=!canUndo();
@@ -1296,13 +1320,13 @@ function jobSheet(){openSheet(s=>{
     s.append(h('p',{className:'label'},`Performance ${j.perf}%`,j.warn?h('span',{className:'warn'},' On a formal warning'):j.perf<35?h('span',{className:'warn'},' Slipping'):null),h('div',{className:'bar',style:'margin:0 0 12px'},h('i',{style:`width:${j.perf}%;background:${j.perf<25?'var(--bad)':j.perf<60?'var(--sun)':'var(--health)'}`})));
     s.append(h('p',{className:'label'},'Work style (changes my yearly energy)'),seg([['slack','Slack off +⚡'],['normal','Normal'],['hustle','Hustle −⚡']],j.style||'normal',v=>{j.style=v;stay()}));
     const next=j.lvl<C.t.length-1?C.t[j.lvl+1][0]:null;const minYrs=has('ambitious')?1:2;
-    s.append(row('Work harder','Big performance boost','',()=>{S.used.work=true;j.perf+=R(6,14);S.st.happy-=2;stay('I put in extra hours at work.')},S.used.work,2),
-      row('Network with leadership','Small boost, builds goodwill','',()=>{S.used.net=true;j.perf+=R(2,7)+(has('charming')?3:0);S.st.happy+=1;stay('I networked with the leadership team.')},S.used.net,1),
-      row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(rnd()<j.perf/140){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
+    s.append(row('Work harder','Big performance boost, builds work ethic','',()=>{S.used.work=true;j.perf+=R(6,14);addEthic(2);S.st.happy-=2;stay('I put in extra hours at work.')},S.used.work,2),
+      row('Network with leadership','Small boost, builds goodwill','',()=>{S.used.net=true;j.perf+=R(2,7)+(has('charming')?3:0)+Math.round(sk('ppl')/20);addSk('ppl',2);S.st.happy+=1;stay('I networked with the leadership team.')},S.used.net,1),
+      row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(rnd()<j.perf/140+sk('ppl')/500){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
       row('Ask for a promotion',next?`Next: ${next}. Needs performance 65%+, ${minYrs} yr${minYrs>1?'s':''} in role, smarts ${reqSm(C,j.lvl+1)}+`:'Already at the top','',()=>{S.used.promo=true;
         if(j.perf<65||j.lvlYrs<minYrs||S.st.smarts<reqSm(C,j.lvl+1)){j.perf-=4;return stay("My boss said I'm not ready for a promotion yet.",'bad')}
         if(rnd()<j.perf/110)stay(promote(j),'good');else{j.perf-=4;stay('I was passed over for the promotion.','bad')}},S.used.promo||!next,1),
-      row('Steal office supplies','Tiny profit, real risk','',()=>{S.used.steal=true;if(rnd()<.12){const t=title(j);S.job=null;stay(`I got caught stealing supplies and was fired as a ${t}.`,'bad')}else{S.money+=R(50,300);stay('I "borrowed" some office supplies. Nobody noticed.')}},S.used.steal),
+      row('Steal office supplies','Tiny profit, real risk','',()=>{S.used.steal=true;if(rnd()<.12){const t=title(j);S.job=null;stay(`I got caught stealing supplies and was fired as a ${t}.`,'bad')}else{addKarma(-2);S.money+=R(50,300);stay('I "borrowed" some office supplies. Nobody noticed.')}},S.used.steal),
       row('Quit','Leave this job','',()=>{const t=title(j);S.job=null;stay(`I quit my job as a ${t}.`)}));
     if(S.age>=60)s.append(row('Retire',C.pub?'Public-sector pension: 50% of salary yearly':'Live off savings and retirement account','',()=>{S.pension=C.pub?Math.round(j.s*.5):0;S.retired=true;const t=title(j);S.job=null;mile(`Retired as a ${t}`);stay(`I retired from being a ${t}.${S.pension?` Pension: ${fmt(S.pension)}/yr.`:''}`,'good')}));
   }
@@ -1642,6 +1666,26 @@ function buildCreate(s){
   }},'Begin this life'));
   s.append(h('button',{className:'choice alt',on:()=>{closeSheet();newLife();}},'\ud83c\udfb2 Quick start, all random'));
 }
+function charSheet(){openSheet(s=>{
+  const bar=(l,v,col,note,shown)=>h('div',{style:'margin:0 0 10px'},h('div',{className:'stat'},h('span',{},l),h('div',{className:'bar'},h('i',{style:`width:${v}%;background:${col}`})),h('em',{},shown||v+'%')),note?h('p',{className:'sub',style:'margin:2px 0 0'},note):null);
+  s.append(h('h3',{},S.name),h('p',{className:'sub'},`Age ${S.age}, ${S.city}`));
+  s.append(h('h4',{},'Core'),
+    bar('Happiness',S.st.happy,'var(--happy)','Mood. Affects interviews, relationships and health.'),
+    bar('Health',S.st.health,'var(--health)','How long I live and how much energy I have.'),
+    bar('Smarts',S.st.smarts,'var(--smarts)','Degrees, promotions and running a business.'),
+    bar('Looks',S.st.looks,'var(--looks)','Dating, interviews and charm with customers.'));
+  const cs=creditScore();
+  s.append(h('h4',{},'Character'),
+    bar('Karma',S.karma,'#C9A227','Kind and honest choices raise it. How people and fate treat me: interviews, credit, luck.'),
+    bar('Work ethic',S.ethic,'#E07A2E','Hustling and working hard raise it, slacking lowers it. Better job reviews and better at running my own business.'),
+    bar('Fame',S.fame||0,'#D64FA0','TV, awards and big wins. Investors and customers notice me.'),
+    S.age>=18?bar('Credit score',Math.round((cs-300)/5.5),cs>=690?'var(--health)':cs>=600?'var(--sun)':'var(--bad)',`${creditLabel(cs)}. Banks lend more and cheaper with a good score. Debt, bankruptcy and overdrafts drag it down.`,String(cs)):null);
+  s.append(h('h4',{},'Skills'),
+    bar('Business',sk('biz'),'#2E7D6A','Grows by running businesses. Better results, and investors trust me more.'),
+    bar('Tech',sk('tech'),'#3A6FD8','Grows in tech jobs and Computer Science. Helps tech interviews.'),
+    bar('People',sk('ppl'),'#9255C9','Grows by networking and people-facing jobs. Interviews, raises and deals.'));
+  s.append(h('h4',{},'Traits'));S.traits.forEach(t=>s.append(row(`${TRAITS[t].ic} ${TRAITS[t].n}`,TRAITS[t].d,'',null,false)));
+});}
 function menuSheet(){openSheet(s=>{
   s.append(h('h3',{},'Menu'));
   s.append(h('h4',{},'My traits'));S.traits.forEach(t=>s.append(row(`${TRAITS[t].ic} ${TRAITS[t].n}`,TRAITS[t].d,'',null,false)));
@@ -2575,7 +2619,7 @@ function ensureRunner(b){if(b.life==='absent')b.life='delegate';
   if(b.ousted&&!b.ceo){b.ceo=makeCEO(b,45,75);line(`🪑 The board of ${b.name} appointed ${b.ceo.name} as CEO.`);}}
 // How the person in charge changes quality, customers, costs and morale.
 function runFx(b){const r=runBy(b);
-  if(r==='me')return {q:5+S.st.smarts/10,d:1+(S.st.looks-50)/1000+(has('charming')?.04:0)+(has('hustler')?.03:0),cost:1,morale:2,noise:1};
+  if(r==='me')return {q:5+S.st.smarts/10+sk('biz')/10+((S.ethic||50)-50)/12,d:1+(S.st.looks-50)/1000+sk('biz')/2000+(has('charming')?.04:0)+(has('hustler')?.03:0),cost:1,morale:2,noise:1};
   if(r==='ceo'){const c=b.ceo,P=c.pers;return {q:(c.ops-50)/5,d:(c.sales<60?.85+c.sales*.00167:.95+c.sales*.0017)*(P==='grow'?1.04:1),cost:(c.ops<60?1.15-c.ops*.00233:1.01-c.ops*.0009)*(P==='cut'?.96:P==='grow'?1.03:1),morale:(c.people-50)/10-(P==='cut'?3:0),noise:P==='steady'?.8:P==='vision'?1.2:1,award:P==='vision'?1.5:1};}
   return {q:-15,d:.95,cost:1.05,morale:-3,noise:1.1};}
 function ceoFire(b){const c=b.ceo;const sev=Math.round(c.wage*.5);payFrom(b,sev);b.ceo=null;b.morale=clamp(b.morale-4);return `I let ${c.name} go as CEO of ${b.name} and paid ${fmt(sev)} in severance.`;}
@@ -2660,6 +2704,7 @@ function investorInterest(b,type){
   if(S.edu.degrees.includes('MBA'))add('MBA',8);
   if(has('charming'))add('Charming',5);if(has('hustler'))add('Hustler',5);if(has('ambitious'))add('Ambitious',3);
   add(`Smarts (${S.st.smarts}%)`,(S.st.smarts-50)*.2);
+  add(`Business skill (${sk('biz')})`,sk('biz')*.15);
   if(S.job&&S.job.lvl>0)add(`Career seniority (${title(S.job)})`,S.job.lvl*3);
   if(badCredit())add('Damaged credit',-10);
   if(b&&b.salary>marketSalary(b)*1.15)add('Founder pays themselves too much',-8);
@@ -2675,14 +2720,14 @@ const interestBox=ii=>h('div',{className:'flash'},h('b',{},`Investor interest: $
 
 /* ---- bank lending ---- */
 function startLoanMax(capital){
-  if(badCredit()||S.age<18)return 0;const e=bizExp();
+  if(badCredit()||S.age<18)return 0;const cf=creditF();const e=bizExp();
   const coll=Math.max(0,netWorth())*.5+(S.job?S.job.s*2:0)+Math.min(300000,e.yrs*15000)+e.exits*100000;
-  return Math.max(0,Math.round(Math.min(capital*.7,coll)/1000)*1000);
+  return Math.max(0,Math.round(Math.min(capital*.7,coll*cf)/1000)*1000);
 }
 function bizLoanMax(b){
   if(badCredit()||b.yrs<1)return 0;
   const cap=bizVal(b)*.4+Math.max(0,b.lastPre)*2-(b.loan.bal||0)-(b.credit||0);
-  return Math.max(0,Math.round(cap/1000)*1000);
+  return Math.max(0,Math.round(cap*Math.min(1,creditF())/1000)*1000);
 }
 function addLoan(b,amt,extra=0){const r=loanRate()+.025+extra;const bal=(b.loan.bal||0)+amt;
   const rate=b.loan.bal?((b.loan.bal*b.loan.rate+amt*r)/bal):r;b.loan={bal,rate,pay:Math.round(annuity(bal,rate,LOAN_YEARS))};return b.loan;}
@@ -2883,6 +2928,7 @@ function salaryRow(b){
 // Warn once a year before aging up if a business has nothing to sell.
 function emptyBiz(){return S.alive&&!S.used.emptyOk?S.biz.find(b=>isGoods(b)&&!b.ousted&&b.products&&!b.products.length):null;}
 function unrunBiz(){return S.alive&&!S.used.unrunOk&&canManage()?S.biz.find(b=>!b.ousted&&runBy(b)==='none'):null;}
+$('statsWrap').onclick=()=>{if(S)charSheet();};$('statsWrap').onkeydown=e=>{if(e.key==='Enter'&&S)charSheet();};
 $('bAge').onclick=()=>{if(modalOpen())return;if(!S.alive)return showDeath();
   const u=!emptyBiz()&&unrunBiz();
   if(u)return choiceModal(`${Tof(u).ic} Nobody runs ${u.name}`,'Without me or a CEO in charge, quality and reputation slip every year.',[
