@@ -1342,7 +1342,7 @@ function row(t,sub,right,fn,dis,cost){
   const noE=cost&&energyLeft()<cost;
   return h('button',{className:'row',disabled:!!(dis||noE),on:fn?()=>{if(cost)spend(cost);fn();}:null},h('span',{},h('b',{},t),sub||noE?h('small',{},noE&&!dis?'Not enough energy this year':sub):null),right!=null&&right!==''?h('span',{className:'r'},right):null);}
 function act(msg,cls){line(msg,cls);norm();checkAch();save();render();closeSheet();if(cls)sfx(cls);}
-function stay(msg,cls){if(msg){line(msg,cls);flash={t:msg,c:cls||''};}else flash=null;norm();checkAch();save();render();if(curSheet)drawSheet();if(cls)sfx(cls);if(!modalOpen()&&Q.length)showNext();}
+function stay(msg,cls){autoHireAll();if(msg){line(msg,cls);flash={t:msg,c:cls||''};}else flash=null;norm();checkAch();save();render();if(curSheet)drawSheet();if(cls)sfx(cls);if(!modalOpen()&&Q.length)showNext();}
 function seg(opts,cur,fn){return h('div',{className:'seg'},opts.map(([v,l])=>h('button',{'aria-pressed':String(v===cur),on:()=>fn(v)},l)));}
 function modalOpen(){return $('modalWrap').classList.contains('open');}
 function closeModal(){$('modalWrap').classList.remove('open');}
@@ -1355,7 +1355,7 @@ function showNext(){
   if(modalOpen()||!Q.length||!S.alive)return;const e=Q.shift();
   let extra=null;
   if(e.review){extra=h('div',{className:'review'},h('p',{className:'sub'},`Net worth went from ${fmt(e.nw[0])} to ${fmt(e.nw[1])}.`),e.lines.length?h('ul',{},e.lines.map(l=>h('li',{},l))):h('p',{className:'sub'},'A quiet decade. Sometimes that\'s a gift.'));}
-  choiceModal(e.review?e.text:`${e.ai?'✨ ':''}Age ${S.age}`,e.review?null:e.text,e.ch.map(([l,f,dis,tr])=>[l,()=>{const r=f();if(!e.review){line(`${e.text} ${r}`,e.ai?'ai':'');}norm();checkAch();save();render();if(curSheet)drawSheet();if(S.alive)showNext();},dis,tr]),extra);
+  choiceModal(e.review?e.text:`${e.ai?'✨ ':''}Age ${S.age}`,e.review?null:e.text,e.ch.map(([l,f,dis,tr])=>[l,()=>{const r=f();if(!e.review){line(`${e.text} ${r}`,e.ai?'ai':'');}autoHireAll();norm();checkAch();save();render();if(curSheet)drawSheet();if(S.alive)showNext();},dis,tr]),extra);
 }
 
 /* ================= Work sheet ================= */
@@ -2073,7 +2073,7 @@ function shareholderMotion(b,g){const others=(b.inv||0)+(b.co?b.co.share:0);if(o
     if(!pass)return `The motion failed. ${tally}`;
     if(k==='div'){b.divPol=Math.min(75,divPol(b)+25);return `It passed. ${tally} Dividend policy is now ${b.divPol}%.`;}
     if(k==='cut'){const n=Math.max(1,Math.round(b.staff*.2));b.staff=Math.max(1,b.staff-n);b.morale=Math.max(0,(b.morale||60)-15);b.mkt=0;return `It passed. ${tally} ${n} staff were laid off and spending was frozen. Morale fell.`;}
-    if(k==='ceo'){b.ceo=null;return `It passed. ${tally} The CEO was fired, so ${b.name} needs a new one.`;}
+    if(k==='ceo'){ceoGone(b);return `It passed. ${tally} The CEO was fired, so ${b.name} needs a new one.`;}
     if(k==='sell'){bizView=null;return `It passed. ${tally} `+sellBiz(b,Math.round(saleOffer(b)*b.own));}};
   Q.push({own:true,text:`🗳️ Shareholders of ${b.name} put a motion to a vote: ${txt}. I hold ${Math.round(b.own*100)}% of the votes${b.own>.5?', enough to decide it':others>.5?'. They hold a majority, so it will likely pass whatever I vote':''}.`,
     ch:[['Vote for',()=>vote(true)],['Vote against',()=>vote(false)]]});}
@@ -2496,6 +2496,7 @@ function bizYear(){
   const profitable=S.biz.filter(b=>b.lastPre>0);
   S.fame=Math.max(0,Math.min(100,(S.fame||0)+profitable.filter(b=>b.lastPre>100000).length*2-(S.biz.length?0:1)));
   if(S.econ.phase==='crash'&&profitable.length)S.flags.crashProfit=true;
+  autoHireAll();
 }
 function simBiz(b){
   const cash0=b.cash,acc0=Object.assign({prod:0,owner:0,invest:0},b.cfAcc);
@@ -2878,12 +2879,13 @@ function ceoCard(b,c,hire){const box=h('div',{className:'supcard'+(hire?'':' new
   return box;}
 function runnerBlock(s,b){const r=runBy(b),busy=S.job||S.edu.major||S.age>72;
   s.append(h('h4',{style:'margin-top:0'},'Who runs it'));
+  if(!b.ousted&&r!=='me')s.append(tog('🔁 Auto-replace CEO','If the CEO quits or is fired, hire the best value of 3 candidates straight away, keeping my mandate and spending limit',b.autoCeo!==false,()=>{b.autoCeo=b.autoCeo===false;if(b.autoCeo&&!b.ceo&&b.life!=='hands'){hireBestCEO(b);}stay();}));
   if(b.ousted&&b.ceo){s.append(h('p',{className:'sub'},'The board chose this CEO. Win back control to change it.'),ceoCard(b,b.ceo,false));return;}
   if(r==='me'){s.append(h('p',{className:'flash'},`🙋 I run it myself. My smarts (${S.st.smarts}) lift quality and my looks${has('charming')?' and charm':''} help sales. Costs 1 energy a year, plus some health, happiness and family time.`),
     row('🧑‍💼 Hand it to a CEO','Hire someone below to run it for me','',()=>{b.life='delegate';stay(`I stepped back from running ${b.name}.`)}));}
   else if(r==='ceo'){s.append(ceoCard(b,b.ceo,false),h('div',{className:'btns'},
       row('🙋 Run it myself',busy?'Not with a job or while studying':'Lets the CEO go','',()=>choiceModal('Take over?',`${b.ceo.name} will be let go with ${fmt(b.ceo.wage*.5)} severance.`,[['Take over',()=>{const m=ceoFire(b);b.life='hands';stay(m+' I run it myself now.')}],['Cancel',()=>{}]]),busy),
-      row('👋 Fire the CEO',`Severance ${fmt(b.ceo.wage*.5)}`,'',()=>choiceModal('Fire the CEO?',`${b.ceo.name} gets ${fmt(b.ceo.wage*.5)} in severance. Nobody runs ${b.name} until I pick someone.`,[['Fire them',()=>stay(ceoFire(b),'bad')],['Cancel',()=>{}]]))));
+      row('👋 Fire the CEO',`Severance ${fmt(b.ceo.wage*.5)}`,'',()=>choiceModal('Fire the CEO?',`${b.ceo.name} gets ${fmt(b.ceo.wage*.5)} in severance. ${b.autoCeo!==false?'Auto-replace is on, so a new CEO is hired straight away.':`Nobody runs ${b.name} until I pick someone.`}`,[['Fire them',()=>stay(ceoFire(b),'bad')],['Cancel',()=>{}]]))));
     s.append(h('p',{className:'label',style:'margin-top:10px'},'CEO mandate'),seg(Object.entries(MAND),b.mand||'bal',v=>{b.mand=v;stay()}),
       h('p',{className:'label'},'CEO can spend or borrow without asking me'),seg(CEOLIM,b.ceoLim==null?50000:b.ceoLim,v=>{b.ceoLim=v;stay()}),
       h('p',{className:'sub'},'Each year the CEO runs products and services (prices, suppliers, production, wholesale, rebrands, retiring and researching products, processing plants), growth (outlets, new cities, online sales, franchising, contracts, automation, buildings, insurance) and finance (loans). Strategy, marketing and hiring stay with me. Anything above the spending limit comes to me for approval.'));
@@ -3006,7 +3008,15 @@ function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),
   if(M==='cut'&&b.loan.bal>0&&b.cash>b.lastRev*.25){const p=Math.round(Math.min(b.loan.bal,b.cash-b.lastRev*.25));b.cash-=p;b.loan.bal-=p;cfAdd(b,'credit',-p);b.loan.pay=b.loan.bal?Math.round(annuity(b.loan.bal,b.loan.rate,LOAN_YEARS)):0;notes.push(`paid ${fmt(p)} off the bank loan`);}
   syncStaff(b);
   line(`🧑‍💼 ${c.name} (${MAND[M].slice(3).toLowerCase()} mandate): ${notes.length?notes.join('; '):'kept things as they were'}.`);}
-function ceoFire(b){const c=b.ceo;const sev=Math.round(c.wage*.5);payFrom(b,sev);b.ceo=null;b.morale=clamp(b.morale-4);return `I let ${c.name} go as CEO of ${b.name} and paid ${fmt(sev)} in severance.`;}
+// When a CEO leaves for any reason, flag it. autoHireAll() fills the seat once the moment is over, unless
+// auto-replace is off or I've taken over myself.
+function ceoGone(b){b.ceo=null;b.needCeo=true;}
+function hireBestCEO(b){const fair=ceoWage(b,{ops:60,sales:60,people:60,integ:60}),cands=[makeCEO(b),makeCEO(b),makeCEO(b)];
+  const val=c=>(c.ops+c.sales+c.people+c.integ)/4+c.loyal/10-15*c.wage/Math.max(1,fair);
+  const c=cands.reduce((a,x)=>val(x)>val(a)?x:a);b.ceo={...c,yrs:0};b.life='delegate';b.ceoCands=null;
+  line(`🧑‍💼 ${c.name} was hired as the new CEO of ${b.name} (operations ${c.ops}, sales ${c.sales}, people ${c.people}, integrity ${c.integ}) for ${fmt(c.wage)} a year.`,'good');}
+function autoHireAll(){if(!S||!S.biz)return;S.biz.forEach(b=>{if(!b.needCeo)return;b.needCeo=false;if(b.autoCeo!==false&&!b.ceo&&b.life!=='hands'&&!b.ousted)hireBestCEO(b);});}
+function ceoFire(b){const c=b.ceo;const sev=Math.round(c.wage*.5);payFrom(b,sev);ceoGone(b);b.morale=clamp(b.morale-4);return `I let ${c.name} go as CEO of ${b.name} and paid ${fmt(sev)} in severance.`;}
 // Once a year: pay, a short report, and whether the CEO stays.
 function ceoYear(b,pre){const c=b.ceo;if(!c)return 0;c.yrs=(c.yrs||0)+1;
   const fair=ceoWage(b,c),fx=runFx(b);
@@ -3018,17 +3028,17 @@ function ceoYear(b,pre){const c=b.ceo;if(!c)return 0;c.yrs=(c.yrs||0)+1;
     line(`💸 ${c.name} ${what}. It cost ${b.name} ${fmt(cost)}.`,'bad');
     if(canManage())Q.push({own:true,text:`${c.name}, the CEO of ${b.name}, ${what}. It cost ${fmt(cost)}.`,ch:[['Keep them',()=>`I gave ${fname(c.name)} another chance.`],[`Fire them (${fmt(c.wage*.5)} severance)`,()=>b.ceo===c?ceoFire(b):'They had already gone.']]});}
   if(c.integ<40&&rnd()<(40-c.integ)/100){const st=Math.round(Math.max(5000,b.lastRev*R(2,5)/100));b.cash-=st;
-    Q.push({text:`My CEO at ${b.name}, ${c.name}, has been skimming. ${fmt(st)} is missing.`,ch:[['Fire them',()=>{b.ceo=null;return `I fired ${fname(c.name)}. ${b.name} needs a new CEO.`}],['Press charges',()=>{b.ceo=null;if(rnd()<.5){b.cash+=Math.round(st/2);return 'They were convicted and paid back half.'}return 'The case fell apart. At least they\'re gone.'}],['Give them a second chance',()=>{c.integ=Math.min(99,c.integ+20);return `${fname(c.name)} swore it would never happen again.`}]]});}
+    Q.push({text:`My CEO at ${b.name}, ${c.name}, has been skimming. ${fmt(st)} is missing.`,ch:[['Fire them',()=>{ceoGone(b);return `I fired ${fname(c.name)}. ${b.name} needs a new CEO.`}],['Press charges',()=>{ceoGone(b);if(rnd()<.5){b.cash+=Math.round(st/2);return 'They were convicted and paid back half.'}return 'The case fell apart. At least they\'re gone.'}],['Give them a second chance',()=>{c.integ=Math.min(99,c.integ+20);return `${fname(c.name)} swore it would never happen again.`}]]});}
   else if(c.integ<30&&rnd()<.06){b.rep-=10;line(`📰 ${c.name} was caught in a scandal. ${b.name}'s reputation took a hit.`,'bad');}
   if(c.loyal==null)c.loyal=R(40,80);
   // loyalty grows with time in the job and fair pay, and falls when underpaid
   c.loyal=Math.max(5,Math.min(99,c.loyal+(c.wage<fair*.85?-8:c.wage>=fair*1.1?3:1)));const lf=1.6-c.loyal/80;
-  if(c.wage<fair*.85&&rnd()<.15*lf){b.ceo=null;line(`👋 ${c.name} quit as CEO of ${b.name} for a better-paid job. The business needs a new CEO.`,'bad');}
+  if(c.wage<fair*.85&&rnd()<.15*lf){ceoGone(b);line(`👋 ${c.name} quit as CEO of ${b.name} for a better-paid job. The business needs a new CEO.`,'bad');}
   else if(((S.rivals.some(r=>r.vs===b.id)?.05:.02)*((c.ops+c.sales)/2>70?1.5:.6)*lf>rnd())){const offer=Math.round(c.wage*1.25/1000)*1000;
     if(canManage()&&!b.ousted)Q.push({own:true,text:`📞 ${S.rivals.some(r=>r.vs===b.id)?'A rival':'Another company'} offered ${c.name}, the CEO of ${b.name}, ${fmt(offer)} a year. Loyalty ${c.loyal}.`,ch:[
-      [`Match it (${fmt(offer)}/yr)`,()=>{if(rnd()<.5+c.loyal/200){c.wage=offer;c.loyal=Math.min(99,c.loyal+10);return `${c.name} stayed for the raise.`;}b.ceo=null;return `${c.name} left anyway. ${b.name} needs a new CEO.`;}],
-      ['Let them decide',()=>{if(rnd()<c.loyal/130)return `${c.name} turned the offer down out of loyalty.`;b.ceo=null;return `${c.name} took the offer. ${b.name} needs a new CEO.`;}]]});
-    else if(rnd()>c.loyal/130){b.ceo=null;line(`👋 ${c.name} left ${b.name} for a better offer. The business needs a new CEO.`,'bad');}}
+      [`Match it (${fmt(offer)}/yr)`,()=>{if(rnd()<.5+c.loyal/200){c.wage=offer;c.loyal=Math.min(99,c.loyal+10);return `${c.name} stayed for the raise.`;}ceoGone(b);return `${c.name} left anyway. ${b.name} needs a new CEO.`;}],
+      ['Let them decide',()=>{if(rnd()<c.loyal/130)return `${c.name} turned the offer down out of loyalty.`;ceoGone(b);return `${c.name} took the offer. ${b.name} needs a new CEO.`;}]]});
+    else if(rnd()>c.loyal/130){ceoGone(b);line(`👋 ${c.name} left ${b.name} for a better offer. The business needs a new CEO.`,'bad');}}
   return c.wage;}
 function makeCand(b,lo=30,hi=95,role){const skill=R(lo,hi);const q=pick(QUIRKS)[0];return {id:uid(),name:fullName(pick(['M','F'])),skill,quirk:q,wage:Math.round(Tof(b).wage*(1+skill/80)*(role==='Star'?1.3:1)),role:role||pick(ROLES)};}
 function candPool(b,lo,hi){const roles=['Specialist','Specialist','Star','Star',pick(ROLES),pick(ROLES)];

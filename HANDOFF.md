@@ -56,6 +56,7 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
   - Financials tab: headline figures, P&L with % of income, cash flow statement (verified by bot), 5-year history. Summary table across all businesses.
   - Funding: start-up funding screen, buying a business for sale with an acquisition loan or investors (`buyView`), for-sale listings include mid-size and chains priced on profit. Cash shortfall popups let you part-cover from several sources; production shortfall popup (`planShort`).
   - Co-owned businesses: lend to the company (`b.sl`) or buy new shares (shareholder vote). Board motions, shareholder-proposed motions (`shareholderMotion`), expansion approval, selling the whole company.
+  - **Auto-replace CEO** (`b.autoCeo`, on by default): every CEO exit goes through `ceoGone(b)`; `autoHireAll()` (after `stay`, popup answers and each business year) hires the best value of 3 candidates via `hireBestCEO`, unless I took over myself.
   - **Who runs it:** you (`b.life==='hands'`), a hired CEO (`b.ceo`), or nobody (neutral, no penalty). CEO stats: operations, sales, people, integrity, loyalty, plus personality. Owner sets a mandate (Grow, Balanced, Cut costs) and a spending limit.
   - **CEO decisions (`ceoManage`)**: products and services, growth and finance only. Strategy, marketing and all hiring stay with the owner (owner's decision). A stat of 80+ decides reliably (`skill()`). Weak CEOs cost money and can make costly mistakes. Loyalty affects quitting and poaching (counter-offer popup).
 
