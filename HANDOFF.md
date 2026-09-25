@@ -67,3 +67,8 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - **Edit safely.** Make edits that match exactly one place in the file (the old workflow used Python replacements that assert a single match). Syntax-check the script after every edit.
 - **Top-level order matters:** `const` and `let` values must be defined before the boot code at the bottom of the script uses them.
 - **AI features** must handle `sampleFn` being `null`, which is the case outside Claude.
+
+## Bad CEOs
+- runFx CEO range widened: worst CEO about -15% customers, +15% costs.
+- ceoYear: CEOs with weak ops/sales risk a yearly costly mistake (up to 40% chance, 5-15% of sales), followed by a keep-or-fire popup. Candidates with ops or sales below 35 are tagged "Risky".
+- A CEO (like running it yourself) covers one staff role, and CEO pay was lowered, so a café with a decent CEO can make money.

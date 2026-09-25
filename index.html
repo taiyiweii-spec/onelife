@@ -2044,7 +2044,7 @@ function marketSalary(b){const T=Tof(b);const rev=b.yrs>0?Math.max(0,b.lastRev):
   return Math.round(Math.max(35000,Math.min(20000000,base))*role/1000)*1000;}
 const maxSalary=b=>Math.round(marketSalary(b)*1.5*capMult(b)/1000)*1000;
 function syncStaff(b){if(b.autoStaff!==false)b.staff=needStaff(b);}
-const needStaff=b=>{const T=Tof(b);let n=isSvc(b)&&b.products?svcStaff(b):T.tech?Math.max(2,Math.ceil(b.base/150000)):Math.round(T.staff*b.locs*(1-.2*b.auto));return Math.max(0,n-(b.life==='hands'?1:0));};
+const needStaff=b=>{const T=Tof(b);let n=isSvc(b)&&b.products?svcStaff(b):T.tech?Math.max(2,Math.ceil(b.base/150000)):Math.round(T.staff*b.locs*(1-.2*b.auto));return Math.max(0,n-(b.life==='hands'||b.ceo?1:0));};
 const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*({low:.85,market:1,high:1.15}[b.pay])*(b.union?1.1:1));
 const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0);let v;
   if(T.tech)v=Math.max(b.lastRev*6,T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
@@ -2470,7 +2470,7 @@ function bizTip(b){const svc=isSvc(b),word=svc?'service':'product',ph=bizPhase(b
   if(b.yrs&&b.lastPre>0)return prs.length<prodSlots(b)?`Profitable. A second ${word} or another outlet could grow it.`:'Profitable. Another outlet could grow it.';
   return '';}
 function ceoCard(b,c,hire){const box=h('div',{className:'supcard'+(hire?'':' new')});
-  box.append(h('div',{className:'suphead'},h('b',{},`🧑‍💼 ${c.name}`),h('span',{className:'chip',title:PERS[c.pers].d},PERS[c.pers].n)),
+  box.append(h('div',{className:'suphead'},h('b',{},`🧑‍💼 ${c.name}`),h('span',{},Math.min(c.ops,c.sales)<35?h('span',{className:'chip bad',style:'margin-right:4px'},'⚠️ Risky'):null,h('span',{className:'chip',title:PERS[c.pers].d},PERS[c.pers].n))),
     h('p',{className:'sub',style:'margin:0'},`${PERS[c.pers].d}. ${hire?`Asks ${fmt(c.wage)} a year.`:`Paid ${fmt(c.wage)} a year${c.yrs?`, ${c.yrs} yr in the job`:''}.`}`),
     ...CEOST.map(([k,ic,l])=>h('div',{className:'supbar'},h('span',{},`${ic} ${l}`),h('div',{className:'bar'},h('i',{style:`width:${c[k]}%;background:var(--${k==='integ'?(c[k]<40?'bad':'good'):k==='ops'?'smarts':k==='sales'?'happy':'health'})`})),h('em',{},c[k]))));
   return box;}
@@ -2526,7 +2526,7 @@ const runBy=b=>b.life==='hands'?'me':b.ceo?'ceo':'none';
 // What a CEO asks for: based on the business's sales, higher for better stats.
 function ceoWage(b,c){const T=Tof(b);const rev=b.yrs>0?Math.max(0,b.lastRev):T.base*b.locs;
   const base=rev<=1e6?rev*.12:rev<=28e6?120000+(rev-1e6)*.04:1200000+(rev-28e6)*.008;const avg=(c.ops+c.sales+c.people+c.integ)/4;
-  return Math.round(Math.max(45000*cty(b).wage,base)*(.6+avg/125)/1000)*1000;}
+  return Math.round(Math.max(30000*cty(b).wage,base*.8)*(.6+avg/125)/1000)*1000;}
 function makeCEO(b,lo=30,hi=85){const st=()=>Math.max(5,Math.min(99,R(lo,hi)));const c={id:uid(),name:fullName(pick(['M','F'])),ops:st(),sales:st(),people:st(),integ:st(),pers:pick(Object.keys(PERS)),yrs:0};c.wage=ceoWage(b,c);return c;}
 // Older saves: a Manager on the team becomes the CEO, other managers become specialists.
 function ensureRunner(b){if(b.life==='absent')b.life='delegate';
@@ -2537,13 +2537,19 @@ function ensureRunner(b){if(b.life==='absent')b.life='delegate';
 // How the person in charge changes quality, customers, costs and morale.
 function runFx(b){const r=runBy(b);
   if(r==='me')return {q:5+S.st.smarts/10,d:1+(S.st.looks-50)/1000+(has('charming')?.04:0)+(has('hustler')?.03:0),cost:1,morale:2,noise:1};
-  if(r==='ceo'){const c=b.ceo,P=c.pers;return {q:(c.ops-50)/5,d:(.92+c.sales*.002)*(P==='grow'?1.04:1),cost:(1.08-c.ops*.0016)*(P==='cut'?.96:P==='grow'?1.03:1),morale:(c.people-50)/10-(P==='cut'?3:0),noise:P==='steady'?.8:P==='vision'?1.2:1,award:P==='vision'?1.5:1};}
+  if(r==='ceo'){const c=b.ceo,P=c.pers;return {q:(c.ops-50)/5,d:(c.sales<60?.85+c.sales*.00167:.95+c.sales*.0017)*(P==='grow'?1.04:1),cost:(c.ops<60?1.15-c.ops*.00233:1.01-c.ops*.0009)*(P==='cut'?.96:P==='grow'?1.03:1),morale:(c.people-50)/10-(P==='cut'?3:0),noise:P==='steady'?.8:P==='vision'?1.2:1,award:P==='vision'?1.5:1};}
   return {q:-15,d:.95,cost:1.05,morale:-3,noise:1.1};}
 function ceoFire(b){const c=b.ceo;const sev=Math.round(c.wage*.5);payFrom(b,sev);b.ceo=null;b.morale=clamp(b.morale-4);return `I let ${c.name} go as CEO of ${b.name} and paid ${fmt(sev)} in severance.`;}
 // Once a year: pay, a short report, and whether the CEO stays.
 function ceoYear(b,pre){const c=b.ceo;if(!c)return 0;c.yrs=(c.yrs||0)+1;
   const fair=ceoWage(b,c),fx=runFx(b);
   line(`🧑‍💼 ${c.name} (CEO): quality ${fx.q>=0?'+':''}${Math.round(fx.q)}, customers ${fx.d>=1?'+':''}${Math.round((fx.d-1)*100)}%, costs ${fx.cost<=1?'−':'+'}${Math.abs(Math.round((fx.cost-1)*100))}%.`);
+  // Weak operations or sales can mean a costly bad call.
+  const weak=Math.min(c.ops,c.sales);
+  if(weak<60&&rnd()<Math.min(.4,(60-weak)/150)){const cost=Math.round(Math.max(3000,b.lastRev*R(5,15)/100));b.cash-=cost;
+    const what=pick([`ordered far too much stock`,`signed an expensive lease for a failing outlet`,`launched a promotion nobody noticed`,`fell out with a key supplier`,`botched a big order`]);
+    line(`💸 ${c.name} ${what}. It cost ${b.name} ${fmt(cost)}.`,'bad');
+    if(canManage())Q.push({own:true,text:`${c.name}, the CEO of ${b.name}, ${what}. It cost ${fmt(cost)}.`,ch:[['Keep them',()=>`I gave ${fname(c.name)} another chance.`],[`Fire them (${fmt(c.wage*.5)} severance)`,()=>b.ceo===c?ceoFire(b):'They had already gone.']]});}
   if(c.integ<40&&rnd()<(40-c.integ)/100){const st=Math.round(Math.max(5000,b.lastRev*R(2,5)/100));b.cash-=st;
     Q.push({text:`My CEO at ${b.name}, ${c.name}, has been skimming. ${fmt(st)} is missing.`,ch:[['Fire them',()=>{b.ceo=null;return `I fired ${fname(c.name)}. ${b.name} needs a new CEO.`}],['Press charges',()=>{b.ceo=null;if(rnd()<.5){b.cash+=Math.round(st/2);return 'They were convicted and paid back half.'}return 'The case fell apart. At least they\'re gone.'}],['Give them a second chance',()=>{c.integ=Math.min(99,c.integ+20);return `${fname(c.name)} swore it would never happen again.`}]]});}
   else if(c.integ<30&&rnd()<.06){b.rep-=10;line(`📰 ${c.name} was caught in a scandal. ${b.name}'s reputation took a hit.`,'bad');}
