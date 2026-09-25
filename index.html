@@ -1232,14 +1232,14 @@ function newBiz(type,name,o={}){const T=BIZ[type];return Object.assign({id:uid()
   skipQC:false,taxDodge:false,bribed:0,base:T.base,lastRev:0,lastPre:0,prevPre:0,hist:[],pnl:null,reviews:[],awards:[],awardBoost:0,tvBoost:0,yrs:0,gens:1,
   founded:S.age,founder:S.name,peakRev:0,peakLocs:1,ousted:false,pub:null,successor:null,turn:null},o);}
 const Tof=b=>BIZ[b.type];
-const lev=b=>Tof(b).lever.o[b.lever]||{};
+const lev=b=>KEEP_LEVER.includes(b.type)?(Tof(b).lever.o[b.lever]||{}):{};
 const hasMgr=b=>b.team.some(p=>p.role==='Manager');
 function marketSalary(b){const T=Tof(b);const rev=b.yrs>0?Math.max(0,b.lastRev):T.base*b.locs;const role={hands:1,delegate:.8,absent:.35}[b.life]||.8;
   const base=rev<=1e6?rev*.12:120000+(rev-1e6)*.04;
   return Math.round(Math.max(35000,Math.min(1200000,base))*role/1000)*1000;}
 const maxSalary=b=>Math.round(marketSalary(b)*1.5/1000)*1000;
 function syncStaff(b){if(b.autoStaff!==false)b.staff=needStaff(b);}
-const needStaff=b=>{const T=Tof(b);let n=T.tech?Math.max(2,Math.ceil(b.base/150000)):Math.round(T.staff*b.locs*(1-.2*b.auto));return Math.max(0,n-(b.life==='hands'?1:0));};
+const needStaff=b=>{const T=Tof(b);let n=T.tech?Math.max(2,Math.ceil(b.base/150000)):Math.round(T.staff*b.locs*(b.items?workload(b):1)*(1-.2*b.auto));return Math.max(0,n-(b.life==='hands'?1:0));};
 const wagePer=b=>Math.round(Tof(b).wage*S.regs.wage*({low:.85,market:1,high:1.15}[b.pay])*(b.union?1.1:1));
 const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0);let v;
   if(T.tech)v=Math.max(b.lastRev*6,T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
@@ -1287,7 +1287,7 @@ function spawnRival(b){
   const r={id:uid(),name:nm,type:b.type,strat,str:R(35,75),who,vs:b.id,yrs:0};S.rivals.push(r);
   line(`⚔️ A ${strat} rival, ${nm}, opened near ${b.name}.${who?` It's run by ${who}, ${rel}!`:''}`,'bad');
 }
-function rivalFactor(b){return S.rivals.filter(r=>r.vs===b.id).reduce((f,r)=>{let fit=1;if(r.strat==='budget chain'&&b.seg==='students')fit=1.4;if((r.strat==='trendy boutique'||r.strat==='premium')&&b.seg==='pros')fit=1.4;if(b.rep>70)fit*=.7;return f*(1-r.str/400*fit);},1);}
+function rivalFactor(b){return S.rivals.filter(r=>r.vs===b.id).reduce((f,r)=>{let fit=1;const pr=avgPriceRatio(b);if(r.strat==='budget chain'&&pr>1.15)fit=1.4;if((r.strat==='trendy boutique'||r.strat==='premium')&&pr<.85)fit=1.4;if(b.rep>70)fit*=.7;return f*(1-r.str/400*fit);},1);}
 
 function bizYear(){
   if(S.biz.length&&S.age>=18)S.flags.bizYears=(S.flags.bizYears||0)+1;
@@ -1304,33 +1304,31 @@ function simBiz(b){
   const econ={boom:.12,normal:0,recession:-.12,crash:-.28}[ph]*T.econ*(L.e||1)*(b.lever==='annual'?1:1);
   if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.base=Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+(b.rep-50)/4+(L.g||0))/100)));}
   if(b.ousted)b.life='absent';
-  const sup=SUPPLIERS[b.supplier];
+  ensureItems(b);
   const teamB=b.team.reduce((a,p)=>a+(p.skill-50)/6+(p.quirk==='Star'?3:0)+(p.quirk==='Charismatic'?2:0)-(p.quirk==='Lazy'?3:0),0);
   const lifeQ={hands:10,delegate:hasMgr(b)?0:-8,absent:hasMgr(b)?-5:-25}[b.life];
-  b.q=clamp(sup.q+teamB+(b.morale-60)/4+lifeQ-(b.skipQC?5:0)-(b.auto?2:0)+(b.ousted?5:0));
+  b.q=clamp(60+teamB+(b.morale-60)/4+lifeQ-(b.skipQC?5:0)-(b.auto?2:0)+(b.ousted?5:0));
   if(b.autoStaff!==false)b.staff=needStaff(b);
   const need=needStaff(b),ratio=need<=0?1.2:Math.min(1.2,b.staff/need);
-  const P=PRICE[b.price],pd=b.price==='premium'&&b.rep>=70?.88:P.d,seg=SEGS[b.seg].fit[b.price];
-  let mk=1;for(const k in b.ch)if(b.ch[k]){const c=CHANNELS[k];mk+=c.d*(c.seg===b.seg?1.3:1);}
+  let mk=1;
   if(b.celeb)mk+=b.celeb.d;if(b.loyal)mk+=.06;if(b.online)mk+=T.online?0:(b.type==='fashion'?.3:.12);
   let trendF=1;if(trendHits(b))trendF=b.ride===S.trend.k?1.2:1.06;if(b.dated){trendF*=.92;b.dated--;}
   const syn=1+synergy(b).reduce((a,x)=>a+x[2],0);
   const extra=(b.awardBoost>0?1.08:1)*(b.tvBoost>0?1.15:1)*(b.push?1.08:1)*(1+Math.min(.12,(b.gens-1)*.04))*(1+(S.fame||0)/1000)*(has('hustler')?1.05:1)*(T.art&&has('creative')?1.08:1)*(b.type==='construction'&&S.careers.includes('trade')?1.1:1)*(b.lever==='celeb'?1+(S.fame||0)/200:1);
-  let demand=b.base*b.locs*(1+econ)*(.5+b.rep/100)*(.85+b.q/400)*pd*seg*(L.d||1)*mk*trendF*rivalFactor(b)*syn*extra*Math.max(.25,1+gauss()*T.vol*(L.v||1));
-  if(T.weather){const w=Math.random();if(w<.12){demand*=.55;line(`🌵 A drought hit ${b.name}. Harvest was terrible.`,'bad');}else if(w>.9){demand*=1.3;line(`🌦️ Perfect weather gave ${b.name} a bumper crop.`,'good');}}
-  demand*=Math.min(1,ratio);if(b.strike)demand*=.75;
-  let writeoff=0,soldOut=false;
-  if(T.inv){const stock=b.base*b.locs*(.5+b.rep/100)*(L.inv||1)*(1+econ*.5);if(demand>stock){demand=stock;soldOut=true;}else writeoff=(stock-demand)*T.cogs*.7;}
-  let rev=Math.round(demand*P.p*(L.p||1));
+  let common=(1+econ)*(.5+b.rep/100)*(L.d||1)*mk*trendF*rivalFactor(b)*syn*extra*Math.max(.25,1+gauss()*T.vol*(L.v||1));
+  if(T.weather){const w=Math.random();if(w<.12){common*=.55;line(`🌵 A drought hit ${b.name}. Harvest was terrible.`,'bad');}else if(w>.9){common*=1.3;line(`🌦️ Perfect weather gave ${b.name} a bumper crop.`,'good');}}
+  common*=Math.min(1,ratio);if(b.strike)common*=.75;
+  const idx=b.contract?b.contract.idx:S.supIdx;if(b.contract){b.contract.yrs--;if(b.contract.yrs<=0)b.contract=null;}
+  const sales=sellItems(b,common,idx);const soldOut=sales.soldOut;
+  let rev=sales.rev;
   let hit=false;if(T.hit&&Math.random()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
   const conRev=b.contracts.reduce((a,c)=>a+c.rev,0);b.contracts.forEach(c=>c.yrs--);b.contracts=b.contracts.filter(c=>c.yrs>0);
   let royal=0;if(b.fr){const grow=Math.round(R(0,3)*(b.rep/70));b.fr.n+=grow;royal=Math.round(b.fr.n*b.base*.9*.06);}
-  const idx=b.contract?b.contract.idx:S.supIdx;if(b.contract){b.contract.yrs--;if(b.contract.yrs<=0)b.contract=null;}
-  const cogs=Math.round((rev+conRev)*T.cogs*sup.c*idx*(L.c||1)*(1+(T.food?S.regs.foodTax:0))+writeoff);
+  const cogs=Math.round(sales.cogs+conRev*T.cogs*idx);
   let owner=0;if(b.salary>0&&!b.ousted&&!S.jail&&S.age>=18){const mx=maxSalary(b);if(b.salary>mx){b.salary=mx;line(`${b.name} is smaller now, so I cut my salary to ${fmt(mx)}.`,'bad');}owner=b.salary;}
   const wages=b.staff*wagePer(b)+b.team.reduce((a,p)=>a+p.wage,0)+owner;
   const rent=Math.round(T.fixed*.5*b.locs+T.fixed*.5*Math.max(0,b.locs-b.prem)*b.rentMult);
-  let mkCost=0;for(const k in b.ch)if(b.ch[k])mkCost+=CHANNELS[k].c*(CHANNELS[k].per?b.locs:1);if(b.celeb)mkCost+=b.celeb.c;if(b.push)mkCost+=Math.round(b.base*b.locs*.03);
+  let mkCost=sales.mk;if(b.celeb)mkCost+=b.celeb.c;if(b.push)mkCost+=Math.round(b.base*b.locs*.03);
   const other=Math.round((b.loyal?rev*.02:0)+(b.ins?Math.max(2000,rev*.015):0)+(b.online&&T.food?rev*.2*S.regs.deliv:0)+(b.contracts.some(c=>c.gov)?conRev*.05:0));
   const interest=Math.round((b.credit||0)*.1);b.credit=Math.round((b.credit||0)*1.1);
   const pre=Math.round(rev+conRev+royal-cogs-wages-rent-mkCost-other-interest);
@@ -1343,8 +1341,8 @@ function simBiz(b){
   b.prevPre=b.lastPre;b.lastRev=rev+conRev+royal;b.lastPre=pre;b.yrs++;b.peakRev=Math.max(b.peakRev,b.lastRev);b.peakLocs=Math.max(b.peakLocs,b.locs);
   b.hist.push({age:S.age,nw:b.lastRev,p:pre});if(b.hist.length>40)b.hist.shift();
   // reputation & morale
-  const M=Object.keys(b.ch).filter(k=>b.ch[k]).reduce((a,k)=>a+(CHANNELS[k].r||0),0);
-  b.rep+=(b.q-b.rep)*.15+(ratio<1?-(1-ratio)*35:0)+M+(b.price==='premium'?(b.rep>=65?2:-4):b.price==='budget'?1:0)+(L.r||0)+(soldOut?3:0)+R(-4,4)*(b.loyal?.5:1);
+  const M=Math.min(3,sales.mk/Math.max(1,b.base*b.locs*.08))+(avgRating(b)-3)*2;
+  b.rep+=(b.q-b.rep)*.15+(ratio<1?-(1-ratio)*35:0)+M+(L.r||0)+(soldOut?3:0)+R(-4,4)*(b.loyal?.5:1);
   b.morale+=({low:-8,market:0,high:6}[b.pay])+(b.union?3:0)+(b.life==='hands'?2:0)+(60-b.morale)*.15+R(-3,3);if(b.strike){b.strike=false;}
   b.rep=clamp(b.rep);b.morale=clamp(b.morale);
   if(b.awardBoost)b.awardBoost--;if(b.tvBoost)b.tvBoost--;b.push=false;if(b.copy){b.copy--;if(Math.random()<.35){b.base=Math.round(b.base*.9);b.copy=0;line(`😤 A copycat launched a knockoff of ${b.prods[b.prods.length-1]}. ${b.name} lost some customers.`,'bad');}}
@@ -1393,7 +1391,7 @@ function reviews(b,hit,soldOut){
   if(b.q>=75)out.push(['★★★★★',pick(good)]);else if(b.q<45)out.push(['★☆☆☆☆',pick([`The ${it} tasted like a sad Tuesday.`,`Something was sticky. I don't want to know what.`,`Quality has gone downhill fast.`])]);
   if(b.morale<40)out.push(['★★☆☆☆',pick(['The staff looked like they wanted to be anywhere else.','My server sighed at me. Twice.'])]);
   if(b.auto>0)out.push(['★★★☆☆','A robot served me. It was efficient and a little haunting.']);
-  if(SEGS[b.seg].fit[b.price]<.9)out.push(['★★☆☆☆',b.price==='premium'?'Way too expensive for what it is.':'Cheap, but it feels cheap.']);
+  {const pr=avgPriceRatio(b);if(pr>1.4)out.push(['★★☆☆☆','Way too expensive for what it is.']);else if(pr<.7)out.push(['★★☆☆☆','Cheap, but it feels cheap.']);}
   if(b.celeb)out.push(['★★★★☆',`Came because ${b.celeb.n} said so. Not disappointed.`]);
   if(soldOut)out.push(['★★★★☆','Sold out AGAIN. I need this in my life.']);
   if(hit)out.push(['★★★★★','Everyone is talking about this. Everyone.']);
@@ -1409,7 +1407,7 @@ function bizEvent(b){
   ev.push([1,()=>[cov(R(5000,30000),`${b.name} was broken into overnight.`),'bad']]);
   if(T.weather||b.type==='hotel')ev.push([1,()=>[cov(Math.round(T.cost*.2),`A flood swept through ${b.name}.`),'bad']]);
   if(T.food)ev.push([b.skipQC?4:2,()=>{if(b.bribed)return [`A health inspector visited ${b.name} and, thanks to my "donation", found nothing.`,''];const f=R(5000,20000);b.cash-=f;b.rep-=10;return [`${b.name} failed a health inspection and paid ${fmt(f)} in fines.`,'bad']}]);
-  if(b.supplier==='cheap'&&b.skipQC)ev.push([3,()=>{const c=Math.round(b.lastRev*.1);b.cash-=c;b.rep-=20;return [`${b.name} had to recall a batch of faulty products. It cost ${fmt(c)} and a lot of trust.`,'bad']}]);
+  if((b.items||[]).some(it=>it.sup.q<45)&&b.skipQC)ev.push([3,()=>{const c=Math.round(b.lastRev*.1);b.cash-=c;b.rep-=20;return [`${b.name} had to recall a batch of faulty products. It cost ${fmt(c)} and a lot of trust.`,'bad']}]);
   if(b.taxDodge)ev.push([3,()=>{Q.push({text:`Tax auditors are looking into ${b.name}'s books.`,ch:[['Pay back taxes and penalties',()=>{const p=Math.round(Math.max(20000,b.lastRev*.08));b.cash-=p;b.taxDodge=false;return `I paid ${fmt(p)} and stopped the tax games.`}],['Hide the evidence',()=>{if(Math.random()<.5){return 'The auditors went away. For now.'}S.flags.record=true;S.jail=R(1,3);b.taxDodge=false;S.biz.forEach(x=>{if(x.life==='hands')x.life='delegate'});mile('Went to prison for tax fraud');return `It didn't work. I was convicted of tax fraud and sentenced to ${S.jail} years.`}]]});return [`An auditor called ${b.name}.`,'bad']}]);
   if(b.prem<b.locs)ev.push([1,()=>{Q.push({text:`The landlord at ${b.name} wants to raise rent by 20%.`,ch:[['Accept it',()=>{b.rentMult*=1.2;return 'I signed the new lease.'}],['Move to a cheaper spot',()=>{b.rep-=8;b.cash-=Math.round(T.cost*.15);return 'We moved. Some regulars lost track of us.'}],[`Buy the building (${fmt(T.fixed*3)})`,()=>{b.cash-=T.fixed*3;b.prem++;return 'I bought the building. No more landlord.'},()=>b.cash<T.fixed*3]]});return [`A letter arrived from ${b.name}'s landlord.`,'']}]);
   if(b.online||T.tech||['clinic','lawfirm'].includes(b.type))ev.push([1,()=>{Q.push({text:`Hackers breached ${b.name}'s customer data.`,ch:[['Disclose it and fix it',()=>{b.cash-=Math.round(Math.max(20000,b.lastRev*.03));b.rep-=5;return 'I came clean and paid for a security overhaul.'}],['Cover it up',()=>{if(Math.random()<.3){b.rep-=30;b.cash-=100000;return 'A reporter found out. The cover-up was worse than the breach.'}return 'Nobody found out. I feel queasy about it.'}]]});return [`${b.name} had a security scare.`,'bad']}]);
@@ -1418,7 +1416,7 @@ function bizEvent(b){
   const star=b.team.find(p=>p.quirk==='Star'||p.skill>=80);
   if(star)ev.push([2,()=>{Q.push({text:`${star.name}, my best person at ${b.name}, wants a 5% ownership stake or they'll quit.`,ch:[['Give them 5%',()=>{b.own=Math.max(.05,b.own-.05);star.loyal=true;return `${fname(star.name)} is now a part owner.`}],['Offer a 30% raise',()=>{star.wage=Math.round(star.wage*1.3);if(Math.random()<.6)return 'They took the raise.';b.team=b.team.filter(p=>p!==star);return 'They quit anyway.'}],['Let them go',()=>{b.team=b.team.filter(p=>p!==star);b.morale-=5;return `${fname(star.name)} left.`}]]});return ['','']}]);
   const riv=S.rivals.find(r=>r.vs===b.id);
-  if(riv){ev.push([2,()=>{Q.push({text:`${riv.name} started a price war with ${b.name}.`,ch:[['Match their prices',()=>{b.price='budget';riv.str-=10;return 'I cut prices. Margins hurt, but so did theirs.'}],['Hold my prices',()=>{b.rep-=3;b.base=Math.round(b.base*.95);return 'I held firm and lost some price-hunters.'}],['Outspend them on marketing',()=>{b.cash-=40000;riv.str-=15;b.rep+=4;return 'I spent $40,000 drowning them out.'}]]});return ['','']}]);
+  if(riv){ev.push([2,()=>{Q.push({text:`${riv.name} started a price war with ${b.name}.`,ch:[['Match their prices',()=>{(b.items||[]).forEach(it=>it.price=Math.round(it.price*.85*100)/100);riv.str-=10;return 'I cut prices. Margins hurt, but so did theirs.'}],['Hold my prices',()=>{b.rep-=3;b.base=Math.round(b.base*.95);return 'I held firm and lost some price-hunters.'}],['Outspend them on marketing',()=>{b.cash-=40000;riv.str-=15;b.rep+=4;return 'I spent $40,000 drowning them out.'}]]});return ['','']}]);
     if(star)ev.push([1,()=>{Q.push({text:`${riv.name} is trying to poach ${star.name} from ${b.name}.`,ch:[['Counter with a raise',()=>{star.wage=Math.round(star.wage*1.25);return `${fname(star.name)} stayed.`}],['Let them go',()=>{b.team=b.team.filter(p=>p!==star);riv.str+=8;return `${fname(star.name)} jumped ship to the rival.`}]]});return ['','']}]);
     if(bizVal(b)>50000&&!b.ousted)ev.push([1,()=>{const off=Math.round(bizVal(b)*b.own*R(90,130)/100);Q.push({text:`${riv.name}${riv.who?`, run by ${riv.who},`:''} offered to buy my stake in ${b.name} for ${fmt(off)}.`,ch:[['Negotiate',()=>{setTimeout(()=>negotiate({title:`Selling ${b.name}`,offer:off,lev:.5+b.rep/200,onDeal:p=>{S.money+=p;companyEnd(b,`was sold to rival ${riv.name}`);S.biz=S.biz.filter(x=>x!==b);return `I sold ${b.name} to ${riv.name} for ${fmt(p)}.`}}),50);return 'I sat down to negotiate.'}],['Refuse',()=>{riv.str+=5;return 'I told them it is not for sale.'}]]});return ['','']}]);}
   if(b.yrs>=3&&S.mem&&mem('bully')&&!S.flags.bullyBiz&&Math.random()<.3)ev.push([1,()=>{S.flags.bullyBiz=true;b.rep+=R(-5,5);return [`${mem('bully').name}, my old school bully, left a one-star review of ${b.name}. Petty.`,'']}]);
@@ -1534,12 +1532,12 @@ function drawBiz(s,b){
   s.append(h('button',{className:'back',on:()=>{bizView=null;flash=null;drawSheet(true)}},'‹ All businesses'));
   s.append(h('h3',{},`${T.ic} ${b.name}`),h('p',{className:'sub'},`${T.n}, ${b.yrs} yr${b.yrs===1?'':'s'} old${b.gens>1?`, family-owned for ${b.gens} generations`:''}. I own ${Math.round(b.own*100)}%${b.co?`, ${fname(b.co.name)} owns ${Math.round(b.co.share*100)}%`:''}${b.inv>0?`, investors own ${Math.round(b.inv*100)}%`:''}.${b.pub?' Publicly traded.':''}`));
   if(b.ousted)s.append(h('p',{className:'flash bad'},'🪑 The board removed me as CEO. A hired CEO runs things. I can sell my stake or buy out the investors to take back control.'));
-  s.append(h('div',{className:'tabs'},[['over','Overview'],['strat','Strategy'],['people','People'],['grow','Growth'],['fin','Finance'],['risk','Risk']].map(([k,l])=>h('button',{'aria-pressed':String(bTab===k),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['prod','Products'],['people','People'],['grow','Growth'],['fin','Finance'],['risk','Risk']].map(([k,l])=>h('button',{'aria-pressed':String(bTab===k),on:()=>{bTab=k;bizItem=null;flash=null;drawSheet(true)}},l))));
   const bars=(l,v,c)=>[h('p',{className:'label'},`${l} ${v}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${v}%;background:var(--${c})`}))];
   if(bTab==='over'){
     s.append(...bars('Reputation',b.rep,'happy'),...bars('Quality',b.q,'smarts'),...bars('Staff morale',b.morale,'health'));
     const units=Math.round(b.lastRev/T.unit[1]);
-    const dl=h('dl',{},h('dt',{},'Revenue'),h('dd',{},fmt(b.lastRev)),h('dt',{},'Profit'),h('dd',{className:b.lastPre<0?'bad':''},fmt(b.lastPre)),h('dt',{},T.unit[0][0].toUpperCase()+T.unit[0].slice(1)),h('dd',{},units.toLocaleString()),
+    const dl=h('dl',{},h('dt',{},'Revenue'),h('dd',{},fmt(b.lastRev)),h('dt',{},'Profit'),h('dd',{className:b.lastPre<0?'bad':''},fmt(b.lastPre)),h('dt',{},'Products'),h('dd',{},`${(b.items||[]).length} · ${stars(b.items&&b.items.some(i=>i.rating!=null)?avgRating(b):null).split(' ').slice(-1)[0]}`),
       h('dt',{},'Business cash'),h('dd',{className:b.cash<0?'bad':''},fmt(b.cash)),h('dt',{},'Company value'),h('dd',{},fmt(v)),h('dt',{},'My stake'),h('dd',{},fmt(v*b.own)));
     if(T.tech){dl.append(h('dt',{},'Customer churn'),h('dd',{},`${Math.max(2,Math.round(30-b.q/4))}% a year`),h('dt',{},'Runway'),h('dd',{},b.lastPre>=0?'Profitable':`${Math.max(0,b.cash/(-b.lastPre)).toFixed(1)} years`));}
     s.append(dl);
@@ -1553,25 +1551,7 @@ function drawBiz(s,b){
     const sy=synergy(b);if(sy.length)s.append(h('p',{className:'sub'},`🔗 ${sy.map(x=>x[3]).join(', ')}`));
     return;}
   if(lock&&bTab!=='fin'){s.append(h('p',{className:'sub'},S.jail?"The business runs without me while I'm in prison.":S.age<18?'A trustee runs this until I turn 18.':'The board is in charge.'));return;}
-  if(bTab==='strat'){
-    s.append(h('p',{className:'label'},'Prices'),seg(Object.entries(PRICE).map(([k,p])=>[k,p.l]),b.price,x=>{b.price=x;stay()}));
-    s.append(h('p',{className:'label'},'Target customers'),seg(Object.entries(SEGS).map(([k,p])=>[k,p.l]),b.seg,x=>{b.seg=x;stay()}));
-    const fit=SEGS[b.seg].fit[b.price];s.append(h('p',{className:'sub'},fit>=1.05?'✅ Prices fit these customers well.':fit<.9?'⚠️ These customers don\'t like this price level.':'Prices are an okay fit.'));
-    s.append(h('p',{className:'label'},T.lever.t),seg(Object.entries(T.lever.o).map(([k,o])=>[k,o.l]),b.lever,x=>{b.lever=x;stay()}));
-    s.append(h('p',{className:'label'},`Supplier (price index ${S.supIdx.toFixed(2)}${b.contract?`, locked at ${b.contract.idx.toFixed(2)} for ${b.contract.yrs} more yr`:''})`),seg(Object.entries(SUPPLIERS).map(([k,o])=>[k,o.l]),b.supplier,x=>{b.supplier=x;stay()}));
-    if(!b.contract)s.append(row('Sign a 3-year supplier contract',`Lock today's prices at ${S.supIdx.toFixed(2)} instead of riding the market`,'',()=>{b.contract={idx:S.supIdx,yrs:3};stay('I locked in supplier prices for 3 years.')}));
-    s.append(h('h4',{},'Marketing'));
-    Object.entries(CHANNELS).forEach(([k,c])=>s.append(tog(c.l,`${fmt(c.c*(c.per?b.locs:1))}/yr. Best for ${SEGS[c.seg].l.toLowerCase()}.${c.risk?' Scandal risk.':''}`,b.ch[k],()=>{b.ch[k]=!b.ch[k];stay()})));
-    s.append(tog('Loyalty program','Costs 2% of sales. Steadier customers and reputation',b.loyal,()=>{b.loyal=!b.loyal;stay()}));
-    if(b.celeb)s.append(row(`⭐ Drop ${b.celeb.n}`,`Endorsement costs ${fmt(b.celeb.c)}/yr`,'',()=>{const n=b.celeb.n;b.celeb=null;stay(`I ended the deal with ${n}.`)}));
-    else s.append(row('⭐ Celebrity endorsement','Big demand boost, big price, scandal risk','',()=>choiceModal('Pick a celebrity','Each deal is billed yearly.',[...CELEBS.map(c=>[`${c.n}: ${fmt(c.c)}/yr, +${Math.round(c.d*100)}% demand`,()=>{b.celeb={...c};stay(`${c.n} is now the face of ${b.name}!`,'good')}]),['Cancel',()=>{}]])));
-    s.append(h('h4',{},'This year'));
-    s.append(row(`📣 ${T.season}`,`${fmt(b.base*b.locs*.03)} for +8% sales this year`,'',()=>{b.push=true;stay(`I planned a ${T.season.toLowerCase()} for ${b.name}.`)},b.push,1));
-    if(trendHits(b)&&b.ride!==S.trend.k)s.append(row(`🔥 Ride the ${TRENDS[S.trend.k].n.toLowerCase()}`,`Rebrand for ${fmt(b.base*b.locs*.08)}. +20% while it lasts, dated for 2 years after`,'',()=>{b.cash-=Math.round(b.base*b.locs*.08);b.ride=S.trend.k;stay(`${b.name} jumped on the trend.`,'good')}));
-    if(b.rd)s.append(h('p',{className:'sub'},`🧪 Developing ${b.rd.n}: ${b.rd.yrs} yr left.`));
-    else s.append(row('🧪 Develop a new product',`R&D costs ${fmt(b.base*.1)} from business cash. Takes 1 to 2 years`,'',()=>{b.cash-=Math.round(b.base*.1);b.rd={n:prodName(b),yrs:R(1,2)};stay(`${b.name} started developing ${b.rd.n}.`)},false,1));
-    if(T.tech&&!b.pivoted)s.append(row('↩️ Pivot the product','Reset reputation and growth for a new idea. Could be better or worse. Once only','',()=>{b.pivoted=true;b.base=Math.round(T.base*R(50,250)/100);b.rep=50;mile(`Pivoted ${b.name}`);stay(`${b.name} pivoted to a whole new idea.`)}));
-    return;}
+  if(bTab==='prod'){prodTab(s,b);return;}
   if(bTab==='people'){
     s.append(h('p',{className:'label'},'My role'),seg([['hands','Hands-on'],['delegate','Delegate'],['absent','Hands-off']],b.life,x=>{if(x==='hands'&&(S.job||S.edu.major||S.age>72))return stay("I can't be hands-on with a job or while studying.",'bad');b.life=x;stay()}));
     s.append(h('p',{className:'sub'},{hands:'Covers one staff role, boosts quality and reputation. Costs 1 energy a year, plus some health, happiness and family time.',delegate:hasMgr(b)?'My manager handles the day-to-day.':'⚠️ Without a manager, quality slips.',absent:hasMgr(b)?'My manager runs everything. Quality dips a little.':'⚠️ Nobody is in charge. Quality and reputation will suffer badly.'}[b.life]));
@@ -1611,7 +1591,7 @@ function drawBiz(s,b){
     s.append(row('💼 Bid on a corporate contract','Needs 50% reputation. 2 years of steady sales','',()=>{S.used['cc'+b.id]=true;if(Math.random()<.45+(b.rep-50)/200){const r=Math.round(b.base*b.locs*.12);b.contracts.push({rev:r,yrs:2});stay(`${b.name} won a corporate contract worth ${fmt(r)} a year!`,'good')}else stay('We lost the bid.','bad')},b.rep<50||S.used['cc'+b.id],1));
     if(T.gov)s.append(row('🏛️ Bid on a government contract','Needs 55% reputation. 4 years of big, steady sales, with paperwork','',()=>{S.used['gc'+b.id]=true;if(Math.random()<.3+(b.rep-55)/200+(S.used.lobby?.1:0)){const r=Math.round(b.base*b.locs*.25);b.contracts.push({rev:r,yrs:4,gov:true});stay(`${b.name} won a government contract worth ${fmt(r)} a year!`,'good')}else stay('The contract went to someone with better connections.','bad')},b.rep<55||S.used['gc'+b.id],1));
     s.append(h('h4',{},'Operations'));
-    if(!T.tech&&b.auto<2){const ac=Math.round(Math.min(T.cost*.25,300000)*b.locs);s.append(row(`🤖 Automate (level ${b.auto+1})`,'Needs 20% fewer staff. Morale drops, some customers dislike it',fmt(ac),()=>{payFrom(b,ac);b.auto++;b.morale-=12;if(b.seg!=='pros')b.rep-=3;stay(`${b.name} brought in automation.`)},Math.max(0,b.cash)+S.money<ac));}
+    if(!T.tech&&b.auto<2){const ac=Math.round(Math.min(T.cost*.25,300000)*b.locs);s.append(row(`🤖 Automate (level ${b.auto+1})`,'Needs 20% fewer staff. Morale drops, some customers dislike it',fmt(ac),()=>{payFrom(b,ac);b.auto++;b.morale-=12;b.rep-=2;stay(`${b.name} brought in automation.`)},Math.max(0,b.cash)+S.money<ac));}
     if(b.prem<b.locs){const pc=T.fixed*3;s.append(row('🏢 Buy a building',`Stop paying rent on one location. ${b.prem} of ${b.locs} owned`,fmt(pc),()=>{payFrom(b,pc);b.prem++;stay(`${b.name} bought its building.`,'good')},Math.max(0,b.cash)+S.money<pc));}
     s.append(tog('🛡️ Insurance','About 1.5% of sales. Covers fires, floods, break-ins and lawsuits',b.ins,()=>{b.ins=!b.ins;stay()}));
     return;}
@@ -1706,7 +1686,7 @@ function startBiz(k){
   const T=BIZ[k];const nm=pick(T.names.filter(n=>!S.biz.some(b=>b.name===n)))||T.names[0];
   const cands=[];const sib=sibling(),pt=partner();if(pt)cands.push({p:pt,label:`${fname(pt.name)} (my ${pt.type.toLowerCase()})`});if(sib)cands.push({p:sib,label:`${fname(sib.name)} (my ${sib.gender==='M'?'brother':'sister'})`});
   const fr=first(pick(['M','F']))+' '+pick(LAST);cands.push({p:{id:null,name:fr},label:`${fname(fr)} (an old friend)`});
-  launch={k,nm,capital:T.cost,mine:Math.min(Math.max(0,S.money),T.cost),loan:0,co:null,coAmt:0,inv:null,cands};
+  launch={k,nm,prod:CAT[k][0][0],researched:false,capital:T.cost,mine:Math.min(Math.max(0,S.money),T.cost),loan:0,co:null,coAmt:0,inv:null,cands};
   bizView=null;flash=null;drawSheet(true);
 }
 function launchView(s){
@@ -1719,8 +1699,13 @@ function launchView(s){
   s.append(h('h4',{},'1. Startup capital'),
     row('Capital to launch with',`Business starts with ${fmt(L.capital-setup)} in the bank`,fmt(L.capital),()=>amountModal({title:'Startup capital',sub:`Minimum ${fmt(T.cost)}. More capital means more runway for tough early years.`,min:T.cost,max:T.cost*5,init:L.capital,
       btn:a=>`Launch with ${fmt(a)}`,note:a=>`Setup ${fmt(setup)}, starting cash ${fmt(a-setup)}.`,onOk:a=>{L.capital=a;L.mine=Math.min(L.mine,a);flash=null;drawSheet();}})));
+  // starting product
+  {const C=catItem(L.k,L.prod),rc=Math.max(1500,Math.round(T.cost*.12*C[3]*.35/500)*500);
+   s.append(h('h4',{},'2. First product'),row(`${C[1]} ${L.prod}`,`Typical price ${fmtU(C[2])}. Tap to choose a different one`,'',()=>choiceModal('What will I sell first?','I can add more products later.',CAT[L.k].map(c=>[`${c[1]} ${c[0]} (about ${fmtU(c[2])})`,()=>{L.prod=c[0];L.researched=false;drawSheet();}]).concat([['Cancel',()=>{}]]))));
+   if(L.researched)s.append(h('p',{className:'flash '+(L.fit>=1?'good':'bad')},`📊 Research: demand for ${L.prod} here is ${L.fit>1.2?'very high':L.fit>=1?'high':L.fit>=.85?'moderate':'low'}.`));
+   else s.append(row('🔍 Market research first',`${fmt(rc)} from my cash. Find out how popular ${L.prod} is here before I commit`,'',()=>{S.money-=rc;L.fit=R(60,140)/100;L.researched=true;stay(`I paid ${fmt(rc)} for market research on ${L.prod}.`);},S.money<rc));}
   // funding
-  s.append(h('h4',{},'2. Funding'));
+  s.append(h('h4',{},'3. Funding'));
   s.append(row('💵 My own cash',`I have ${fmt(S.money)}`,fmt(L.mine),()=>amountModal({title:'How much of my own cash?',sub:`I have ${fmt(S.money)}.`,max:Math.min(Math.max(0,S.money),L.capital),init:L.mine,
     btn:a=>`Put in ${fmt(a)}`,note:a=>`I'd keep ${fmt(S.money-a)}.`,onOk:a=>{L.mine=a;drawSheet();}}),S.money<=0));
   const lm=startLoanMax(L.capital),r=loanRate()+.025;
@@ -1741,7 +1726,7 @@ function launchView(s){
   s.append(interestBox(ii));
   // summary
   const coShare=L.coAmt?(1-(L.inv?L.inv.eq:0))*L.coAmt/Math.max(1,L.mine+L.loan+L.coAmt):0;const myShare=1-(L.inv?L.inv.eq:0)-coShare;
-  s.append(h('h4',{},'3. Launch'),h('dl',{},h('dt',{},'Capital needed'),h('dd',{},fmt(L.capital)),h('dt',{},'Raised'),h('dd',{className:short>0?'bad':'good'},fmt(raised)),
+  s.append(h('h4',{},'4. Launch'),h('dl',{},h('dt',{},'Capital needed'),h('dd',{},fmt(L.capital)),h('dt',{},'Raised'),h('dd',{className:short>0?'bad':'good'},fmt(raised)),
     h('dt',{},'My ownership'),h('dd',{},`${Math.round(myShare*100)}%`),coShare?h('dt',{},'Co-founder'):null,coShare?h('dd',{},`${Math.round(coShare*100)}%`):null,L.inv?h('dt',{},'Investors'):null,L.inv?h('dd',{},`${(L.inv.eq*100).toFixed(1)}%`):null,
     L.loan?h('dt',{},'Loan payment'):null,L.loan?h('dd',{},`${fmt(annuity(L.loan,r,LOAN_YEARS))}/yr`):null));
   if(short>0)s.append(h('p',{className:'sub warn'},`Still need ${fmt(short)}. Add my cash, a loan, a co-founder or investors.`));
@@ -1749,6 +1734,7 @@ function launchView(s){
   s.append(h('button',{className:'choice',disabled:short>0||S.money<L.mine,on:()=>{
     const T=BIZ[L.k];S.money-=L.mine;
     const b=newBiz(L.k,L.nm,{own:myShare,inv:L.inv?L.inv.eq:0,rep:50+(has('hustler')?10:0)+(S.edu.degrees.includes('MBA')?5:0),cash:raised-setup});
+    b.items=[];b.fits={};if(L.researched)b.fits[L.prod]=L.fit;const it0=makeItem(b,L.prod,{known:L.researched});b.items.push(it0);syncStaff(b);
     if(L.loan)addLoan(b,L.loan);
     if(L.co){b.co={pid:L.co.p.id,name:L.co.p.name,share:coShare};if(L.co.p.rel!=null)L.co.p.rel+=8;}
     S.biz.push(b);S.flags.founded=(S.flags.founded||0)+1;unlock('founder');if(S.flags.founded>=5)unlock('serial');mile(`Founded ${L.nm}, a ${T.n.toLowerCase()}`);
@@ -1832,6 +1818,194 @@ function salaryRow(b){
       note:a=>`${zone(a)} Paid each year as a business expense, taxed like a paycheck: I'd get ${fmt(a*.72)}.${b.lastPre&&a>cur?` Profit would drop to about ${fmt(b.lastPre-(a-cur))}.`:''}`,
       onOk:a=>{b.salary=a;stay(a?`I set my salary at ${b.name} to ${fmt(a)} a year.`:`I stopped paying myself from ${b.name}.`)}});
   });
+}
+/* ================= products & suppliers ================= */
+// [name, icon, market price, market share, cost multiplier, price sensitivity, unit]
+const CAT={
+ truck:[['Burritos','🌯',11,1,1,1.4,'burritos'],['Tacos','🌮',4,.9,1,1.5,'tacos'],['Gourmet burgers','🍔',14,.8,1.1,1.3,'burgers'],['Loaded fries','🍟',7,.5,.8,1.6,'portions'],['Smoothies','🥤',8,.4,.9,1.5,'cups'],['Crêpes','🥞',9,.5,.8,1.4,'crêpes']],
+ cafe:[['Espresso drinks','☕',5,1,.8,1.3,'cups'],['Pastries','🥐',4,.6,1,1.4,'pastries'],['Breakfast sandwiches','🥪',9,.5,1.1,1.4,'sandwiches'],['Cold brew','🧊',6,.4,.7,1.4,'cups'],['Specialty tea','🍵',5,.3,.7,1.2,'cups'],['Celebration cakes','🎂',45,.25,1,1.1,'cakes']],
+ gym:[['Monthly memberships','🏋️',600,1,1,1.3,'members'],['Personal training','💪',70,.5,1,1.1,'sessions'],['Group classes','🧘',20,.4,1,1.3,'class spots'],['Shakes & supplements','🥤',6,.2,6,1.5,'shakes'],['Kids programs','🧒',300,.25,1,1.2,'enrollments']],
+ fashion:[['T-shirts','👕',30,.8,1,1.4,'shirts'],['Hoodies','🧥',70,.7,1,1.3,'hoodies'],['Sneakers','👟',140,.6,1.1,1.2,'pairs'],['Denim','👖',90,.5,1,1.3,'pairs'],['Accessories','👜',35,.4,.8,1.3,'items'],['Luxury capsule','💎',400,.3,.9,.8,'pieces']],
+ realty:[['Starter home sales','🏠',9000,1,1,1.2,'sales'],['Luxury home sales','🏰',40000,.5,1,.9,'sales'],['Rentals & leasing','🔑',2500,.5,1,1.3,'leases'],['Commercial property','🏢',30000,.35,1,1,'deals'],['Property management','🧾',4000,.3,1,1.2,'contracts']],
+ tech:[['Subscription app','📱',120,1,1,1.3,'subscribers'],['Enterprise software','🏢',25000,.5,1,1,'clients'],['AI add-on','🤖',300,.4,1.5,1.2,'upgrades'],['Mobile game','🎮',5,.3,1,1.5,'players'],['Data analytics','📊',8000,.35,1,1.1,'clients']],
+ restaurant:[['Pizza','🍕',18,.9,.9,1.4,'pizzas'],['Burgers','🍔',16,.9,1,1.4,'burgers'],['Pasta','🍝',20,.8,.9,1.3,'plates'],['Sushi','🍣',28,.8,1.2,1.2,'platters'],['Curry','🍛',17,.7,.9,1.3,'plates'],['Tacos','🌮',12,.7,.9,1.4,'plates'],['Steak','🥩',45,.6,1.2,1.1,'steaks'],['Vegan bowls','🥗',15,.5,.9,1.3,'bowls'],['Tasting menu','🍽️',120,.4,1.1,.8,'tasting menus']],
+ bar:[['Cocktails','🍸',14,1,.8,1.3,'drinks'],['Craft beer','🍺',8,.8,1,1.4,'pints'],['Wine','🍷',12,.6,1,1.2,'glasses'],['Bar snacks','🍤',10,.4,1.2,1.4,'plates'],['Live music nights','🎸',20,.4,.5,1.2,'tickets']],
+ salon:[['Haircuts','💇',45,1,1,1.3,'cuts'],['Coloring','🎨',120,.6,1.2,1.2,'sessions'],['Nails','💅',40,.5,1,1.3,'sets'],['Spa treatments','🧖',110,.4,1,1.1,'treatments'],['Bridal packages','👰',450,.2,1,.9,'packages'],['Own hair care line','🧴',25,.3,3,1.3,'bottles']],
+ construction:[['Home renovations','🔨',60000,1,1,1.2,'projects'],['Kitchens & baths','🚿',35000,.5,1,1.2,'projects'],['Roofing','🏚️',15000,.4,1,1.3,'roofs'],['New homes','🏡',400000,.8,1,1,'homes'],['Commercial builds','🏗️',1500000,.5,1,.9,'buildings']],
+ dealership:[['Used cars','🚙',22000,1,1,1.4,'cars'],['New sedans','🚗',35000,.8,1,1.3,'cars'],['SUVs','🚐',48000,.7,1,1.2,'SUVs'],['Electric cars','⚡',55000,.5,1,1.1,'EVs'],['Luxury cars','🏎️',110000,.3,1,.9,'cars'],['Service & repairs','🔧',400,.3,.5,1.2,'jobs']],
+ hotel:[['Standard rooms','🛏️',140,1,1,1.3,'room nights'],['Suites','🛎️',450,.4,1,1,'suite nights'],['Weddings & events','💒',25000,.3,1.5,1,'events'],['Hotel restaurant','🍽️',40,.3,2.5,1.3,'meals'],['Spa','🧖',120,.2,1.5,1.1,'treatments']],
+ label:[['Pop acts','🎤',10,1,1,1.3,'album sales'],['Hip-hop acts','🎧',10,.9,1,1.3,'album sales'],['Rock bands','🎸',10,.6,1,1.2,'album sales'],['K-pop groups','🌟',12,.7,1,1.2,'album sales'],['Concert tours','🎫',80,.5,1.3,1.1,'tickets'],['Merch','👕',30,.4,1.4,1.3,'items']],
+ farm:[['Wheat','🌾',250,1,1,2,'tons'],['Corn','🌽',200,.8,1,2,'tons'],['Dairy','🥛',500,.6,1.1,1.8,'tons'],['Organic vegetables','🥕',1500,.5,1,1.5,'tons'],['Berries','🍓',3000,.3,1,1.4,'tons'],['Wine grapes','🍇',2000,.3,.9,1.2,'tons']],
+ games:[['Indie game','👾',20,1,1,1.3,'copies'],['Mobile game','📱',3,.8,1,1.5,'purchases'],['Console game','🎮',60,.6,1,1.2,'copies'],['VR game','🥽',40,.3,1,1.2,'copies'],['Expansion pack','📦',15,.4,.8,1.3,'copies']],
+ clinic:[['General consultations','🩺',120,1,1,1.1,'visits'],['Specialist visits','🧑‍⚕️',300,.6,1,1,'visits'],['Minor surgery','🏥',2500,.4,1.2,.9,'procedures'],['Telehealth','💻',60,.5,.6,1.3,'calls'],['Wellness checkups','❤️',400,.3,1,1.1,'checkups']],
+ lawfirm:[['Family law','👪',6000,1,1,1.1,'cases'],['Corporate contracts','💼',20000,.6,1,.9,'clients'],['Criminal defense','⚖️',15000,.5,1,.9,'cases'],['Real estate closings','🏠',2000,.5,1,1.2,'closings'],['Personal injury','🚑',25000,.4,1,1,'cases']],
+};
+// perish: unsold stock is thrown away. stock: unsold goods clear at 30%. svc: only pay for what is sold
+const MODE={truck:'perish',cafe:'perish',restaurant:'perish',bar:'perish',fashion:'stock',dealership:'stock',farm:'stock'};
+const KEEP_LEVER=['truck','gym','tech','bar','hotel'];
+const catItem=(type,name)=>(CAT[type]||[]).find(c=>c[0]===name);
+const SUP_A=['Golden','Harbor','Summit','Evergreen','Northstar','Blue Ridge','Silverline','Redwood','Atlas','Pioneer','Coastal','Keystone','Maple','Ironbridge','Sunrise'];
+const SUP_B={perish:['Foods','Fresh Co.','Farms','Provisions','Wholesale'],stock:['Manufacturing','Supply Co.','Industries','Trading','Imports'],svc:['Partners','Services','Solutions','Group','Supplies']};
+function genSupplier(b,cm){const mode=MODE[b.type]||'svc';cm=cm==null?R(70,140)/100:cm;
+  const q=Math.max(10,Math.min(98,Math.round(25+(cm-.7)*95+R(-12,12))));
+  return {n:`${pick(SUP_A)} ${pick(SUP_B[mode])}`,c:+cm.toFixed(2),q};}
+const itemMarket=(b,C,fit)=>Math.round(Tof(b).base*C[3]/C[2]*b.locs*(b.base/Tof(b).base)*(fit||1));
+const unitCost=(b,it,idx)=>{const T=Tof(b),C=catItem(b.type,it.cat);if(!C)return 0;const L=lev(b);
+  return C[2]*T.cogs*C[4]*it.sup.c*(idx==null?(b.contract?b.contract.idx:S.supIdx):idx)*(L.c||1)*(1+(T.food?S.regs.foodTax:0));};
+const itemQ=(b,it)=>clamp(it.sup.q*.55+(b.q||60)*.45);
+const launchCost=(b,C)=>Math.max(3000,Math.round(Tof(b).cost*.12*C[3]/1000)*1000);
+const researchCost=(b,C)=>Math.max(1500,Math.round(launchCost(b,C)*.35/500)*500);
+function makeItem(b,cat,o={}){const C=catItem(b.type,cat);b.fits=b.fits||{};
+  if(b.fits[cat]==null)b.fits[cat]=o.fit!=null?o.fit:R(60,140)/100;
+  return {id:uid(),cat,name:o.name||cat,price:o.price||C[2],qty:o.qty!=null?o.qty:itemMarket(b,C,o.known?b.fits[cat]:1),mk:o.mk||0,
+    sup:o.sup||genSupplier(b,1),auto:true,rating:null,known:!!o.known,last:null,cands:null};}
+function ensureItems(b){if(b.items&&b.items.length!=null)return;b.items=[];b.fits=b.fits||{};const C=CAT[b.type][0];
+  const lvl={cheap:[.85,40],standard:[1,60],premium:[1.2,80]}[b.supplier]||[1,60];
+  const it=makeItem(b,C[0],{fit:1,known:true,price:Math.round(C[2]*({budget:.85,premium:1.25}[b.price]||1)*100)/100,sup:{...genSupplier(b,lvl[0]),q:lvl[1]}});
+  it.qty=Math.round(itemMarket(b,C,1)*1.1);b.items.push(it);}
+function itemEst(b,it,price){const T=Tof(b),C=catItem(b.type,it.cat);if(!C)return 0;price=price==null?it.price:price;
+  const pf=Math.min(3,Math.pow(C[2]/Math.max(.01,price),C[5])),mf=1+.5*(1-Math.exp(-it.mk/Math.max(1,T.base*C[3]*b.locs*.06))),rf=.7+(it.rating==null?3:it.rating)*.1;
+  return Math.round(itemMarket(b,C,b.fits[it.cat]||1)*pf*mf*rf*(.85+itemQ(b,it)/400)*(.5+b.rep/100));}
+function workload(b){const T=Tof(b);if(!b.items||!b.items.length)return .5;const scale=b.base/T.base;
+  const w=b.items.reduce((a,it)=>{const C=catItem(b.type,it.cat);return a+(C?Math.min(it.auto!==false?Infinity:it.qty,itemEst(b,it,C[2]))*C[2]:0);},0)/(T.base*b.locs*scale);
+  return Math.max(.5,Math.min(3,w));}
+function sellItems(b,common,idx){
+  const T=Tof(b),mode=MODE[b.type]||'svc';let rev=0,cogs=0,mk=0,soldOut=false;const notes=[];
+  b.items.forEach(it=>{const C=catItem(b.type,it.cat);if(!C)return;
+    if(it.auto!==false)it.qty=Math.round(itemEst(b,it)*1.08);
+    const uc=unitCost(b,it,idx),fit=b.fits[it.cat]||1;
+    const market=itemMarket(b,C,fit);
+    const pf=Math.min(3,Math.pow(C[2]/Math.max(.01,it.price),C[5]));
+    const mf=1+.5*(1-Math.exp(-it.mk/Math.max(1,T.base*C[3]*b.locs*.06)));
+    const rf=.7+(it.rating==null?3:it.rating)*.1,qual=itemQ(b,it);
+    const demand=Math.max(0,Math.round(market*pf*mf*rf*(.85+qual/400)*common*Math.max(.5,1+gauss()*.08)));
+    const sold=Math.min(demand,it.qty);
+    let r=sold*it.price,c=(mode==='svc'?sold:it.qty)*uc;
+    if(mode==='stock'&&it.qty>sold)r+=(it.qty-sold)*it.price*.3;
+    const target=Math.max(1,Math.min(5,1+4*qual/100*Math.min(1.25,Math.pow(C[2]/it.price,.35))));
+    it.rating=it.rating==null?+target.toFixed(1):+(it.rating+(target-it.rating)*.5).toFixed(1);
+    it.last={demand,sold,rev:Math.round(r),cost:Math.round(c+it.mk),qty:it.qty,uc:Math.round(uc*100)/100};it.known=true;
+    it.soldOut=it.qty>0&&demand>it.qty*1.1;soldOut=soldOut||it.soldOut;
+    if(it.soldOut)notes.push(`${C[1]} ${it.name} sold out: ${demand.toLocaleString()} wanted, only ${it.qty.toLocaleString()} ${C[6]} available.`);
+    else if(mode!=='svc'&&it.qty>sold*1.3&&it.qty>0)notes.push(`${C[1]} ${it.name}: ${(it.qty-sold).toLocaleString()} unsold ${C[6]}${mode==='perish'?' went to waste':' were cleared at a discount'}.`);
+    rev+=r;cogs+=c;mk+=it.mk;});
+  notes.slice(0,2).forEach(n=>line(n,n.includes('sold out')?'good':'bad'));
+  return {rev:Math.round(rev),cogs:Math.round(cogs),mk:Math.round(mk),soldOut};
+}
+const avgPriceRatio=b=>{const xs=(b.items||[]).map(it=>{const C=catItem(b.type,it.cat);return C?it.price/C[2]:1;});return xs.length?xs.reduce((a,x)=>a+x,0)/xs.length:1;};
+const avgRating=b=>{const xs=(b.items||[]).filter(it=>it.rating!=null).map(it=>it.rating);return xs.length?xs.reduce((a,x)=>a+x,0)/xs.length:3;};
+const stars=r=>r==null?'No customer rating yet':`${'★'.repeat(Math.round(r))}${'☆'.repeat(5-Math.round(r))} ${r.toFixed(1)}`;
+const fmtU=v=>v>=100?fmt(v):'$'+(+v).toFixed(2);
+
+/* ================= products UI ================= */
+let bizItem=null;
+function prodTab(s,b){
+  ensureItems(b);const T=Tof(b);
+  if(bizItem){const it=b.items.find(x=>x.id===bizItem);if(it)return itemView(s,b,it);bizItem=null;}
+  s.append(h('h4',{},'Products & services'));
+  if(!b.items.length)s.append(h('p',{className:'sub warn'},'Nothing on sale, so no sales. Add a product below.'));
+  b.items.forEach(it=>{const C=catItem(b.type,it.cat);s.append(row(`${C[1]} ${it.name}`,`${stars(it.rating)}${it.last?` · ${fmt(it.last.rev)} sales last year`:' · Launches this year'}`,fmtU(it.price),()=>{bizItem=it.id;flash=null;drawSheet(true)}));});
+  const left=CAT[b.type].filter(c=>!b.items.some(it=>it.cat===c[0]));
+  if(left.length)s.append(h('button',{className:'choice',on:()=>addProductModal(b)},'💡 Add new product...'));
+  s.append(h('h4',{},'Brand & operations'));
+  if(KEEP_LEVER.includes(b.type))s.append(h('p',{className:'label'},T.lever.t),seg(Object.entries(T.lever.o).map(([k,o])=>[k,o.l]),b.lever,x=>{b.lever=x;stay()}));
+  s.append(h('p',{className:'sub'},`Supplier prices are ${S.supIdx>1.05?'high':S.supIdx<.95?'low':'normal'} right now (index ${S.supIdx.toFixed(2)})${b.contract?`. Locked at ${b.contract.idx.toFixed(2)} for ${b.contract.yrs} more yr`:''}.`));
+  if(!b.contract)s.append(row('Lock supplier prices for 3 years',`Freeze all product costs at today's index of ${S.supIdx.toFixed(2)}`,'',()=>{b.contract={idx:S.supIdx,yrs:3};stay('I locked in supplier prices for 3 years.')}));
+  s.append(tog('Loyalty program','Costs 2% of sales. Steadier customers and reputation',b.loyal,()=>{b.loyal=!b.loyal;stay()}));
+  if(b.celeb)s.append(row(`⭐ Drop ${b.celeb.n}`,`Endorsement costs ${fmt(b.celeb.c)}/yr`,'',()=>{const n=b.celeb.n;b.celeb=null;stay(`I ended the deal with ${n}.`)}));
+  else s.append(row('⭐ Celebrity endorsement','Boosts every product. Big price, scandal risk','',()=>choiceModal('Pick a celebrity','Each deal is billed yearly.',[...CELEBS.map(c=>[`${c.n}: ${fmt(c.c)}/yr, +${Math.round(c.d*100)}% demand`,()=>{b.celeb={...c};stay(`${c.n} is now the face of ${b.name}!`,'good')}]),['Cancel',()=>{}]])));
+  s.append(row(`📣 ${T.season}`,`${fmt(b.base*b.locs*.03)} for +8% sales this year`,'',()=>{b.push=true;stay(`I planned a ${T.season.toLowerCase()} for ${b.name}.`)},b.push,1));
+  if(trendHits(b)&&b.ride!==S.trend.k)s.append(row(`🔥 Ride the ${TRENDS[S.trend.k].n.toLowerCase()}`,`Rebrand for ${fmt(b.base*b.locs*.08)}. +20% while it lasts, dated for 2 years after`,'',()=>{b.cash-=Math.round(b.base*b.locs*.08);b.ride=S.trend.k;stay(`${b.name} jumped on the trend.`,'good')}));
+  if(b.rd)s.append(h('p',{className:'sub'},`🧪 Innovation project: ${b.rd.n}, ${b.rd.yrs} yr left.`));
+  else s.append(row('🧪 Innovation project',`R&D costs ${fmt(b.base*.1)} from business cash. A breakthrough lifts demand for everything`,'',()=>{b.cash-=Math.round(b.base*.1);b.rd={n:prodName(b),yrs:R(1,2)};stay(`${b.name} started working on ${b.rd.n}.`)},false,1));
+  if(T.tech&&!b.pivoted)s.append(row('↩️ Pivot the company','Reset reputation and growth for a new idea. Could be better or worse. Once only','',()=>{b.pivoted=true;b.base=Math.round(T.base*R(50,250)/100);b.rep=50;mile(`Pivoted ${b.name}`);stay(`${b.name} pivoted to a whole new idea.`)}));
+}
+function itemView(s,b,it){
+  const C=catItem(b.type,it.cat),uc=unitCost(b,it),mode=MODE[b.type]||'svc',ro=!canManage()||b.ousted;
+  s.append(h('button',{className:'back',on:()=>{bizItem=null;flash=null;drawSheet(true)}},'‹ All products'),
+    h('h3',{},`${C[1]} ${it.name}`),h('p',{className:'sub'},`${it.name!==it.cat?`${it.cat}. `:''}${stars(it.rating)}`));
+  const L=it.last;
+  s.append(h('dl',{},h('dt',{},'My price'),h('dd',{},`${fmtU(it.price)} per ${C[6].replace(/s$/,'')}`),h('dt',{},'Cost to make'),h('dd',{},`${fmtU(uc)} each`),
+    h('dt',{},'Margin'),h('dd',{className:it.price<uc?'bad':''},`${fmtU(it.price-uc)} each`),h('dt',{},mode==='svc'?'Capacity':'Production'),h('dd',{},it.auto!==false?'Auto (matches demand)':`${it.qty.toLocaleString()} ${C[6]}/yr`),
+    h('dt',{},'Marketing'),h('dd',{},`${fmt(it.mk)}/yr`),
+    ...(L?[h('dt',{},'Last year demand'),h('dd',{},`${L.demand.toLocaleString()} ${C[6]}`),h('dt',{},'Last year sold'),h('dd',{},`${L.sold.toLocaleString()}${L.sold>=L.qty&&L.demand>L.qty?' (sold out)':''}`),
+      h('dt',{},'Sales'),h('dd',{},fmt(L.rev)),h('dt',{},'Product profit'),h('dd',{className:L.rev-L.cost<0?'bad':'good'},fmt(L.rev-L.cost))]:[])));
+  s.append(h('p',{className:'sub'},it.known?`📊 Market: about ${itemMarket(b,C,b.fits[it.cat]).toLocaleString()} ${C[6]} a year at the typical price of ${fmtU(C[2])}. Customers accept roughly ${fmtU(C[2]*.85)} to ${fmtU(C[2]*1.2)}.`:`📊 Typical price is ${fmtU(C[2])}. Real demand shows up after the first year of sales.`));
+  if(ro)return;
+  s.append(row(`🏭 ${it.sup.n}`,`Supplier. ${fmtU(uc)} per ${C[6].replace(/s$/,'')}, quality ${it.sup.q}%`,'',()=>supplierModal(b,it)),
+    h('div',{className:'bar',style:'margin:-4px 0 12px'},h('i',{style:`width:${it.sup.q}%;background:var(--health)`})),
+    row('🔍 Find a new supplier','Compare cost and quality','',()=>supplierModal(b,it)),
+    row('📅 Production plan','Set price, quantity and marketing','',()=>planModal(b,it)),
+    row('🎨 Rebrand',`${fmt(launchCost(b,C)*.3)}. New name and a fresh look. Helps a poorly rated product`,'',()=>rebrandModal(b,it),spendPower(b)<launchCost(b,C)*.3),
+    row('🏁 Retire this product','Stop selling it','',()=>choiceModal(`Retire ${it.name}?`,b.items.length===1?`It's my only product. With nothing on sale, ${b.name} will make no sales.`:'It stops selling from next year.',[['Retire it',()=>{b.items=b.items.filter(x=>x!==it);bizItem=null;stay(`${b.name} stopped selling ${it.name}.`)}],['Keep it',()=>{}]])));
+}
+function supplierModal(b,it){
+  const C=catItem(b.type,it.cat);
+  if(!it.cands||it.cands.age!==S.age)it.cands={age:S.age,list:[.72,.9,1.1,1.35].map(x=>genSupplier(b,x*R(95,105)/100)).sort((a,c)=>a.c-c.c)};
+  const cost=sup=>unitCost(b,{...it,sup});
+  const m=$('modal');m.innerHTML='';
+  m.append(h('h3',{},`🔍 Suppliers for ${it.name}`),h('p',{className:'sub'},`Cheaper suppliers raise margins but lower quality, which hurts ratings and repeat customers. New suppliers show up each year.`));
+  const cur=h('div',{className:'flash'},h('b',{},`Current: ${it.sup.n}`),h('br'),`${fmtU(cost(it.sup))} each · quality ${it.sup.q}%`);m.append(cur);
+  it.cands.list.forEach(sp=>{const btn=h('button',{className:'row',on:()=>{closeModal();it.sup={...sp};stay(`${b.name} now buys ${it.name} supplies from ${sp.n}.`)}},
+    h('span',{style:'flex:1'},h('b',{},sp.n),h('small',{},`${fmtU(cost(sp))} per ${C[6].replace(/s$/,'')} · quality ${sp.q}%`),h('div',{className:'bar',style:'margin-top:6px'},h('i',{style:`width:${sp.q}%;background:var(--health)`}))));m.append(btn);});
+  m.append(h('button',{className:'choice alt',on:closeModal},'Keep current supplier'));$('modalWrap').classList.add('open');
+}
+function sliderField(label,min,max,step,val,show,onCh){
+  const out=h('input',{type:'number',className:'amt',style:'width:44%;margin:0;padding:6px 10px;font-size:1rem;text-align:right',min,max,step:'any',value:val,'aria-label':label});
+  const rg=h('input',{type:'range',className:'slider',style:'margin:2px 0 12px',min,max,step,value:val,'aria-label':label});
+  const set=(v,fromNum)=>{v=Math.max(min,Math.min(max,+v||0));rg.value=v;if(!fromNum)out.value=show(v);onCh(v);};
+  rg.oninput=()=>set(rg.value);out.oninput=()=>set(out.value,true);out.onblur=()=>{out.value=show(+rg.value);};
+  return {el:h('div',{},h('div',{style:'display:flex;justify-content:space-between;align-items:center;gap:8px'},h('span',{className:'label',style:'margin:0'},label),out),rg),set};
+}
+function planModal(b,it){
+  const C=catItem(b.type,it.cat),T=Tof(b),mode=MODE[b.type]||'svc',uc=unitCost(b,it);
+  const mkt0=itemMarket(b,C,it.known?b.fits[it.cat]:1);
+  let price=it.price,qty=it.qty,mk=it.mk,auto=it.auto!==false;
+  const pmin=Math.max(.01,+(C[2]*.3).toFixed(2)),pmax=+(C[2]*3).toFixed(2),pstep=C[2]>=100?Math.round(C[2]/100):C[2]>=10?.5:.05;
+  const qmax=Math.max(10,Math.round(mkt0*4)),qstep=Math.max(1,Math.round(qmax/400));
+  const mmax=Math.round(T.base*C[3]*b.locs*.3/1000)*1000||20000;
+  const m=$('modal');m.innerHTML='';const info=h('div',{className:'flash'}),ok=h('button',{className:'choice'},'Save plan');
+  const r2=v=>C[2]>=10?Math.round(v*100)/100:+(+v).toFixed(2);
+  const upd=()=>{const pf=Math.min(3,Math.pow(C[2]/price,C[5])),mf=1+.5*(1-Math.exp(-mk/Math.max(1,T.base*C[3]*b.locs*.06))),rf=.7+(it.rating==null?3:it.rating)*.1;
+    const dem=itemEst(b,{...it,mk},price);const sold=Math.min(dem,qty);
+    const cost=Math.round((mode==='svc'?sold:qty)*uc+mk),revE=Math.round(sold*price+(mode==='stock'?Math.max(0,qty-sold)*price*.3:0));
+    info.innerHTML='';info.append(h('b',{},`Cost to make: ${fmtU(uc)} each`),h('br'),
+      `${mode==='svc'?'Cost of what sells':'Production cost'}: ${fmt(mode==='svc'?sold*uc:qty*uc)} + marketing ${fmt(mk)}`,h('br'),
+      it.known?`Expected demand at this price: about ${dem.toLocaleString()} ${C[6]}`:`Demand unknown until it sells. Typical market: ~${mkt0.toLocaleString()} ${C[6]} at ${fmtU(C[2])}`,h('br'),
+      it.known?h('span',{className:revE-cost>=0?'good':'bad'},`Projected: ${fmt(revE)} sales, ${fmt(revE-cost)} product profit`):null,it.known?h('br'):null,
+      `Business cash available: ${fmt(b.cash)}`,
+      mode!=='svc'&&qty*uc+mk>Math.max(0,b.cash)+Math.max(0,S.money)?h('span',{className:'warn'},' ⚠️ More than I can pay. The business will run short.'):null,
+      price<uc?h('span',{className:'warn'},' ⚠️ Price is below cost.'):null);};
+  const fP=sliderField(`💲 Unit price`,pmin,pmax,pstep,r2(price),v=>r2(v),v=>{price=r2(v);if(auto&&fQ){qty=Math.round(itemEst(b,it,price)*1.08);fQ.set(Math.min(qty,qmax));auto=true;autoBtn.setAttribute('aria-pressed','true');}upd();});
+  let fQ=null;
+  fQ=sliderField(`📦 ${mode==='svc'?'Capacity':'Quantity'} (${C[6]})`,0,qmax,qstep,Math.min(qty,qmax),v=>Math.round(v),v=>{qty=Math.round(v);auto=false;autoBtn.setAttribute('aria-pressed','false');upd();});
+  const autoBtn=h('button',{className:'row toggle','aria-pressed':String(auto),on:()=>{auto=!auto;autoBtn.setAttribute('aria-pressed',String(auto));if(auto){qty=Math.round(itemEst(b,it,price)*1.08);fQ.set(Math.min(qty,qmax));auto=true;autoBtn.setAttribute('aria-pressed','true');}upd();}},h('span',{},h('b',{},'🤖 Auto production'),h('small',{},'Each year, make about what customers will want')),h('span',{className:'sw'}));
+  const fM=sliderField('📣 Marketing budget ($/yr)',0,mmax,Math.max(500,Math.round(mmax/200/500)*500),Math.min(mk,mmax),v=>Math.round(v),v=>{mk=Math.round(v);upd();});
+  ok.onclick=()=>{closeModal();it.price=price;it.qty=qty;it.mk=mk;it.auto=auto;syncStaff(b);stay(`Updated the plan for ${it.name}: ${fmtU(price)} each, ${qty.toLocaleString()} ${C[6]}, ${fmt(mk)} marketing.`);};
+  m.append(h('h3',{},`📅 ${it.name} plan`),h('p',{className:'sub'},mode==='svc'?'Capacity is how many I can serve. I only pay supplies for what sells.':mode==='perish'?'I pay for everything I make. Unsold food goes to waste.':'I pay for everything I make. Unsold stock clears at 30% of price.'),
+    fP.el,autoBtn,fQ.el,fM.el,info,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
+  upd();$('modalWrap').classList.add('open');
+}
+function rebrandModal(b,it){
+  const C=catItem(b.type,it.cat),cost=Math.round(launchCost(b,C)*.3);
+  const m=$('modal');m.innerHTML='';const inp=h('input',{type:'text',className:'amt',value:it.name,maxLength:40,'aria-label':'New product name'});
+  const ok=h('button',{className:'choice',on:()=>{const n=inp.value.trim()||it.name;closeModal();payFrom(b,cost);it.name=n;if(it.rating!=null&&it.rating<3.5)it.rating=+(it.rating+.6).toFixed(1);b.rep+=1;stay(`${C[1]} Rebranded as "${n}" for ${fmt(cost)}.`,'good');}},`Rebrand for ${fmt(cost)}`);
+  m.append(h('h3',{},`🎨 Rebrand ${it.name}`),h('p',{className:'sub'},'Pick a new name. A fresh look lifts a weak rating a little.'),inp,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));$('modalWrap').classList.add('open');
+}
+function addProductModal(b){
+  const T=Tof(b),left=CAT[b.type].filter(c=>!b.items.some(it=>it.cat===c[0]));
+  let pick0=left[0][0];const m=$('modal');const body=h('div');
+  const sel=h('select',{className:'amt','aria-label':'Pick a product'},left.map(c=>h('option',{value:c[0]},`${c[1]} ${c[0]}`)));
+  const draw=()=>{body.innerHTML='';const C=catItem(b.type,pick0),lc=launchCost(b,C),rc=researchCost(b,C);b.research=b.research||{};const done=b.research[pick0];
+    body.append(h('dl',{},h('dt',{},'Typical price'),h('dd',{},fmtU(C[2])),h('dt',{},'Market research'),h('dd',{},done?'Done':fmt(rc)),h('dt',{},'Launch cost'),h('dd',{},fmt(lc)),
+      h('dt',{},'Available capital'),h('dd',{className:'good'},`${fmt(Math.max(0,b.cash))} + my ${fmt(Math.max(0,S.money))}`)));
+    if(done){const f=b.fits[pick0];body.append(h('p',{className:'flash '+(f>=1?'good':'bad')},`📊 Research: demand here is ${f>1.2?'very high':f>=1?'high':f>=.85?'moderate':'low'}. About ${itemMarket(b,C,f).toLocaleString()} ${C[6]} a year at ${fmtU(C[2])}.`));}
+    else body.append(h('button',{className:'choice alt',disabled:spendPower(b)<rc,on:()=>{payFrom(b,rc);b.fits=b.fits||{};if(b.fits[pick0]==null)b.fits[pick0]=R(60,140)/100;b.research[pick0]=true;save();render();draw();}},`🔍 Perform market research (${fmt(rc)})`));
+    body.append(h('button',{className:'choice',disabled:spendPower(b)<lc,on:()=>{closeModal();payFrom(b,lc);const it=makeItem(b,pick0,{known:!!done});b.items.push(it);syncStaff(b);bizItem=it.id;mile(`Launched ${pick0} at ${b.name}`);
+      stay(`${C[1]} ${b.name} launched ${pick0}${done?'':' without research. Fingers crossed'}. Set the price, quantity and supplier in its production plan.`,'good');}},spendPower(b)<lc?`Need ${fmt(lc)} to launch`:`🚀 Launch product (${fmt(lc)})`));};
+  sel.onchange=()=>{pick0=sel.value;draw();};
+  m.innerHTML='';m.append(h('h3',{},'💡 New product'),h('p',{className:'sub'},`Add a new product line to ${b.name}. Research first to learn how popular it will be here.`),h('p',{className:'label'},'Pick your product'),sel,body,h('button',{className:'choice alt',on:closeModal},'Cancel'));
+  draw();$('modalWrap').classList.add('open');
 }
 /* ================= boot ================= */
 $('bAge').onclick=()=>{if(modalOpen())return;S.alive?ageUp():showDeath()};
