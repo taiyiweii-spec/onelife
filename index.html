@@ -1354,13 +1354,13 @@ function jobSheet(){openSheet(s=>{
 });}
 
 /* ================= Money sheet ================= */
-let mTab='overview',bizView=null;
+let mTab='overview',bizView=null,showWorld=false;
 function moneySheet(){bizView=null;launch=null;buyDeal=null;openSheet(drawMoney);}
 function drawMoney(s){
   if(bizView){const b=S.biz.find(x=>x.id===bizView);if(b)return drawBiz(s,b);bizView=null;}
   const ph=PHASE[localPhase()],wp=PHASE[S.econ.phase];
-  s.append(h('h3',{},'Money'),h('p',{className:'sub'},`${resC().ic} ${resC().n}: `,h('span',{className:'econ'},`${ph.ic} ${ph.l}`),' · 🌍 World markets: ',h('span',{className:'econ'},`${wp.ic} ${wp.l}`)));
-  if(mTab==='overview')s.append(h('p',{className:'label'},'Economies around the world'),h('div',{className:'chips',style:'margin:0 0 12px'},Object.entries(COUNTRIES).map(([k,c])=>h('span',{className:'chip',title:PHASE[phaseOf(k)].l},`${c.ic} ${c.n} ${PHASE[phaseOf(k)].ic}`))));
+  s.append(h('h3',{},'Money'),h('p',{className:'sub'},`${resC().ic} ${resC().n}: `,h('span',{className:'econ'},`${ph.ic} ${ph.l}`),' · ',h('button',{className:'back',style:'display:inline;margin:0','aria-expanded':String(showWorld),on:()=>{showWorld=!showWorld;drawSheet();}},`🌍 World markets ${showWorld?'▴':'▾'}`),' ',h('span',{className:'econ'},`${wp.ic} ${wp.l}`)));
+  if(mTab==='overview'&&showWorld)s.append(h('p',{className:'label'},'Economies around the world'),h('div',{className:'chips',style:'margin:0 0 12px'},Object.entries(COUNTRIES).map(([k,c])=>h('span',{className:'chip',title:PHASE[phaseOf(k)].l},`${c.ic} ${c.n} ${PHASE[phaseOf(k)].ic}`))));
   s.append(h('div',{className:'tabs'},[['overview','Overview'],['invest','Investing'],['biz','Business'],['prop','Property'],['ret','Retirement']].map(([v,l])=>h('button',{'aria-pressed':String(mTab===v),on:()=>{mTab=v;flash=null;drawSheet(true)}},l))));
   if(S.age<18&&mTab!=='overview'&&!(mTab==='biz'&&S.biz.length)&&!(mTab==='prop'&&S.assets.length)){s.append(h('p',{className:'sub'},'I need to be 18 to invest, start a business, or buy property.'));return;}
   if(S.age<18&&mTab!=='overview')s.append(h('p',{className:'sub'},'Held in trust until I turn 18. A trustee runs things for now.'));
