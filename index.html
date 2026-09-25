@@ -1372,12 +1372,30 @@ function chartEl(data){
   const X=a=>pl+(a-x0)/(x1-x0||1)*(W-pl-pr),Y=v=>pt+(1-(v-y0)/(y1-y0||1))*(H-pt-pb);
   const d=data.map((p,i)=>`${i?'L':'M'}${X(p.age).toFixed(1)},${Y(p.nw).toFixed(1)}`).join('');
   const w=document.createElement('div');w.innerHTML=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Net worth over time"><line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line)"/><path d="${d}" fill="none" stroke="var(--smarts)" stroke-width="2.5" stroke-linejoin="round"/><text x="${pl}" y="10">${fmt(y1)}</text><text x="${pl}" y="${H-3}">Age ${x0}</text><text x="${W-pr}" y="${H-3}" text-anchor="end">Age ${x1}</text></svg>`;return w.firstChild;}
+/* ---- personal monthly expenses (what age-up actually charges, divided by 12) ---- */
+function expenseItems(){const it=[],m=v=>Math.round(v/12);
+  const atHome=S.age<22&&living(['Mother','Father']).length&&!homes().length;
+  if(S.age>=18&&!S.jail&&!atHome){const lc=livingCost(),own=homes().some(a=>!a.rent);
+    const parts=own?[['🍽️ Food and groceries',.35],['🚗 Transport',.2],['💡 Utilities and phone',.2],['🛍️ Personal and other',.25]]:[['🏠 Rent',.55],['🍽️ Food and groceries',.18],['🚗 Transport',.1],['💡 Utilities and phone',.08],['🛍️ Personal and other',.09]];
+    parts.forEach(([n,f])=>it.push([n,m(lc*f)]));}
+  homes().forEach(a=>{it.push([`🔧 Upkeep and property tax: ${a.n.toLowerCase()}`,m(a.v*.01)]);if(a.mort&&a.mort.bal>0)it.push([`🏦 Mortgage: ${a.n.toLowerCase()}`,m(Math.min(a.mort.pay,a.mort.bal*(1+a.mort.rate)))]);});
+  if(S.sloan>0&&S.job)it.push(['🎓 Student loan',m(Math.min(S.sloan*1.04,S.job.s*.1))]);
+  if(S.job){const contrib=Math.round(S.job.s*S.ret.pct/100);it.push(['🧾 Income tax',m(S.job.s-contrib-netPay(S.job.s-contrib))]);if(contrib)it.push(['🏖️ Retirement savings',m(contrib)]);}
+  if(S.money<0)it.push(['💳 Credit card interest (7%)',m(-S.money*.07)]);
+  return it.filter(x=>x[1]>0);}
+function expenseTable(){const it=expenseItems(),tot=it.reduce((a,x)=>a+x[1],0);
+  if(!it.length)return h('p',{className:'sub'},'No monthly expenses right now.');
+  const inc=S.job?Math.round(S.job.s/12):0;
+  return h('div',{},h('p',{className:'label'},'My monthly expenses'),
+    h('dl',{},...it.flatMap(([n,v])=>[h('dt',{},n),h('dd',{},fmt(v))]),h('dt',{},h('b',{},'Total per month')),h('dd',{},h('b',{},fmt(tot)))),
+    h('p',{className:'sub'},`${fmt(tot*12)} a year.${inc?` That's ${Math.round(tot/inc*100)}% of my ${fmt(inc)} monthly salary before tax.`:''} Business costs are paid by each business and aren't included.`));}
 function tabOverview(s){
   const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0);
   s.append(h('dl',{},h('dt',{},'Net worth'),h('dd',{},fmt(netWorth())),h('dt',{},'Cash'),h('dd',{className:S.money<0?'bad':''},fmt(S.money)),
     h('dt',{},'Investments'),h('dd',{},fmt(investVal())),h('dt',{},'Retirement account'),h('dd',{},fmt(S.ret.bal)),
     h('dt',{},'Property equity'),h('dd',{},fmt(propEquity())),h('dt',{},'Business stakes'),h('dd',{},fmt(stakeVal())),
     h('dt',{},'Angel investments'),h('dd',{},fmt(angelVal())),h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan))));
+  s.append(expenseTable());
   const c=chartEl(S.nwHist);if(c){s.append(h('p',{className:'label'},'Net worth over my life'),c);}
   if(S.money<0)s.append(h('p',{className:'sub'},'Negative cash is credit card debt and grows 7% a year.'));
   if(badCredit())s.append(h('p',{className:'sub bad'},`My credit is damaged until age ${S.flags.badCreditUntil}. No loans or mortgages.`));
