@@ -125,6 +125,8 @@ dt{color:var(--muted)} dd{margin:0;font-weight:700;text-align:right}
 .supprice small{font-family:Nunito,system-ui,sans-serif;font-size:.8rem;color:var(--muted)}
 .supbar{display:grid;grid-template-columns:5.5em 1fr 2em;align-items:center;gap:8px;font-size:.82rem}
 .supbar em{font-style:normal;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip.pick{background:var(--sun);color:var(--sunInk);border-color:var(--sun);font-weight:700}
+button.chip{font:inherit;font-size:.75rem;cursor:pointer}
 .chip.good{color:var(--good);border-color:var(--good)} .chip.bad{color:var(--bad);border-color:var(--bad)}
 @media (prefers-reduced-motion: reduce){ .bar i,.toggle .sw::after{transition:none} .pop,.toast{animation-duration:.01s;animation-delay:1.5s} }
 </style>
@@ -1892,7 +1894,10 @@ function commonEst(b){const need=needStaff(b),ratio=need<=0?1:Math.min(1,b.staff
 const prodMult=(b,pr,price)=>(.8+(pr.rating||50)/250)*priceF(price/bp(b,pdef(b,pr.id)))*(1+(pr.boost||0));
 const estDemand=(b,pr,price)=>Math.round(prodBase(b,pr)*effLocs(b)*commonEst(b)*prodMult(b,pr,price));
 const ptier=b=>{if(!isGoods(b))return b.price;const ps=(b.products||[]).map(p=>p.price/bp(b,pdef(b,p.id)));if(!ps.length)return 'std';const r=ps.reduce((a,x)=>a+x,0)/ps.length;return r>1.15?'premium':r<.88?'budget':'std';};
-function newProduct(b,P){return {id:P.id,name:P.n,price:bp(b,P),qty:0,inv:0,rating:50,sup:null,yrs:0,boost:0,last:null,ws:false};}
+function newProduct(b,P){return {id:P.id,name:P.n,price:bp(b,P),qty:0,inv:0,rating:50,sup:null,yrs:0,boost:0,last:null,ws:false,auto:true};}
+// Auto production: plan about what customers will want next year, less stock already on hand.
+const autoQty=(b,pr)=>{const est=estDemand(b,pr,pr.price),want=pr.last&&pr.last.price===pr.price?(est+pr.last.dem)/2*1.05:est*1.1;
+  return Math.min(prodCap(b,pr),Math.max(0,Math.round(want)-(isSvc(b)||pdef(b,pr.id).pe?0:(pr.inv||0))));};
 function seedProducts(b){if(!isGoods(b))return;b.products=b.products||[];if(b.products.length)return;
   const P=[...PCAT[b.type]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0];const pr=newProduct(b,P);b.products.push(pr);pr.qty=Math.min(prodCap(b,pr),Math.max(1,estDemand(b,pr,pr.price)));}
 function ensureGoods(b){if(isGoods(b)&&!b.products)seedProducts(b);}
@@ -1911,7 +1916,7 @@ function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;c
     const svc=isSvc(b);lines.push(`${P.ic} ${pr.name}: ${svc?`booked ${fmtN(sold)} of ${fmtN(made)} ${P.u} offered`:`sold ${fmtN(sold)} of ${fmtN(Math.round(D))} wanted`}${ws>=1?`, ${fmtN(ws)} sold wholesale`:''}${!svc&&waste>=1?`, ${fmtN(waste)} spoiled`:''}${pr.inv?`, ${fmtN(pr.inv)} left in stock`:''}.${short?` ${sp.n} came up short on a delivery.`:''}`);});
   lines.forEach(t=>line(t));
   return {rev,cost,prepaid,refund:Math.round(refund),soldOut};}
-function renewPlans(b){(b.products||[]).forEach(pr=>{if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;const cost=planCost(b,pr,q);
+function renewPlans(b){(b.products||[]).forEach(pr=>{if(pr.auto)pr.qty=autoQty(b,pr);if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;const cost=planCost(b,pr,q);
   if(cost>capital(b)){q=maxAfford(b,pr,capital(b));line(`${pdef(b,pr.id).ic} ${b.name} could only pay for ${fmtN(q)} of ${fmtN(want)} planned ${pr.name.toLowerCase()} next year.`,'bad');}
   const c=planCost(b,pr,q);spendBiz(b,c);cfAdd(b,'prod',c);pr.paidQty=q;pr.paid=c;});}
 function wcExtra(k){if(!hasProd(k))return 0;const T=BIZ[k],P=[...PCAT[k]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0];
@@ -1991,12 +1996,14 @@ function planModal(b,pr,fresh){const P0=pdef(b,pr.id),P=Object.assign({},P0,{pri
     rows.push(['Plan cost',fmt(cost)],['Available capital after this plan',fmt(left)],['Rough profit on this',fmt(Math.round(sell*price-cost))]);
     info.append(h('dl',{},...rows.flatMap(([a,v],i)=>[h('dt',{},a),h('dd',{className:(i===rows.length-2&&left<=0)||(i===rows.length-1&&sell*price-cost<0)?'bad':''},v)])),
       h('p',{className:'sub'},`${price>P.price*1.1?'Pricing above the suggestion cuts demand. ':price<P.price*.9?'Pricing below the suggestion lifts demand but thins margins. ':''}${avail>est*1.2?(svc?'Much more capacity than demand, so a lot will go unused. ':P.pe?'Much more than demand, so expect spoilage. ':'More than demand, so extra stock carries over. '):avail<est*.8?'Less than demand, so expect to sell out. ':''}${maxQ<maxCap?`Capital limits me to ${fmtN(maxQ)}. `:''}The plan is paid now from business cash, then the credit line, and renews automatically each year.${svc?' Staff wages are paid separately.':''}`));};
-  pR.oninput=()=>{price=+pR.value;upd();};qR.oninput=()=>{qty=+qR.value;qN.value=qty;upd();};qN.oninput=()=>{qty=+qN.value||0;qR.value=qty;upd();};
+  pR.oninput=()=>{price=+pR.value;upd();};qR.oninput=()=>{manual();qty=+qR.value;qN.value=qty;upd();};qN.oninput=()=>{manual();qty=+qN.value||0;qR.value=qty;upd();};
   const matchBtn=h('button',{className:'row',on:()=>{qty=Math.min(maxQ,Math.max(0,estDemand(b,pr,price)-(pr.inv||0)));qR.value=qty;qN.value=qty;upd();}},'Match expected demand');
   const sugBtn=h('button',{className:'row',on:()=>{price=P.price;pR.value=price;upd();}},'Use suggested price');
+  let auto=!!pr.auto;const autoTog=tog('🤖 Automatic production',`Each year, ${svc?'offer':'make'} about what customers will want. Moving the quantity turns it off.`,auto,()=>{auto=!auto;autoTog.setAttribute('aria-pressed',String(auto));if(auto){qty=Math.min(maxQ,Math.max(0,estDemand(b,pr,price)-(pr.inv||0)));qR.value=qty;qN.value=qty;upd();}});
+  const manual=()=>{if(auto){auto=false;autoTog.setAttribute('aria-pressed','false');}};
   ok.onclick=()=>{const cost=planCost(b,pr,qty),delta=cost-paid;if(delta>0)spendBiz(b,delta);else b.cash-=delta;cfAdd(b,'prod',delta);
-    pr.price=+price.toFixed(2);pr.qty=qty;pr.paidQty=qty;pr.paid=cost;closeModal();syncStaff(b);stay(`Plan for ${pr.name}: ${fmtN(qty)} at ${fmtP(pr.price)} each. ${delta>0?`Paid ${fmt(delta)}.`:delta<0?`Refunded ${fmt(-delta)}.`:''}`);};
-  m.append(h('h3',{},`📅 ${P.ic} ${pr.name}`),h('p',{className:'sub'},fresh?'Ready. Set this year\'s plan and it starts selling right away.':'Edit this year\'s plan.'),pL,pR,qL,qR,qN,h('div',{className:'btns',style:'grid-template-columns:1fr 1fr'},sugBtn,matchBtn),info,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
+    pr.price=+price.toFixed(2);pr.qty=qty;pr.auto=auto;pr.paidQty=qty;pr.paid=cost;closeModal();syncStaff(b);stay(`Plan for ${pr.name}: ${fmtN(qty)} at ${fmtP(pr.price)} each. ${delta>0?`Paid ${fmt(delta)}.`:delta<0?`Refunded ${fmt(-delta)}.`:''}`);};
+  m.append(h('h3',{},`📅 ${P.ic} ${pr.name}`),h('p',{className:'sub'},fresh?'Ready. Set this year\'s plan and it starts selling right away.':'Edit this year\'s plan.'),pL,pR,autoTog,qL,qR,qN,h('div',{className:'btns',style:'grid-template-columns:1fr 1fr'},sugBtn,matchBtn),info,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
   upd();$('modalWrap').classList.add('open');}
 function cashFlowBlock(b){const c=b.cf;if(!c)return h('p',{className:'sub'},'The cash flow statement appears after the first full year.');
   const L=[['Opening cash',c.open],['Sales and other income',c.sales],['Operating costs (wages, rent, marketing, other)',-c.ops],['Production and stock paid',-c.prod],['Loan payments and interest',-c.debt],['Tax',-c.tax],['Deposits minus withdrawals',c.owner],['Investments (outlets, R&D, equipment)',-c.invest],['Credit line draws and other',c.other],['Closing cash',c.close]];
@@ -2347,7 +2354,7 @@ function drawBiz(s,b){
   const bars=(l,v,c)=>[h('p',{className:'label'},`${l} ${v}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${v}%;background:var(--${c})`}))];
   if(bTab==='prod'&&!isGoods(b))bTab='over';
   if(bTab==='prod'){tabProducts(s,b,lock);return;}
-  if(bTab==='over'){
+  if(bTab==='over'){{const t=bizTip(b);if(t)s.append(h('p',{className:'flash'},`💡 ${t}`));}
     s.append(...bars('Reputation',b.rep,'happy'),...bars('Quality',b.q,'smarts'),...bars('Staff morale',b.morale,'health'));
     const units=isGoods(b)?(b.products||[]).reduce((a,p)=>a+(p.last?p.last.sold:0),0):Math.round(b.lastRev/T.unit[1]);
     if(isGoods(b)&&!b.products.length)s.append(h('p',{className:'flash bad'},'No products yet, so no sales. Open the Products tab to research one.'));
@@ -2443,6 +2450,21 @@ function drawBiz(s,b){
     s.append(h('p',{className:'sub'},'Paying staff below market is on the People tab. It saves money but lowers morale and invites unions.'));
   }
 }
+// One plain tip: the most useful thing to fix, checked in order of importance.
+function bizTip(b){const svc=isSvc(b),word=svc?'service':'product',ph=bizPhase(b);
+  if(b.ousted)return '';
+  if(isGoods(b)&&b.products&&!b.products.length)return `Nothing is on sale, so there are no sales. Open ${svc?'Services':'Products'} and add a ${word}.`;
+  const prs=b.products||[];
+  const hi=prs.find(p=>p.price>bp(b,pdef(b,p.id))*1.15);if(hi)return `${hi.name} is priced ${Math.round((hi.price/bp(b,pdef(b,hi.id))-1)*100)}% above the suggestion, so fewer customers buy. Try the suggested price.`;
+  const waste=prs.find(p=>!p.auto&&p.last&&p.last.made>0&&p.last.waste>p.last.made*.2);if(waste)return `A lot of ${waste.name.toLowerCase()} went to waste last year. Turn on automatic production in its plan.`;
+  const out=prs.find(p=>p.last&&p.last.dem>p.last.sold*1.2);if(out)return `${out.name} sold out: about ${fmtN(out.last.dem-out.last.sold)} more customers wanted it. ${svc?'Offer more capacity':'Make more'} or raise the price a little.`;
+  if(b.staff<needStaff(b))return `Understaffed: ${b.staff} of ${needStaff(b)}. Turn on auto-hire on the People tab.`;
+  if(b.life!=='hands'&&!hasMgr(b))return `Nobody runs the day-to-day, so quality slips. Go Hands-on or hire a manager on the People tab.`;
+  if(ph==='recession'||ph==='crash')return `${COUNTRIES[b.cty]?COUNTRIES[b.cty].n:'This country'} is in a ${ph==='crash'?'deep slump':'recession'}, so sales are down for everyone. Keep costs low until it passes.`;
+  if(b.yrs&&b.lastPre<0&&b.pnl&&b.pnl.mk>0&&b.pnl.mk>-b.lastPre*.5)return 'Marketing costs a lot for a business losing money. Try a lower marketing level.';
+  if(b.yrs&&b.lastPre<0)return 'Staff and rent cost more than sales bring in. Add another product or close a quiet outlet.';
+  if(b.yrs&&b.lastPre>0)return prs.length<prodSlots(b)?`Profitable. A second ${word} or another outlet could grow it.`:'Profitable. Another outlet could grow it.';
+  return '';}
 function payFrom(b,c){const fromB=Math.min(Math.max(0,b.cash),c);b.cash-=fromB;S.money-=c-fromB;cfAdd(b,'invest',fromB);}
 
 /* ================= finance module ================= */
@@ -2559,7 +2581,7 @@ function startBiz(k){
   const T=BIZ[k];const nm=pick(T.names.filter(n=>!S.biz.some(b=>b.name===n)))||T.names[0];
   const cands=[];const sib=sibling(),pt=partner();if(pt)cands.push({p:pt,label:`${fname(pt.name)} (my ${pt.type.toLowerCase()})`});if(sib)cands.push({p:sib,label:`${fname(sib.name)} (my ${sib.gender==='M'?'brother':'sister'})`});
   const fr=fullName(pick(['M','F']));cands.push({p:{id:null,name:fr},label:`${fname(fr)} (an old friend)`});
-  launch={k,nm,capital:startNeed(k),mine:Math.min(Math.max(0,S.money),startNeed(k)),loan:0,co:null,coAmt:0,inv:null,cands};
+  launch={k,nm,prod:hasProd(k)?[...PCAT[k]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0].id:null,capital:startNeed(k),mine:Math.min(Math.max(0,S.money),startNeed(k)),loan:0,co:null,coAmt:0,inv:null,cands};
   bizView=null;flash=null;drawSheet(true);
 }
 function launchView(s){
@@ -2572,8 +2594,15 @@ function launchView(s){
   s.append(h('h4',{},'1. Startup capital'),
     row('Capital to launch with',`Business starts with ${fmt(L.capital-setup)} in the bank`,fmt(L.capital),()=>amountModal({title:'Startup capital',sub:`Minimum ${fmt(need)}. More capital means more runway for tough early years.`,min:need,max:need*5,init:L.capital,
       btn:a=>`Launch with ${fmt(a)}`,note:a=>`Setup ${fmt(setup)}, starting cash ${fmt(a-setup)}.`,onOk:a=>{L.capital=a;L.mine=Math.min(L.mine,a);flash=null;drawSheet();}})));
+  // first product
+  if(L.prod){const svc=isSvc({type:L.k}),fake={type:L.k,cty:resKey()};
+    s.append(h('h4',{},`2. First ${svc?'service':'product'}`),h('p',{className:'sub'},`The business opens already selling this at the suggested price, with ${svc?'capacity':'production'} set to match demand. Research is included in the capital above.`));
+    const box=h('div',{className:'chips',style:'margin:0 0 10px'});
+    PCAT[L.k].forEach(P=>box.append(h('button',{className:'chip'+(P.id===L.prod?' pick':''),'aria-pressed':String(P.id===L.prod),on:()=>{L.prod=P.id;drawSheet();}},`${P.ic} ${P.n}`)));
+    const P=PCAT[L.k].find(x=>x.id===L.prod);
+    s.append(box,...mbar('Demand',demScore(L.k,P),'good'),...mbar('Competition',compScore(L.k,P),'bad'),h('p',{className:'sub'},`Suggested price ${fmtP(bp(fake,P))} per ${svc?P.u.replace(/s$/,''):'unit'}.`));}
   // funding
-  s.append(h('h4',{},'2. Funding'));
+  s.append(h('h4',{},L.prod?'3. Funding':'2. Funding'));
   s.append(row('💵 My own cash',`I have ${fmt(S.money)}`,fmt(L.mine),()=>amountModal({title:'How much of my own cash?',sub:`I have ${fmt(S.money)}.`,max:Math.min(Math.max(0,S.money),L.capital),init:L.mine,
     btn:a=>`Put in ${fmt(a)}`,note:a=>`I'd keep ${fmt(S.money-a)}.`,onOk:a=>{L.mine=a;drawSheet();}}),S.money<=0));
   const lm=startLoanMax(L.capital),r=loanRate()+.025;
@@ -2594,7 +2623,7 @@ function launchView(s){
   s.append(interestBox(ii));
   // summary
   const coShare=L.coAmt?(1-(L.inv?L.inv.eq:0))*L.coAmt/Math.max(1,L.mine+L.loan+L.coAmt):0;const myShare=1-(L.inv?L.inv.eq:0)-coShare;
-  s.append(h('h4',{},'3. Launch'),h('dl',{},h('dt',{},'Capital needed'),h('dd',{},fmt(L.capital)),h('dt',{},'Raised'),h('dd',{className:short>0?'bad':'good'},fmt(raised)),
+  s.append(h('h4',{},L.prod?'4. Launch':'3. Launch'),h('dl',{},h('dt',{},'Capital needed'),h('dd',{},fmt(L.capital)),h('dt',{},'Raised'),h('dd',{className:short>0?'bad':'good'},fmt(raised)),
     h('dt',{},'My ownership'),h('dd',{},`${Math.round(myShare*100)}%`),coShare?h('dt',{},'Co-founder'):null,coShare?h('dd',{},`${Math.round(coShare*100)}%`):null,L.inv?h('dt',{},'Investors'):null,L.inv?h('dd',{},`${(L.inv.eq*100).toFixed(1)}%`):null,
     L.loan?h('dt',{},'Loan payment'):null,L.loan?h('dd',{},`${fmt(annuity(L.loan,r,LOAN_YEARS))}/yr`):null));
   if(short>0)s.append(h('p',{className:'sub warn'},`Still need ${fmt(short)}. Add my cash, a loan, a co-founder or investors.`));
@@ -2603,6 +2632,8 @@ function launchView(s){
     const T=BIZ[L.k];S.money-=L.mine;
     const b=newBiz(L.k,L.nm,{own:myShare,inv:L.inv?L.inv.eq:0,rep:50+(has('hustler')?10:0)+(S.edu.degrees.includes('MBA')?5:0),cash:raised-setup});
     if(L.loan)addLoan(b,L.loan);
+    if(L.prod){const P=PCAT[L.k].find(x=>x.id===L.prod);spendBiz(b,rdCost(b,P));const pr=newProduct(b,P);b.products.push(pr);pr.qty=autoQty(b,pr);
+      const c=planCost(b,pr,pr.qty);spendBiz(b,c);cfAdd(b,'prod',c);pr.paidQty=pr.qty;pr.paid=c;syncStaff(b);}
     if(L.co){b.co={pid:L.co.p.id,name:L.co.p.name,share:coShare};if(L.co.p.rel!=null)L.co.p.rel+=8;}
     S.biz.push(b);S.flags.founded=(S.flags.founded||0)+1;unlock('founder');if(S.flags.founded>=5)unlock('serial');mile(`Founded ${L.nm}, a ${T.n.toLowerCase()}`);
     const nm=L.nm;launch=null;bizView=b.id;bTab='over';
@@ -2686,7 +2717,14 @@ function salaryRow(b){
   });
 }
 /* ================= boot ================= */
-$('bAge').onclick=()=>{if(modalOpen())return;S.alive?ageUp():showDeath()};
+// Warn once a year before aging up if a business has nothing to sell.
+function emptyBiz(){return S.alive&&!S.used.emptyOk?S.biz.find(b=>isGoods(b)&&!b.ousted&&b.products&&!b.products.length):null;}
+$('bAge').onclick=()=>{if(modalOpen())return;if(!S.alive)return showDeath();
+  const b=emptyBiz();if(!b)return ageUp();
+  const loss=Math.round(b.staff*wagePer(b)+(Tof(b).fixed*.5*b.locs+Tof(b).fixed*.5*Math.max(0,b.locs-b.prem)*b.rentMult)*cty(b).rent);
+  choiceModal(`${Tof(b).ic} ${b.name} has nothing to sell`,`With no ${isSvc(b)?'services':'products'}, it will still pay staff and rent and lose about ${fmt(loss)} this year.`,[
+    [`Add a ${isSvc(b)?'service':'product'} first`,()=>{mTab='biz';bizView=b.id;bTab='prod';openSheet(drawMoney);}],
+    ['Age up anyway',()=>{S.used.emptyOk=true;ageUp();}]]);};
 $('bUndo').onclick=()=>{
   if(!canUndo())return;
   if(modalOpen()){toast('Answer the decision on screen first.');return;}
