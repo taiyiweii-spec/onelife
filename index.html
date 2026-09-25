@@ -2229,7 +2229,7 @@ function ensureGoods(b){if(isGoods(b)&&!b.products)seedProducts(b);}
 /* yearly engine */
 function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;const lines=[];
   (b.products||[]).forEach(pr=>{const P=pdef(b,pr.id);if(!P)return;const uc=unitCost(b,pr),sp=supOf(pr);let made,c;
-    if(pr.paidQty!=null){made=pr.paidQty;c=pr.paid||0;prepaid+=c;}
+    if(pr.paidQty!=null){made=pr.paidQty;c=(pr.paid||0)+(pr.owe||0);prepaid+=pr.paid||0;}
     else{made=Math.min(Math.round(pr.qty||0),prodCap(b,pr));c=planCost(b,pr,made);}
     // One demand for the whole year. An unreliable supplier sometimes delivers short (an eighth of the year's supply, refunded).
     const D=prodBase(b,pr)*effLocs(b)*common*prodMult(b,pr,pr.price),wcap=pr.ws&&isMaker(b)?wsCap(b,P):0;
@@ -2240,25 +2240,28 @@ function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;c
     let waste=0;if(P.pe){waste=stock;stock=0;}
     if(sold<D-.5)soldOut=true;
     const hold=P.pe?0:Math.round(stock*uc*.05),r=Math.round(sold*pr.price+ws*bp(b,P)*.6);rev+=r;cost+=c+hold;
-    pr.inv=Math.round(stock);pr.last={sold:Math.round(sold),ws:Math.round(ws),made,waste:Math.round(waste),rev:r,cost:c+hold,hold,dem:Math.round(D),uc,price:pr.price,short};pr.yrs=(pr.yrs||0)+1;pr.paidQty=null;pr.paid=0;
+    pr.inv=Math.round(stock);pr.last={sold:Math.round(sold),ws:Math.round(ws),made,waste:Math.round(waste),rev:r,cost:c+hold,hold,dem:Math.round(D),uc,price:pr.price,short};pr.yrs=(pr.yrs||0)+1;pr.paidQty=null;pr.paid=0;pr.owe=0;
     const tq=sp.q+(b.q-60)*.5;pr.rating=clamp(Math.round((pr.rating||50)+(tq-(pr.rating||50))*.3));if(pr.boost)pr.boost=Math.max(0,+(pr.boost-.05).toFixed(2));
     const svc=isSvc(b);lines.push(`${P.ic} ${pr.name}: ${svc?`booked ${fmtN(sold)} of ${fmtN(made)} ${P.u} offered`:`sold ${fmtN(sold)} of ${fmtN(Math.round(D))} wanted`}${ws>=1?`, ${fmtN(ws)} sold wholesale`:''}${!svc&&waste>=1?`, ${fmtN(waste)} spoiled`:''}${pr.inv?`, ${fmtN(pr.inv)} left in stock`:''}.${short?` ${sp.n} came up short on a delivery.`:''}`);});
   lines.forEach(t=>line(t));
   return {rev,cost,prepaid,refund:Math.round(refund),soldOut};}
-function renewPlans(b){(b.products||[]).forEach(pr=>{if(pr.auto){const a=autoPlan(b,pr,runBy(b)==='ceo'?pr.price:null);pr.price=a.price;pr.qty=a.qty;}if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;const cost=planCost(b,pr,q);
-  if(cost>capital(b)){q=maxAfford(b,pr,capital(b));}
-  const c=planCost(b,pr,q);spendBiz(b,c);cfAdd(b,'prod',c);pr.paidQty=q;pr.paid=c;
-  if(q<want)planShort(b,pr,want,q);});}
+// Stock is paid as it sells: a deposit up front (PLAN_DEP of the plan), the rest from sales during the year.
+const PLAN_DEP=.25,planDep=c=>Math.round(c*PLAN_DEP);
+function setPlanPaid(b,pr,q,dep){pr.paidQty=q;pr.paid=dep;pr.owe=Math.max(0,planCost(b,pr,q)-dep);}
+function renewPlans(b){b._y=1;(b.products||[]).forEach(pr=>{if(pr.auto){const a=autoPlan(b,pr,runBy(b)==='ceo'?pr.price:null);pr.price=a.price;pr.qty=a.qty;}if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;pr.owe=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;
+  if(planDep(planCost(b,pr,q))>capital(b)){q=maxAfford(b,pr,capital(b)/PLAN_DEP);}
+  const dep=planDep(planCost(b,pr,q));spendBiz(b,dep);cfAdd(b,'prod',dep);setPlanPaid(b,pr,q,dep);
+  if(q<want)planShort(b,pr,want,q);});delete b._y;}
 // Not enough cash for next year's production: ask how to pay for the rest (a CEO borrows within its limit).
-function planShort(b,pr,want,q){const extra=planCost(b,pr,want)-planCost(b,pr,q),P=pdef(b,pr.id),lm=bizLoanMax(b)||startLoanMax(extra*2);
-  const top=(how)=>{pr.paidQty=want;pr.paid+=extra;cfAdd(b,'prod',extra);how();};
+function planShort(b,pr,want,q){const extra=planDep(planCost(b,pr,want))-planDep(planCost(b,pr,q)),P=pdef(b,pr.id),lm=bizLoanMax(b)||startLoanMax(extra*2);
+  const top=(how)=>{setPlanPaid(b,pr,want,(pr.paid||0)+extra);cfAdd(b,'prod',extra);how();};
   const loan=()=>top(()=>{addLoan(b,extra,.01);cfAdd(b,'credit',extra);});
   if(runBy(b)==='ceo'&&extra<=ceoLim(b)&&lm>=extra){loan();line(`🧑‍💼 ${b.ceo.name} took a ${fmt(extra)} bank loan so ${b.name} can make all ${fmtN(want)} ${pr.name.toLowerCase()} next year.`);return;}
   if(!canManage()){line(`${P.ic} ${b.name} could only pay for ${fmtN(q)} of ${fmtN(want)} planned ${pr.name.toLowerCase()} next year.`,'bad');return;}
-  Q.push({own:true,text:`${P.ic} ${b.name} only has cash for ${fmtN(q)} of the ${fmtN(want)} ${pr.name.toLowerCase()} it needs next year. The rest costs ${fmt(extra)}. Without it, sales will be capped.`,ch:[
+  Q.push({own:true,text:`${P.ic} ${b.name} can only pay the deposit for ${fmtN(q)} of the ${fmtN(want)} ${pr.name.toLowerCase()} it needs next year. Suppliers want ${Math.round(PLAN_DEP*100)}% up front and the rest from sales during the year. The missing deposit is ${fmt(extra)}.${q?' Without it, sales will be capped.':' Without it, there is nothing to sell next year.'}`,ch:[
     [`Pay the ${fmt(extra)} from my cash`,()=>{top(()=>{S.money-=extra;cfAdd(b,'owner',extra);});return `I paid ${fmt(extra)} so ${b.name} can make its full plan.`;},()=>S.money<extra],
     [`Bank loan for ${fmt(extra)}`,()=>{loan();return `${b.name} borrowed ${fmt(extra)} to pay for production.`;},()=>lm<extra],
-    [`Make only ${fmtN(q)}`,()=>`${b.name} will make ${fmtN(q)} ${pr.name.toLowerCase()} next year.`]]});}
+    [q?`Make only ${fmtN(q)}`:'Make nothing next year (no sales)',()=>q?`${b.name} will make ${fmtN(q)} ${pr.name.toLowerCase()} next year.`:`${b.name} will have no ${pr.name.toLowerCase()} to sell next year.`]]});}
 function wcExtra(k){if(!hasProd(k))return 0;const T=BIZ[k],P=[...PCAT[k]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0];
   const rd=Math.max(1000,T.cost*(.04+P.dem*.001)*(1+(100-P.comp)/200)),u=T.base*P.dem*(1-P.comp/250)/PREF[k]*1.1*(PCAL[k]||1)/P.price;
   return Math.max(0,Math.round((rd+u*P.price*P.cr-T.cost*T.cap)/1000)*1000);}
@@ -2270,7 +2273,7 @@ function driftProducts(){if(!S.pm)return;for(const k in S.pm){const m=S.pm[k];m.
 function mbar(label,v,col){return [h('p',{className:'label',style:'margin:6px 0 2px'},`${label} ${v}%`),h('div',{className:'bar',style:'margin:0 0 6px'},h('i',{style:`width:${v}%;background:var(--${col})`}))];}
 const stars=r=>{const n=Math.max(1,Math.min(5,Math.round(r/20)));return '★'.repeat(n)+'☆'.repeat(5-n);};
 function tabProducts(s,b,lock){ensureGoods(b);const svc=isSvc(b),word=svc?'service':'product';
-  s.append(h('p',{className:'sub'},`${svc?'Services':'Products'} ${b.products.length} of ${prodSlots(b)} (more slots as I add outlets). Each year's plan is paid up front from business cash, then the credit line. Available capital now: ${fmt(capital(b))}. ${svc?'Capacity is limited by space in each outlet, and staff are hired to match it. Unused capacity is lost.':'Production is limited by what my outlets'+(isMaker(b)&&b.fac?' and '+FACN[b.type]+(b.fac>1?'s':''):'')+' can make.'} More ${word}s bring more customers, but each extra one adds less.`));
+  s.append(h('p',{className:'sub'},`${svc?'Services':'Products'} ${b.products.length} of ${prodSlots(b)} (more slots as I add outlets). Each year's plan needs a ${Math.round(PLAN_DEP*100)}% deposit up front from business cash, then the credit line. The rest is paid from sales during the year. Available capital now: ${fmt(capital(b))}. ${svc?'Capacity is limited by space in each outlet, and staff are hired to match it. Unused capacity is lost.':'Production is limited by what my outlets'+(isMaker(b)&&b.fac?' and '+FACN[b.type]+(b.fac>1?'s':''):'')+' can make.'} More ${word}s bring more customers, but each extra one adds less.`));
   if(!b.products.length)s.append(h('p',{className:'flash bad'},`No ${word}s yet, so no sales. ${svc?'Launch':'Research'} one below to start.`));
   b.products.forEach(pr=>{const P=pdef(b,pr.id),L=pr.last;
     s.append(row(`${P.ic} ${pr.name} ${stars(pr.rating||50)}`,`${fmtP(pr.price)} each (suggested ${fmtP(bp(b,P))}). ${svc?'Capacity':'Plan'} ${fmtN(pr.qty||0)}/yr${pr.paidQty!=null?`, ${fmtN(pr.paidQty)} paid for`:''}.${!svc?` In stock ${fmtN(pr.inv||0)}.`:''}${L?` Last year ${svc?'booked':'sold'} ${fmtN(L.sold)}.`:''}`,L?fmt(L.rev):'',()=>productModal(b,pr)));});
@@ -2322,29 +2325,29 @@ function productModal(b,pr){const P=pdef(b,pr.id),L=pr.last,ro=!canManage()||b.o
     h('button',{className:'choice alt',on:closeModal},'Close'));
   $('modalWrap').classList.add('open');}
 function planModal(b,pr,fresh){const P0=pdef(b,pr.id),P=Object.assign({},P0,{price:bp(b,P0)}),uc=unitCost(b,pr),svc=isSvc(b),paid=pr.paid||0,cap=capital(b),budget=cap+paid,maxCap=prodCap(b,pr);const m=$('modal');m.innerHTML='';
-  let price=pr.price,qty=Math.min(pr.qty||0,maxCap);const maxQ=Math.max(0,maxAfford(b,pr,budget)),byCeo=runBy(b)==='ceo';
+  let price=pr.price,qty=Math.min(pr.qty||0,maxCap);const maxQ=Math.max(0,maxAfford(b,pr,budget/PLAN_DEP)),byCeo=runBy(b)==='ceo';
   const pickAuto=()=>{const a=autoPlan(b,pr,byCeo?price:null);price=a.price;qty=Math.min(maxQ,a.qty);pR.value=price;qR.value=qty;qN.value=qty;};
   const info=h('div',{}),ok=h('button',{className:'choice'},'Save plan');
   const pR=h('input',{type:'range',className:'slider',min:+(P.price*.3).toFixed(2),max:+(P.price*3).toFixed(2),step:P.price>=100?Math.round(P.price/100):+(P.price/100).toFixed(2),value:price,'aria-label':'Unit price'});
   const qR=h('input',{type:'range',className:'slider',min:0,max:maxQ,step:1,value:Math.min(qty,maxQ),'aria-label':'Quantity'});
   const qN=h('input',{type:'number',className:'amt',min:0,max:maxQ,value:Math.min(qty,maxQ),'aria-label':'Quantity',inputMode:'numeric'});
   const pL=h('p',{className:'label'}),qL=h('p',{className:'label'});qty=Math.min(qty,maxQ);
-  const upd=()=>{qty=Math.max(0,Math.min(maxQ,Math.round(qty)));const est=estDemand(b,pr,price),avail=(pr.inv||0)+qty,sell=Math.min(avail,est),cost=planCost(b,pr,qty),left=budget-cost;
+  const upd=()=>{qty=Math.max(0,Math.min(maxQ,Math.round(qty)));const est=estDemand(b,pr,price),avail=(pr.inv||0)+qty,sell=Math.min(avail,est),cost=planCost(b,pr,qty),dep=planDep(cost),left=budget-dep;
     pL.textContent=`💲 Price ${fmtP(price)} per ${svc?P.u.replace(/s$/,''):'unit'} (suggested ${fmtP(P.price)})`;qL.textContent=`${svc?'🗓️ Capacity to offer':'📦 Quantity to make'} this year: ${fmtN(qty)} ${svc?P.u:''}`;
     info.innerHTML='';const rows=[['Cost per unit',fmtP(uc)],['Expected demand',`about ${fmtN(est)}/yr`],[svc?'Space limit':'Production limit',`${fmtN(maxCap)}/yr`]];
     if(!svc)rows.push(['In stock now',fmtN(pr.inv||0)]);
     if(svc){const st=svcStaff(b,{pr,q:qty});rows.push(['Staff needed (all services)',`${st}, about ${fmt(st*wagePer(b))}/yr in wages`]);}
     const wg=svc?Math.round(qty/upStaff(b,P0)*wagePer(b)):0,rp=Math.round(sell*price-cost-wg);
-    rows.push(['Plan cost',fmt(cost)],['Available capital after this plan',fmt(left)],[svc?'Rough profit on this (after staff wages)':'Rough profit on this',fmt(rp)]);
+    rows.push(['Plan cost',`${fmt(cost)}: ${fmt(dep)} now, the rest from sales during the year`],['Available capital after this plan',fmt(left)],[svc?'Rough profit on this (after staff wages)':'Rough profit on this',fmt(rp)]);
     info.append(auto?h('p',{className:'flash good'},byCeo?`🤖 Automatic: the CEO sets the price, and the quantity matches expected demand.`:`🤖 Automatic: this is the price and quantity with the best expected profit, between ${Math.round(AUTO_LO*100)}% and ${Math.round(autoHi(b)*100)}% of the suggested price${b.rep<65?' (up to 140% once reputation reaches 65%)':''}.`):null,h('dl',{},...rows.flatMap(([a,v],i)=>[h('dt',{},a),h('dd',{className:(i===rows.length-2&&left<=0)||(i===rows.length-1&&rp<0)?'bad':''},v)])),
-      h('p',{className:'sub'},`${price>P.price*1.1?'Pricing above the suggestion cuts demand. ':price<P.price*.9?'Pricing below the suggestion lifts demand but thins margins. ':''}${avail>est*1.2?(svc?'Much more capacity than demand, so a lot will go unused. ':P.pe?'Much more than demand, so expect spoilage. ':'More than demand, so extra stock carries over. '):avail<est*.8?'Less than demand, so expect to sell out. ':''}${maxQ<maxCap?`Capital limits me to ${fmtN(maxQ)}. `:''}The plan is paid now from business cash, then the credit line, and renews automatically each year.${svc?' Staff wages are paid separately.':''}`));};
+      h('p',{className:'sub'},`${price>P.price*1.1?'Pricing above the suggestion cuts demand. ':price<P.price*.9?'Pricing below the suggestion lifts demand but thins margins. ':''}${avail>est*1.2?(svc?'Much more capacity than demand, so a lot will go unused. ':P.pe?'Much more than demand, so expect spoilage. ':'More than demand, so extra stock carries over. '):avail<est*.8?'Less than demand, so expect to sell out. ':''}${maxQ<maxCap?`Capital limits me to ${fmtN(maxQ)}. `:''}A ${Math.round(PLAN_DEP*100)}% deposit is paid now from business cash, then the credit line. The rest is paid from sales during the year. The plan renews automatically each year.${svc?' Staff wages are paid separately.':''}`));};
   pR.oninput=()=>{manual();price=+pR.value;upd();};qR.oninput=()=>{manual();qty=+qR.value;qN.value=qty;upd();};qN.oninput=()=>{manual();qty=+qN.value||0;qR.value=qty;upd();};
   const matchBtn=h('button',{className:'row',on:()=>{manual();qty=Math.min(maxQ,Math.max(0,estDemand(b,pr,price)-(pr.inv||0)));qR.value=qty;qN.value=qty;upd();}},'Match expected demand');
   const sugBtn=h('button',{className:'row',on:()=>{manual();price=P.price;pR.value=price;upd();}},'Use suggested price');
   let auto=!!pr.auto;const autoTog=tog('🤖 Automatic production',byCeo?`Each year, ${svc?'offer':'make'} about what customers will want at the CEO's price. Moving the quantity turns it off.`:`Each year, pick the price and quantity with the best expected profit. Moving either slider turns it off.`,auto,()=>{auto=!auto;autoTog.setAttribute('aria-pressed',String(auto));if(auto)pickAuto();upd();});
   const manual=()=>{if(auto){auto=false;autoTog.setAttribute('aria-pressed','false');}};
-  ok.onclick=()=>{const cost=planCost(b,pr,qty),delta=cost-paid;if(delta>0)spendBiz(b,delta);else b.cash-=delta;cfAdd(b,'prod',delta);
-    pr.price=+price.toFixed(2);pr.qty=qty;pr.auto=auto;pr.paidQty=qty;pr.paid=cost;closeModal();syncStaff(b);stay(`Plan for ${pr.name}: ${fmtN(qty)} at ${fmtP(pr.price)} each. ${delta>0?`Paid ${fmt(delta)}.`:delta<0?`Refunded ${fmt(-delta)}.`:''}`);};
+  ok.onclick=()=>{const cost=planCost(b,pr,qty),dep=planDep(cost),delta=dep-paid;if(delta>0)spendBiz(b,delta);else b.cash-=delta;cfAdd(b,'prod',delta);
+    pr.price=+price.toFixed(2);pr.qty=qty;pr.auto=auto;setPlanPaid(b,pr,qty,dep);closeModal();syncStaff(b);stay(`Plan for ${pr.name}: ${fmtN(qty)} at ${fmtP(pr.price)} each. ${delta>0?`Paid ${fmt(delta)}.`:delta<0?`Refunded ${fmt(-delta)}.`:''}`);};
   m.append(h('h3',{},`📅 ${P.ic} ${pr.name}`),h('p',{className:'sub'},fresh?'Ready. Set this year\'s plan and it starts selling right away.':'Edit this year\'s plan.'),pL,pR,autoTog,qL,qR,qN,h('div',{className:'btns',style:'grid-template-columns:1fr 1fr'},sugBtn,matchBtn),info,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
   if(auto)pickAuto();upd();$('modalWrap').classList.add('open');}
 const opsCost=p=>(p.cogs||0)+(p.wages||0)+(p.owner||0)+(p.rent||0)+(p.mk||0)+(p.other||0);
@@ -2593,7 +2596,7 @@ function simBiz(b){
     b.cf={open:Math.round(open),sales,ops,prod:Math.round(prodOut),debt,tax,owner:A.owner,invest:A.invest,credit:Math.round(cred),other:Math.round(oth),close:Math.round(close)};b.cfClose=close;b.cfAcc={prod:0,owner:0,invest:0,credit:0};}
   {const P=b.pnl||{};b.fh=b.fh||[];b.fh.push({age:S.age,rev:b.lastRev,ops:opsCost(P),pre:b.lastPre,net:P.net||0,cf:b.cf?b.cf.close-b.cf.open:0,cash:Math.round(b.cash)});if(b.fh.length>10)b.fh.shift();}
 }
-const creditLimit=b=>b.yrs>=1&&!badCredit()?Math.max(20000,Math.round(b.lastRev*.2)):0;
+const creditLimit=b=>b.yrs+(b._y||0)>=1&&!badCredit()?Math.max(20000,Math.round(b.lastRev*.2)):0;
 
 function reviews(b,hit,soldOut){
   const T=Tof(b);const it=T.item;const out=[];
@@ -3122,7 +3125,7 @@ function startLoanMax(capital){
   return Math.max(0,Math.round(Math.min(capital*.7,coll*cf)/1000)*1000);
 }
 function bizLoanMax(b){
-  if(badCredit()||b.yrs<1)return 0;
+  if(badCredit()||b.yrs+(b._y||0)<1)return 0;
   const cap=bizVal(b)*.4+Math.max(0,b.lastPre)*2-(b.loan.bal||0)-(b.credit||0);
   return Math.max(0,Math.round(cap*Math.min(1,creditF())/1000)*1000);
 }
@@ -3146,7 +3149,7 @@ function launchView(s){
   const inv=L.inv?L.inv.amt:0,raised=L.mine+L.loan+L.coAmt+inv,short=L.capital-raised;
   s.append(h('button',{className:'back',on:()=>{launch=null;flash=null;drawSheet(true)}},'‹ All businesses'),
     h('h3',{},`${T.ic} Launch ${L.nm}`),
-    h('p',{className:'sub'},`A ${T.n.toLowerCase()} needs at least ${fmt(need)}: ${fmt(setup)} for setup${T.cap<1?' (equipment, fit-out, permits)':''} and ${fmt(need-setup)} of starting cash${wc?`, which covers researching a first ${isSvc({type:L.k})?'service':'product'} and about a year of ${isSvc({type:L.k})?'supplies':'stock'}, paid up front`:''}. Anything above the minimum becomes extra cash for the business.`));
+    h('p',{className:'sub'},`A ${T.n.toLowerCase()} needs at least ${fmt(need)}: ${fmt(setup)} for setup${T.cap<1?' (equipment, fit-out, permits)':''} and ${fmt(need-setup)} of starting cash${wc?`, which covers researching a first ${isSvc({type:L.k})?'service':'product'} and about a year of ${isSvc({type:L.k})?'supplies':'stock'}. A quarter of that is paid as a deposit at launch, and the rest stays in the business as a cash cushion`:''}. Anything above the minimum becomes extra cash for the business.`));
   // capital
   s.append(h('h4',{},'1. Startup capital'),
     row('Capital to launch with',`Business starts with ${fmt(L.capital-setup)} in the bank`,fmt(L.capital),()=>amountModal({title:'Startup capital',sub:`Minimum ${fmt(need)}. More capital means more runway for tough early years.`,min:need,max:need*5,init:L.capital,
@@ -3191,7 +3194,7 @@ function launchView(s){
     if(L.loan)addLoan(b,L.loan);
     if(!S.job&&!S.edu.major&&S.age<=72)b.life='hands';
     if(L.prod){const P=PCAT[L.k].find(x=>x.id===L.prod);spendBiz(b,rdCost(b,P));const pr=newProduct(b,P);b.products.push(pr);{const a=autoPlan(b,pr);pr.price=a.price;pr.qty=a.qty;}
-      const c=planCost(b,pr,pr.qty);spendBiz(b,c);cfAdd(b,'prod',c);pr.paidQty=pr.qty;pr.paid=c;syncStaff(b);}
+      const c=planDep(planCost(b,pr,pr.qty));spendBiz(b,c);cfAdd(b,'prod',c);setPlanPaid(b,pr,pr.qty,c);syncStaff(b);}
     if(L.co){b.co={pid:L.co.p.id,name:L.co.p.name,share:coShare};if(L.co.p.rel!=null)L.co.p.rel+=8;}
     S.biz.push(b);S.flags.founded=(S.flags.founded||0)+1;unlock('founder');if(S.flags.founded>=5)unlock('serial');mile(`Founded ${L.nm}, a ${T.n.toLowerCase()}`);
     const nm=L.nm;launch=null;bizView=b.id;bTab='over';

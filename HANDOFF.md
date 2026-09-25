@@ -127,3 +127,9 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - Used by `renewPlans` (yearly), new products (`rdPicker`), launches, and the plan screen (the auto toggle shows the pick; moving any slider or the suggested price button switches to manual). "Rough profit" in the plan now includes staff wages for services.
 - CEOs: `ceoManage` sets the price from `autoPlan`; a CEO who fails `skill(c.sales)` is off by 5 to 10%. Then `renewPlans` keeps the CEO's price and only sets quantity.
 - ceobot (owner-run, 12 years): cafe, bar, truck, farm about the same; gym up about 5%; salon up 30 to 60%; fashion mixed. Stress 25 lives seed 7: 0 errors, 0 bad numbers.
+
+## Stock paid as it sells, first-year timing fix (26 September 2026, user approved)
+- Production plans now need a `PLAN_DEP` (25%) deposit up front; the rest (`pr.owe`) is charged in `goodsYear` as part of that year's cost of goods and paid from sales. `setPlanPaid` keeps `paidQty`, `paid` (deposit) and `owe` in step. Used by `renewPlans`, `planShort`, launches and the plan screen. Retiring a product refunds the deposit and cancels what is owed.
+- Bug fixed: the year-end stock purchase ran before `b.yrs++`, so a new business could never use its credit line or a business bank loan for its second year's stock. `renewPlans` sets `b._y=1` while it runs, and `creditLimit` and `bizLoanMax` count it.
+- The shortfall popup now talks about the deposit; with nothing affordable its last option reads "Make nothing next year (no sales)".
+- Tests: a stock test (launch deposit, the screenshot case with $0 cash, cash flow statement balances with no unexplained cash, broke business still gets a clear popup) passed 11 of 11; stress seeds 7, 11 and 3 (25 lives each) 0 errors; ceobot has no more "cash negative" flags.
