@@ -2,6 +2,11 @@
 
 Read this first, then `docs/MASTER_NOTE.md` for the full game design.
 
+## Base switched (25 September 2026)
+`index.html` is now the newer 300 KB version, taken from the published artifact https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T (owned by the user). It has the Phase 1 and 2 features the master note called lost: 16 countries and taxes, moving abroad, board governance, dividends, 4 banks, wholesale, factories, cash flow. It also has 3 save slots, backup codes, an unfinished decision coming back on load, Undo year, karma, and a character creator (name, gender, country, stat sliders).
+It does NOT have the replay dice, the `YEAR_STEPS` list or the 3-card character picker from the older base (those are in git history before this commit). It uses `Math.random()` directly and its yearly routine is `YEAR_PHASES`. Sections below that describe the older base are out of date where they conflict with this note.
+`tools/stress.js` works with this version: 25 lives, seed 7, 0 errors, 0 year step errors, 0 bad numbers. Runs are not repeatable without replay dice.
+
 ## What this is
 One Life is a BitLife-style life simulator in the browser. You live one life year by year from birth to death: school, jobs, relationships, money, investing, property and businesses. When you die you can continue as your child (dynasty play). It is meant to be played as a published Claude artifact, and it also runs as a plain web page.
 
