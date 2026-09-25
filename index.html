@@ -118,6 +118,14 @@ dt{color:var(--muted)} dd{margin:0;font-weight:700;text-align:right}
 .ach b{display:block;font-size:.9rem}
 .ach.locked{opacity:.45}
 .warn{color:var(--bad);font-weight:700}
+.supcard{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:0 0 8px;display:flex;flex-direction:column;gap:4px}
+.supcard.new{border:2px solid var(--sun)}
+.suphead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.supprice{margin:0;font-family:Fredoka,system-ui,sans-serif;font-size:1.15rem;font-variant-numeric:tabular-nums}
+.supprice small{font-family:Nunito,system-ui,sans-serif;font-size:.8rem;color:var(--muted)}
+.supbar{display:grid;grid-template-columns:5.5em 1fr 2em;align-items:center;gap:8px;font-size:.82rem}
+.supbar em{font-style:normal;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip.good{color:var(--good);border-color:var(--good)} .chip.bad{color:var(--bad);border-color:var(--bad)}
 @media (prefers-reduced-motion: reduce){ .bar i,.toggle .sw::after{transition:none} .pop,.toast{animation-duration:.01s;animation-delay:1.5s} }
 </style>
 </head>
@@ -1337,7 +1345,7 @@ function pubModal(b){const P=b.pub,px=sharePx(b),mine=Math.round(b.own*SHARES),f
     h('button',{className:'choice alt',disabled:ro||canSell<1,on:()=>{closeModal();amountModal({title:`Sell ${b.name} shares`,sub:`${fmtP(px)} per share. I must keep at least 1%.`,min:1,max:canSell,init:canSell/10,step:1,fmtA:fmtN,btn:a=>`Sell ${fmtN(a)} shares`,note:a=>`About ${fmt(a*px)}. I'd own ${((b.own-a/SHARES)*100).toFixed(1)}%.`,onOk:a=>{const v=Math.round(a*px);S.money+=v;b.own-=a/SHARES;b.inv+=a/SHARES;P.sent=Math.max(.3,P.sent*(1-Math.min(.1,a/SHARES*.5)));stay(`I sold ${fmtN(a)} shares of ${b.name} for ${fmt(v)}.`)}});}},'Sell shares'),
     h('button',{className:'choice alt',on:closeModal},'Close'));
   $('modalWrap').classList.add('open');}
-function fmtP(p){return p>=1?fmt(p):'$'+p.toPrecision(3);}
+function fmtP(p){return p>=100?fmt(p):p>=1?'$'+p.toFixed(2):'$'+p.toPrecision(3);}
 function tradeModal(t){
   const q=S.mkt[t.s],sh=S.hold[t.s]||0,ro=!canManage(),val=sh*q.p,gain=val-(S.basis[t.s]||0),k=IMPK[t.k]||0,fl=tFloat(t),st=stakeOf(t);
   const room=fl===Infinity?Infinity:Math.max(0,Math.floor(fl*.95-sh));
@@ -1878,7 +1886,7 @@ function spendBiz(b,amt){const fc=Math.min(Math.max(0,b.cash),amt);b.cash-=fc;co
 /* demand */
 const prodSpread=b=>{const n=Math.max(1,(b.products||[]).length);return 1/(1+.35*(n-1));};
 function prodBase(b,pr){const P=pdef(b,pr.id);return Tof(b).base*demScore(b.type,P)*(1-compScore(b.type,P)/250)/PREF[b.type]*1.1*(PCAL[b.type]||1)/P.price*prodSpread(b)*volF(b);}
-function mkF(b){let mk=1;for(const k in b.ch)if(b.ch[k])mk+=CHANNELS[k].d;if(b.celeb)mk+=b.celeb.d;if(b.loyal)mk+=.06;if(b.online)mk+=b.type==='fashion'?.3:.12;return mk;}
+function mkF(b){let mk=1+MKTL[mkLv(b)].d;if(b.celeb)mk+=b.celeb.d;if(b.online)mk+=b.type==='fashion'?.3:.12;return mk;}
 function commonEst(b){const need=needStaff(b),ratio=need<=0?1:Math.min(1,b.staff/need),econ={boom:.12,normal:0,recession:-.12,crash:-.28}[bizPhase(b)]*Tof(b).econ;
   return (1+econ)*(.5+b.rep/100)*(.85+b.q/400)*(lev(b).d||1)*mkF(b)*rivalFactor(b)*starBoost(b)*ratio;}
 const prodMult=(b,pr,price)=>(.8+(pr.rating||50)/250)*priceF(price/bp(b,pdef(b,pr.id)))*(1+(pr.boost||0));
@@ -1939,9 +1947,21 @@ function rdPicker(b){const m=$('modal');m.innerHTML='';const cap=spendPower(b),s
 function supplierSearch(b,pr){const P=pdef(b,pr.id),key='ss'+b.id+pr.id,used=S.used[key]||0,w=supWord(b);
   if(used>=3){toast(`No more ${w} searches for ${pr.name} this year.`);return;}
   S.used[key]=used+1;const cand=rollSupplier(),cur=supOf(pr),idx=b.contract?b.contract.idx:S.supIdx,base=P.price*P.cr*cscale(b)*idx*(lev(b).c||1);
-  const cmp=(a,x,y)=>`${a}: ${x} → ${y}`;
-  choiceModal(`🔍 New ${w} for ${pr.name}`,`Search ${used+1} of 3 this year. ${cand.n} offers: ${fmtP(base*cand.c)} per unit, quality ${cand.q}, reliability ${cand.rel}%. Current (${cur.n}): ${fmtP(base*cur.c)} per unit, quality ${cur.q}, reliability ${cur.rel}%. Quality feeds the customer rating over time. Low reliability means some deliveries come up short.`,
-    [[`Switch to ${cand.n}`,()=>{pr.sup=cand;stay(`${pr.name} now uses ${cand.n}.`)}],[`Keep looking (${2-used} left)`,()=>supplierSearch(b,pr),()=>used+1>=3],['Stay with current',()=>{}]]);}
+  const cN=base*cand.c,cC=base*cur.c,diff=Math.round((cN/cC-1)*100),left=3-(used+1);
+  const bar=(l,v,col)=>h('div',{className:'supbar'},h('span',{},l),h('div',{className:'bar'},h('i',{style:`width:${v}%;background:var(--${col})`})),h('em',{},v));
+  const card=(tag,sp,cost,extra)=>h('div',{className:'supcard'+(tag==='New'?' new':'')},
+    h('div',{className:'suphead'},h('span',{className:'label',style:'margin:0'},tag),extra),
+    h('b',{},sp.n),h('p',{className:'supprice'},`${fmtP(cost)} `,h('small',{},`per ${isSvc(b)?P.u.replace(/s$/,''):'unit'}`)),
+    bar('Quality',sp.q,'health'),bar('Reliability',sp.rel,'smarts'));
+  const tag=h('span',{className:'chip '+(diff<0?'good':diff>0?'bad':'')},diff===0?'Same price':`${Math.abs(diff)}% ${diff<0?'cheaper':'more expensive'}`);
+  const m=$('modal');m.innerHTML='';
+  m.append(h('h3',{},`🔍 New ${w} found`),h('p',{className:'sub',style:'margin:0 0 12px'},`${P.ic} ${pr.name} · search ${used+1} of 3 this year`),
+    card('New',cand,cN,tag),card('Current',cur,cC,null),
+    h('p',{className:'sub',style:'margin:10px 0 12px'},'Quality lifts customer ratings over time. Low reliability means some deliveries come up short.'),
+    h('button',{className:'choice',on:()=>{closeModal();pr.sup=cand;stay(`${pr.name} now uses ${cand.n}.`)}},`Sign with ${cand.n}`),
+    h('button',{className:'choice alt',disabled:left<=0,on:()=>{closeModal();supplierSearch(b,pr);}},left>0?`Look for another (${left} left)`:'No searches left this year'),
+    h('button',{className:'choice alt',on:closeModal},'Keep current'));
+  $('modalWrap').classList.add('open');}
 function productModal(b,pr){const P=pdef(b,pr.id),L=pr.last,ro=!canManage()||b.ousted,svc=isSvc(b),sp=supOf(pr);const m=$('modal');m.innerHTML='';
   m.append(h('h3',{},`${P.ic} ${pr.name}`),h('p',{className:'sub'},`Customer rating ${stars(pr.rating||50)}. ${svc?'Provider':'Supplier'}: ${sp.n} (quality ${sp.q}, reliability ${sp.rel}%). Cost per unit ${fmtP(unitCost(b,pr))}.${svc?` Space for up to ${fmtN(prodCap(b,pr))} ${P.u} a year.`:` Can make up to ${fmtN(prodCap(b,pr))} a year. In stock ${fmtN(pr.inv||0)}.`}`),
     ...mbar('Market demand',demScore(b.type,P),'good'),...mbar('Competition',compScore(b.type,P),'bad'));
@@ -1982,6 +2002,11 @@ function cashFlowBlock(b){const c=b.cf;if(!c)return h('p',{className:'sub'},'The
   const L=[['Opening cash',c.open],['Sales and other income',c.sales],['Operating costs (wages, rent, marketing, other)',-c.ops],['Production and stock paid',-c.prod],['Loan payments and interest',-c.debt],['Tax',-c.tax],['Deposits minus withdrawals',c.owner],['Investments (outlets, R&D, equipment)',-c.invest],['Credit line draws and other',c.other],['Closing cash',c.close]];
   return h('dl',{},...L.filter(([l,v],i)=>i===0||i===L.length-1||Math.round(v)).flatMap(([l,v])=>[h('dt',{},l),h('dd',{className:v<0?'bad':''},fmt(v))]));}
 
+// Marketing is one level per business, priced as a share of sales so it fits any size.
+const MKTL=[{l:'None',c:0,d:0,r:0},{l:'Light',c:.03,d:.08,r:0},{l:'Strong',c:.07,d:.16,r:1},{l:'Heavy',c:.12,d:.22,r:2}];
+// Older saves used separate channels and a loyalty program: map them to the nearest level once.
+function mkLv(b){if(b.mkt==null){let d=0;for(const k in (b.ch||{}))if(b.ch[k]&&CHANNELS[k])d+=CHANNELS[k].d;if(b.loyal)d+=.06;b.mkt=d<=0?0:d<=.12?1:d<=.24?2:3;b.ch={};b.loyal=false;}return b.mkt;}
+const mktCost=b=>Math.round(MKTL[mkLv(b)].c*Math.max(b.lastRev||0,Tof(b).base*b.locs*.5));
 const CHANNELS={flyers:{l:'Flyers',c:3000,per:1,d:.04,seg:'families'},social:{l:'Social media ads',c:10000,per:1,d:.08,seg:'students'},influencer:{l:'Influencer deals',c:25000,d:.12,seg:'students',risk:.12},tv:{l:'TV spots',c:80000,d:.2,seg:'pros'},sponsor:{l:'Sponsor a local team',c:40000,d:.08,r:3,seg:'families'}};
 const CELEBS=[{n:'Dex Marlowe',c:400000,d:.35},{n:'Sienna Vale',c:250000,d:.25},{n:'Jax Okoro',c:150000,d:.18}];
 const TRENDS={plant:{n:'Plant-based food craze',t:['truck','cafe','restaurant','farm']},retro:{n:'Retro revival',t:['fashion','bar','label','games']},ai:{n:'AI boom',t:['tech','games','lawfirm']},wellness:{n:'Wellness wave',t:['gym','salon','clinic']},travel:{n:'Travel boom',t:['hotel','restaurant','bar']},housing:{n:'Housing frenzy',t:['realty','construction','dealership']}};
@@ -2085,8 +2110,8 @@ function simBiz(b){
   if(b.autoStaff!==false)b.staff=needStaff(b);
   const need=needStaff(b),ratio=need<=0?1.2:Math.min(1.2,b.staff/need);
   ensureGoods(b);const P=PRICE[b.price],pd=b.price==='premium'&&b.rep>=70?.88:P.d;
-  let mk=1;for(const k in b.ch)if(b.ch[k]){const c=CHANNELS[k];mk+=c.d;}
-  if(b.celeb)mk+=b.celeb.d;if(b.loyal)mk+=.06;if(b.online)mk+=T.online?0:(b.type==='fashion'?.3:.12);
+  let mk=1+MKTL[mkLv(b)].d;
+  if(b.celeb)mk+=b.celeb.d;if(b.online)mk+=T.online?0:(b.type==='fashion'?.3:.12);
   let trendF=1;if(trendHits(b))trendF=b.ride===S.trend.k?1.2:1.06;if(b.dated){trendF*=.92;b.dated--;}
   const syn=1+synergy(b).reduce((a,x)=>a+x[2],0);
   const extra=(b.awardBoost>0?1.08:1)*(b.tvBoost>0?1.15:1)*(b.push?1.08:1)*(1+Math.min(.12,(b.gens-1)*.04))*(1+(S.fame||0)/1000)*(has('hustler')?1.05:1)*(T.art&&has('creative')?1.08:1)*(b.type==='construction'&&S.careers.includes('trade')?1.1:1)*(b.lever==='celeb'?1+(S.fame||0)/200:1)*starBoost(b);
@@ -2106,8 +2131,8 @@ function simBiz(b){
   let owner=0;if(b.salary>0&&!b.ousted&&!S.jail&&S.age>=18){const mx=maxSalary(b);if(b.salary>mx){b.salary=mx;line(`${b.name} is smaller now, so I cut my salary to ${fmt(mx)}.`,'bad');}owner=b.salary;}
   const wages=b.staff*wagePer(b)+b.team.reduce((a,p)=>a+p.wage,0)+owner;
   const rent=Math.round((T.fixed*.5*b.locs+T.fixed*.5*Math.max(0,b.locs-b.prem)*b.rentMult+(b.fac||0)*facRun(b))*cty(b).rent);
-  let mkCost=0;for(const k in b.ch)if(b.ch[k])mkCost+=CHANNELS[k].c*(CHANNELS[k].per?b.locs:1);if(b.celeb)mkCost+=b.celeb.c;if(b.push)mkCost+=Math.round(b.base*b.locs*.03);
-  const other=Math.round((b.loyal?rev*.02:0)+(b.ins?Math.max(2000,rev*.015):0)+(b.online&&T.food?rev*.2*S.regs.deliv:0)+(b.contracts.some(c=>c.gov)?conRev*.05:0));
+  let mkCost=mktCost(b);if(b.celeb)mkCost+=b.celeb.c;if(b.push)mkCost+=Math.round(b.base*b.locs*.03);
+  const other=Math.round((b.ins?Math.max(2000,rev*.015):0)+(b.online&&T.food?rev*.2*S.regs.deliv:0)+(b.contracts.some(c=>c.gov)?conRev*.05:0));
   const interest=Math.round((b.credit||0)*.1);b.credit=Math.round((b.credit||0)*1.1);
   const pre=Math.round(rev+conRev+royal-cogs-wages-rent-mkCost-other-interest);
   const tax=pre>0?Math.round((b.taxDodge?pre*.08:corpTax(b,pre))*(S.holding?.9:1)):0;const net=pre-tax;
@@ -2121,8 +2146,8 @@ function simBiz(b){
   b.prevPre=b.lastPre;b.prevRev=b.lastRev;b.lastRev=rev+conRev+royal;b.lastPre=pre;b.yrs++;b.peakRev=Math.max(b.peakRev,b.lastRev);b.peakLocs=Math.max(b.peakLocs,b.locs);
   b.hist.push({age:S.age,nw:b.lastRev,p:pre});if(b.hist.length>40)b.hist.shift();
   // reputation & morale
-  const M=Object.keys(b.ch).filter(k=>b.ch[k]).reduce((a,k)=>a+(CHANNELS[k].r||0),0);
-  b.rep+=(b.q-b.rep)*.15+(ratio<1?-(1-ratio)*35:0)+M+(ptier(b)==='premium'?(b.rep>=65?2:-4):ptier(b)==='budget'?1:0)+(L.r||0)+(soldOut?3:0)+R(-4,4)*(b.loyal?.5:1);
+  const M=MKTL[mkLv(b)].r;
+  b.rep+=(b.q-b.rep)*.15+(ratio<1?-(1-ratio)*35:0)+M+(ptier(b)==='premium'?(b.rep>=65?2:-4):ptier(b)==='budget'?1:0)+(L.r||0)+(soldOut?3:0)+R(-4,4)*(mkLv(b)>=2?.5:1);
   b.morale+=({low:-8,market:0,high:6}[b.pay])+(b.union?3:0)+(b.life==='hands'?2:0)+(60-b.morale)*.15+R(-3,3);if(b.strike){b.strike=false;}
   if(b.morale>=55)b.team.forEach(p=>{if(p.skill<100&&rnd()<.35)p.skill=Math.min(100,p.skill+R(1,3));});
   b.rep=clamp(b.rep);b.morale=clamp(b.morale);
@@ -2344,11 +2369,10 @@ function drawBiz(s,b){
     if(!isGoods(b))s.append(h('p',{className:'label'},'Prices'),seg(Object.entries(PRICE).map(([k,p])=>[k,p.l]),b.price,x=>{b.price=x;stay()}));
     else s.append(h('p',{className:'sub'},'Prices, suppliers and quantities are set per product in the Products tab.'));
     s.append(h('p',{className:'label'},T.lever.t),seg(Object.entries(T.lever.o).map(([k,o])=>[k,o.l]),b.lever,x=>{b.lever=x;stay()}));
-    if(!isGoods(b))s.append(h('p',{className:'label'},`Supplier (price index ${S.supIdx.toFixed(2)}${b.contract?`, locked at ${b.contract.idx.toFixed(2)} for ${b.contract.yrs} more yr`:''})`),seg(Object.entries(SUPPLIERS).map(([k,o])=>[k,o.l]),b.supplier,x=>{b.supplier=x;stay()}));
-    if(!b.contract)s.append(row('Sign a 3-year supplier contract',`Lock today's prices at ${S.supIdx.toFixed(2)} instead of riding the market`,'',()=>{b.contract={idx:S.supIdx,yrs:3};stay('I locked in supplier prices for 3 years.')}));
+    if(!isGoods(b))s.append(h('p',{className:'label'},'Supplier'),seg(Object.entries(SUPPLIERS).map(([k,o])=>[k,o.l]),b.supplier,x=>{b.supplier=x;stay()}));
     s.append(h('h4',{},'Marketing'));
-    Object.entries(CHANNELS).forEach(([k,c])=>s.append(tog(c.l,`${fmt(c.c*(c.per?b.locs:1))}/yr. +${Math.round(c.d*100)}% demand.${c.risk?' Scandal risk.':''}`,b.ch[k],()=>{b.ch[k]=!b.ch[k];stay()})));
-    s.append(tog('Loyalty program','Costs 2% of sales. Steadier customers and reputation',b.loyal,()=>{b.loyal=!b.loyal;stay()}));
+    {const lv=MKTL[mkLv(b)];s.append(seg(MKTL.map((x,i)=>[i,x.l]),mkLv(b),x=>{b.mkt=x;stay()}),
+      h('p',{className:'sub'},lv.c?`${fmt(mktCost(b))} a year (${Math.round(lv.c*100)}% of sales). About ${Math.round(lv.d*100)}% more customers${lv.r?', and a steadier, slowly rising reputation':''}.`:'No marketing. Customers find me by word of mouth.'));}
     if(b.celeb)s.append(row(`⭐ Drop ${b.celeb.n}`,`Endorsement costs ${fmt(b.celeb.c)}/yr`,'',()=>{const n=b.celeb.n;b.celeb=null;stay(`I ended the deal with ${n}.`)}));
     else s.append(row('⭐ Celebrity endorsement','Big demand boost, big price, scandal risk','',()=>choiceModal('Pick a celebrity','Each deal is billed yearly.',[...CELEBS.map(c=>[`${c.n}: ${fmt(c.c)}/yr, +${Math.round(c.d*100)}% demand`,()=>{b.celeb={...c};stay(`${c.n} is now the face of ${b.name}!`,'good')}]),['Cancel',()=>{}]])));
     s.append(h('h4',{},'This year'));
