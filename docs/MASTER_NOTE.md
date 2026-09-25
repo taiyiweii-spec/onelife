@@ -15,6 +15,24 @@ A complete handover of the One Life game: what it is, how it is built, how every
 
 ---
 
+## 0.5 Current repo base (read this first)
+
+The latest 280 KB `One_Life.html` described in this note could not be found. The repo now uses an older file instead: `index.html` in `taiyiweii-spec/onelife` (from `onelife-source.html`, 235 KB, 2,022 lines, save `S.v` 4).
+
+What this base has, roughly up to change log item 8:
+- Everything from the original game: life events, careers, investing, property, businesses, achievements, challenges, dynasties.
+- Early product R&D and suppliers: catalogs, production plans, rebrand, retire, find a new supplier, seasons.
+- Some business depth: headhunter, credit line, holding company, put cash in and take cash out, board seats for big investors, ousted CEO.
+
+What this base does NOT have (must be rebuilt if still wanted):
+- Phase 1: services model, factories, wholesale, spoilage, cash flow statement, outlet saturation and closing, calibration constants (PCAL, LABF).
+- Phase 2: countries and country taxes, moving abroad, board confidence, named directors, voting, dividend policy, take private, market caps, price impact, activist investing.
+- Several items from change log 3 to 7: the four named banks, training, team building, Founder life gating.
+
+Sections 3 to 7 below still describe the lost 280 KB version. Treat them as the target design, not as what the code does today.
+
+---
+
 ## 1. Working agreements (how David wants to work)
 
 These rules came from David during the build. Follow them strictly.
@@ -326,6 +344,8 @@ Applies to the 11 startable types. A new business starts with no products and no
 9. **Phase 1:** hid 6 industries, services model for gym, salon, hotel, clinic; supplier search; up-front plan payments and shared capital; cash flow statement; outlet capacity; factories; wholesale; startup working capital; service calibration.
 10. **Phase 2:** 16 countries with taxes, prices, costs, rules, moving abroad; income and dividend tax by country; board confidence; named directors; voting power; board and shareholder votes; dividend policy; take private; market caps, float limits, price impact; activist investing.
 11. Architecture review: building blocks defined, missing systems identified, people stats model proposed.
+12. Moved to a GitHub repo (`taiyiweii-spec/onelife`). The 280 KB file was lost, so the base is now `onelife-source.html` (see section 0.5).
+13. Added `tools/stress.js`, a jsdom harness that auto-plays full lives with a seeded random generator (section 12.3 results).
 
 ---
 
@@ -442,7 +462,13 @@ For each block, in order:
 Also to schedule: Skills, Life goals, Health and ageing, Reputation, Balance simulator, pacing, replayability, tutorial and year-end recap.
 
 ### 12.3 Immediate next step
-Run the Time engine stress test (auto-play several full lives), report findings, then propose the foundations clean-up spec for David to confirm.
+Stress test done on the repo base (75 lives, about 4,000 years, 3 seeds; the bot studies, works, dates, has children, invests, buys homes, launches up to 3 businesses, taps random activities, answers every event at random, and opens every screen and business tab each decade):
+- No crashes, no NaN or infinite numbers, no stuck events, save round-trips every year.
+- Speed: a year takes about 0.3 ms (95% under 0.9 ms, worst about 36 ms).
+- Save size: average about 12 KB, largest about 43 KB. META about 30 KB after 25 lives (family tree capped at 200 entries).
+- Known foundation issues from section 11 are still present in the code: the event queue `Q` is not saved; load starts a new life for any version other than 3 or 4; save errors are ignored; one save slot, no export; `ageUp` is one long function.
+
+Next: propose the foundations clean-up spec for David to confirm before building.
 
 ### 12.4 Starter prompt for the new chat
 "Here is One_Life.html and the One Life master note. Read the note fully first and follow the working agreements in section 1. We are at section 12.3: run the Time engine stress test, report what you find, then propose the foundations clean-up for me to confirm before building. Publish updates to https://claude.ai/artifact/QGZ1qDBmB5UwW614Z9KzMo."
