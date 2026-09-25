@@ -72,3 +72,8 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - runFx CEO range widened: worst CEO about -15% customers, +15% costs.
 - ceoYear: CEOs with weak ops/sales risk a yearly costly mistake (up to 40% chance, 5-15% of sales), followed by a keep-or-fire popup. Candidates with ops or sales below 35 are tagged "Risky".
 - A CEO (like running it yourself) covers one staff role, and CEO pay was lowered, so a café with a decent CEO can make money.
+
+## Buying with funding, job interviews, partial rescue
+- Buying a business for sale opens `buyView` (state `buyDeal`): own cash + acquisition loan (`buyLoanMax`, based on last year's profit) + investors (`buyInterest`).
+- Jobs: `S.cexp[career]={yrs,lvl}` tracks experience. `openings()` builds a yearly list (S.jobOpen): static careers (police, teach, nurse, med, law) at entry level, senior roles up to your best level in fields you've worked, plus 3-5 random roles. Up to 3 interviews a year (`S.used.apps`). `applyJob` asks one IVQ question; answers lean on mood, looks or smarts. Odd jobs skip the interview. `hireChance` shows Long shot / Fair chance / Strong fit.
+- deficitEvent: if one source can't cover it all, "put in what I can, then cover the rest" re-queues the event; disabled options say why.

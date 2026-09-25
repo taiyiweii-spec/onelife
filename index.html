@@ -916,7 +916,7 @@ function workYear(){
   const style={slack:-8,normal:0,hustle:8}[j.style||'normal'];
   j.perf+=style+(S.st.smarts-50)/12+Math.min(3,j.lvlYrs/2)+R(-7,6)+(has('ambitious')?4:0)-(has('lazy')?4:0)+(C.art&&has('creative')?3:0);
   if(j.style==='hustle'){S.st.happy-=4;S.st.health-=2;}if(j.style==='slack')S.st.happy+=3;
-  j.perf=clamp(j.perf);j.yrs++;j.lvlYrs++;
+  j.perf=clamp(j.perf);j.yrs++;j.lvlYrs++;cexp(j.c).yrs++;
   if(j.perf<35&&j.perf>=25)line('My manager warned me that my performance is slipping.','bad');
   let msg,cls='';
   if(j.perf<25){j.warn=(j.warn||0)+1;if(j.warn>=2){line(`Performance review: needs improvement, again. I was fired from my job as a ${title(j)}.`,'bad');mile(`Got fired as a ${title(j)}`);S.job=null;S.st.happy-=15;return;}msg='Needs improvement. I got a formal warning. One more and I\'m out.';cls='bad';}
@@ -926,10 +926,52 @@ function workYear(){
     if(canPromote(j)&&rnd()<.55){line(`Performance review: ${msg}`,cls);line(promote(j),'good');return;}}
   line(`Performance review: ${msg}`,cls);trackBest();
 }
-function trackBest(){if(S.job&&(!S.bestJob||S.job.s>S.bestJob.s))S.bestJob={t:title(S.job),s:S.job.s};}
+function trackBest(){if(S.job){const x=cexp(S.job.c);x.lvl=Math.max(x.lvl,S.job.lvl);}if(S.job&&(!S.bestJob||S.job.s>S.bestJob.s))S.bestJob={t:title(S.job),s:S.job.s};}
+function cexp(c){S.cexp=S.cexp||{};if(!S.cexp[c])S.cexp[c]={yrs:S.careers.includes(c)&&!(S.job&&S.job.c===c)?1:0,lvl:0};return S.cexp[c];}
 function canPromote(j){const C=CAREERS[j.c];return j.lvl<C.t.length-1&&j.lvlYrs>=1&&S.st.smarts>=reqSm(C,j.lvl+1);}
 function promote(j){const C=CAREERS[j.c];j.lvl++;j.s=Math.max(Math.round(j.s*1.12),Math.round(C.t[j.lvl][1]*payF()));j.lvlYrs=0;j.perf=55;S.st.happy+=10;mile(`Promoted to ${title(j)}`);trackBest();sfx('good');return `I was promoted to ${title(j)}! New salary: ${fmt(j.s)}.`;}
-function hire(id){const C=CAREERS[id];S.job={c:id,s:Math.round(C.t[0][1]*payF()),perf:50,lvl:0,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[0][0]}`);}trackBest();}
+function hire(id,lvl=0,sal){const C=CAREERS[id];S.job={c:id,s:sal||Math.round(C.t[lvl][1]*payF()),perf:50,lvl,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[lvl][0]}`);}trackBest();}
+
+/* ---- job openings and interviews ---- */
+const STATIC_JOBS=['police','teach','nurse','med','law'];
+const JOB_COS=['Northwind','Brightpath','Kestrel Labs','Bluefin','Orbital','Halcyon','Ironwood','Summit & Co','Lumen','Redline','Parkside','Crestview'];
+function openings(){
+  if(S.jobOpen&&S.jobOpen.age===S.age)return S.jobOpen.list;
+  const list=[],mine=S.job?S.job.c:null;
+  STATIC_JOBS.forEach(c=>{if(c!==mine||S.job.lvl>0)list.push({c,lvl:0,static:1});});
+  // senior roles where I have experience
+  Object.entries(S.cexp||{}).forEach(([c,x])=>{if(!CAREERS[c]||x.yrs<1)return;const top=Math.min(x.lvl,CAREERS[c].t.length-1);
+    const lv=[...new Set([top,Math.max(0,top-1),Math.max(0,top-2)])].filter(l=>l>0&&!(c===mine&&l<=S.job.lvl));
+    lv.forEach(l=>{if(l===top||rnd()<.6)list.push({c,lvl:l,co:pick(JOB_COS)});});});
+  // random odd jobs and entry-level roles
+  const pool=Object.keys(CAREERS).filter(c=>!STATIC_JOBS.includes(c)&&c!==mine);
+  const n=R(3,5);for(let i=0;i<n&&pool.length;i++){const c=pool.splice(Math.floor(rnd()*pool.length),1)[0];list.push({c,lvl:0,co:CAREERS[c].sm===0&&!CAREERS[c].deg?null:pick(JOB_COS)});}
+  list.forEach(o=>{const base=CAREERS[o.c].t[o.lvl][1]*payF();o.pay=Math.round(base*(o.static?1:R(90,115)/100)/100)*100;o.id=uid();});
+  S.jobOpen={age:S.age,list};return list;}
+function jobBlock(o){const C=CAREERS[o.c],dg=S.edu.degrees,need=C.sm||0;
+  return S.flags.hs===false&&need>0?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasCar()?'Needs a car':C.clean&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;}
+function hireChance(o,bonus=0){const C=CAREERS[o.c],x=(S.cexp||{})[o.c],need=reqSm(C,o.lvl);
+  let c=.5+(S.st.smarts-need)/200+(S.st.looks-50)/400+(S.st.happy-50)/250+(has('charming')?.05:0)+bonus;
+  if(x&&x.yrs)c+=Math.min(.12,x.yrs*.015);
+  if(o.lvl>0)c-=o.lvl===(x?x.lvl:0)?.12:0;
+  if(C.sm===0&&!C.deg)c+=.2;
+  c*={boom:1.1,normal:1,recession:.85,crash:.7}[localPhase()];
+  return Math.max(.05,Math.min(.95,c));}
+const IVQ=[
+  ['Tell us about a time you failed.',['Share an honest story and what I learned','happy'],['Turn it into a success story','looks'],['Walk through the root cause in detail','smarts']],
+  ['Why should we hire you over the other candidates?',['Talk about how much I care about the work','happy'],['Sell myself with confidence','looks'],['List the results I can prove','smarts']],
+  ['How do you handle a difficult coworker?',['Talk it out calmly and kindly','happy'],['Win them over with charm','looks'],['Set clear rules and processes','smarts']],
+  ['Where do you see yourself in five years?',['Growing here with the team','happy'],['Leading this department','looks'],['Being the top expert in the field','smarts']],
+  ['Here is a tricky problem. How would you solve it?',['Admit what I do not know and think out loud','happy'],['Answer fast and confidently','looks'],['Break it into steps and solve it properly','smarts']],
+];
+function applyJob(o){const C=CAREERS[o.c],t=C.t[o.lvl][0];
+  const finish=bonus=>{S.used.apps=(S.used.apps||0)+1;const had=S.job;
+    if(rnd()<hireChance(o,bonus)){hire(o.c,o.lvl,o.pay);S.jobOpen.list=S.jobOpen.list.filter(y=>y!==o);stay(`I got hired as a ${t}${o.co?` at ${o.co}`:''}!${had?' I left my old job.':''}`,'good');}
+    else{o.gone=1;S.st.happy-=2;stay(pick([`They went with someone else for the ${t} role.`,`I interviewed to be a ${t} but didn't get it.`,`The ${t} role went to an internal candidate.`]),'bad');}};
+  if(C.sm===0&&!C.deg&&o.lvl===0)return finish(0);
+  const q=pick(IVQ),lvlNote=o.lvl>0?' It\'s a senior role, so they dig deep.':'';
+  choiceModal(`Interview: ${t}`,`${o.co?o.co+'. ':''}"${q[0]}"${lvlNote}`,q.slice(1).map(([txt,st])=>[txt,()=>{
+    const v=st==='looks'?S.st.looks+(has('charming')?10:0):S.st[st];const bonus=(v-50)/250+R(-5,5)/100;finish(bonus);}]));}
 
 function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
 function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate);}
@@ -1272,16 +1314,12 @@ function jobSheet(){openSheet(s=>{
   else gigs.forEach(([n,ok,why,[lo,hi],stress])=>s.append(row(n,ok()?`${fmt(lo*gm)} to ${fmt(hi*gm)} a year`:why,'',()=>{S.gig={n,pay:Math.round(R(lo,hi)*gm),stress};stay(`I picked up a side gig: ${n.toLowerCase()}.`)},!ok(),2)));
   if(!S.edu.major&&!S.retired){
     s.append(h('h4',{},j?'Switch careers':'Job openings'));
-    const hireMult={boom:1.1,normal:1,recession:.85,crash:.7}[localPhase()];
     if(localPhase()==='recession'||localPhase()==='crash')s.append(h('p',{className:'sub'},'Hiring is slow in this economy.'));
-    if(S.used.apply)s.append(h('p',{className:'sub'},'I can apply for one job per year.'));
-    Object.entries(CAREERS).forEach(([id,C])=>{if(j&&j.c===id)return;
-      const [t,sal]=C.t[0];const need=C.sm||0;
-      const why=S.flags.hs===false?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasCar()?'Needs a car':C.clean&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;
-      s.append(row(t,why||`${C.n}. Up to ${C.t[C.t.length-1][0].toLowerCase()}.`,fmt(sal*payF()),()=>{S.used.apply=true;
-        const chance=(.55+(S.st.smarts-need)/200+S.st.looks/500+(has('charming')?.05:0))*hireMult;
-        if(rnd()<chance){const had=S.job;hire(id);stay(`I got hired as a ${t}!${had?' I left my old job.':''}`,'good')}
-        else stay(`I interviewed to be a ${t} but didn't get it.`,'bad')},!!why||S.used.apply,1));});
+    const op=openings(),left=3-(S.used.apps||0);
+    s.append(h('p',{className:'sub'},left>0?`New openings every year. I can go for ${left} more interview${left>1?'s':''} this year.`:'I\'ve used all 3 interviews this year. New openings next year.'));
+    op.forEach(o=>{const C=CAREERS[o.c],t=C.t[o.lvl][0],why=jobBlock(o),ch=hireChance(o);
+      const tag=why?why:o.gone?'Filled. They went with someone else':`${o.co?o.co+'. ':''}${o.static?'Always hiring. ':''}${C.sm===0&&!C.deg?'No interview needed. ':''}${ch<.35?'🎯 Long shot':ch<.6?'⚖️ Fair chance':'✅ Strong fit'}`;
+      s.append(row((o.lvl>0?'⭐ ':'')+t,tag,fmt(o.pay),()=>applyJob(o),!!why||o.gone||left<=0,1));});
   }
   if(!S.edu.major&&S.flags.hs){
     const opts=Object.entries(MAJORS).filter(([n,m])=>!dg.includes(n)&&(!m.grad||dg.some(d=>!MAJORS[d].grad)));
@@ -1293,7 +1331,7 @@ function jobSheet(){openSheet(s=>{
 
 /* ================= Money sheet ================= */
 let mTab='overview',bizView=null;
-function moneySheet(){bizView=null;launch=null;openSheet(drawMoney);}
+function moneySheet(){bizView=null;launch=null;buyDeal=null;openSheet(drawMoney);}
 function drawMoney(s){
   if(bizView){const b=S.biz.find(x=>x.id===bizView);if(b)return drawBiz(s,b);bizView=null;}
   const ph=PHASE[localPhase()],wp=PHASE[S.econ.phase];
@@ -2313,6 +2351,7 @@ function aiPitch(title,onScore){
 function tog(label,sub,on,fn,dis){return h('button',{className:'row toggle','aria-pressed':String(!!on),disabled:!!dis,on:fn},h('span',{},h('b',{},label),sub?h('small',{},sub):null),h('span',{className:'sw'}));}
 function tabBiz(s){S.biz.forEach(syncStaff);
   if(launch){launchView(s);return;}
+  if(buyDeal){buyView(s);return;}
   if(S.biz.length){s.append(h('h4',{},S.holding?`${S.holding}`:'My businesses'));S.biz.forEach(b=>{const T=Tof(b);const under=b.staff<needStaff(b);
     s.append(row(`${T.ic} ${b.name}`,`${b.ousted?'🪑 Board-controlled. ':''}${under?'⚠️ Understaffed. ':''}${T.n}${b.locs>1?`, ${b.locs} locations`:''}${b.fr?`, ${b.fr.n} franchises`:''}. Last year ${b.lastPre>=0?'profit':'loss'} ${fmt(Math.abs(b.lastPre))}`,fmt(bizVal(b)*b.own),()=>{bizView=b.id;bTab='over';flash=null;drawSheet(true)}));});
     const syn=SYN.filter(([x,y])=>S.biz.some(b=>b.type===x)&&S.biz.some(b=>b.type===y));if(syn.length)s.append(h('p',{className:'sub'},`🔗 Synergies: ${syn.map(x=>`${x[3]} (+${Math.round(x[2]*100)}%)`).join('; ')}.`));}
@@ -2335,7 +2374,7 @@ function tabBiz(s){S.biz.forEach(syncStaff);
   if(S.forSale&&S.forSale.length&&(S.biz.length<5||S.forSale.some(x=>mTarget(x).length))){s.append(h('h4',{},'Businesses for sale'),h('p',{className:'sub'},'Same type as one of mine? I can merge it in and pay with that business\'s cash first.'));S.forSale.forEach(x=>{const T=BIZ[x.type];const tg=mTarget(x);
     s.append(row(`${T.ic} ${x.name}`,`${T.n}, ${x.locs} location${x.locs>1?'s':''}, reputation ${x.rep}%. Last year ${saleFin(x).pre>=0?'profit':'loss'} ${fmt(Math.abs(saleFin(x).pre))}.${x.rep<35?' A turnaround project.':''}${tg.length?` Can merge into ${tg.map(b=>b.name).join(' or ')}.`:''}`,fmt(x.price),()=>choiceModal(`${T.ic} ${x.name}`,`A ${T.n.toLowerCase()} for sale.${tg.length?' Merging adds its outlets to my business. Reputation blends by outlet count, and morale dips a little while teams combine.':''}`,[
       ...tg.map(b=>[`Merge into ${b.name} (${fmt(Math.max(0,b.cash))} business cash + mine)`,()=>mergeInto(b,x),()=>spendPower(b)<x.price]),
-      ['Buy as a separate company',()=>{S.money-=x.price;const f=saleFin(x);const b=newBiz(x.type,x.name,{rep:x.rep,locs:x.locs,staff:f.staff,cash:f.cash,lastRev:f.rev,lastPre:f.pre,founder:'someone else',turn:x.rep});b.base=T.base;seedProducts(b);S.biz.push(b);S.forSale=S.forSale.filter(y=>y!==x);mile(`Bought ${x.name}`);stay(`I bought ${x.name}.`,'good')},()=>S.money<x.price||S.biz.length>=5],
+      ['Buy as a separate company',()=>{buyDeal={x,mine:Math.min(Math.max(0,S.money),x.price),loan:0,inv:null};flash=null;drawSheet(true);},()=>S.biz.length>=5],
       ['Not now',()=>{}]],saleReport(x)),S.biz.length>=5&&!tg.length));});}
   // start
   s.append(h('h4',{},'Start a business'));
@@ -2717,6 +2756,50 @@ function launchView(s){
     stay(`I launched ${nm} with ${fmt(raised)}${L.loan?`, including a ${fmt(L.loan)} bank loan`:''}${L.inv?` and ${fmt(L.inv.amt)} from investors`:''}. I own ${Math.round(myShare*100)}%.`,'good');}},short>0?`Need ${fmt(short)} more`:`🚀 Launch ${L.nm}`));
 }
 
+/* ================= buying a business with funding ================= */
+let buyDeal=null;
+function buyLoanMax(x){const f=saleFin(x);
+  if(badCredit()||S.age<18)return 0;
+  const byProfit=Math.max(0,f.pre)*4,cap=x.price*(f.pre>0?.6:.3);
+  return Math.max(0,Math.round(Math.min(cap,byProfit+x.price*(f.pre>0?.15:.1))/1000)*1000);}
+function buyInterest(x){const f=saleFin(x),ii=investorInterest(null,x.type);
+  const parts=[...ii.parts];const add=(l,v)=>{v=Math.round(v);if(v)parts.push([l,v]);};
+  add(`Reputation (${x.rep}%)`,(x.rep-50)*.4);add(f.pre>0?'Profitable last year':'Lost money last year',f.pre>0?10:-10);
+  return {score:Math.max(0,Math.min(100,parts.reduce((a,p)=>a+p[1],0))),parts};}
+function buyView(s){
+  const D=buyDeal,x=D.x,T=BIZ[x.type],f=saleFin(x),r=loanRate()+.03;
+  const inv=D.inv?D.inv.amt:0,raised=D.mine+D.loan+inv,short=x.price-raised;
+  s.append(h('button',{className:'back',on:()=>{buyDeal=null;flash=null;drawSheet(true)}},'‹ All businesses'),
+    h('h3',{},`${T.ic} Buy ${x.name}`),h('p',{className:'sub'},`Asking price ${fmt(x.price)}. It comes with ${fmt(f.cash)} of its own cash, ${x.locs} outlet${x.locs>1?'s':''} and ${f.staff} staff.`),saleReport(x));
+  s.append(h('h4',{},'Funding'));
+  s.append(row('💵 My own cash',`I have ${fmt(S.money)}`,fmt(D.mine),()=>amountModal({title:'How much of my own cash?',sub:`I have ${fmt(S.money)}.`,max:Math.min(Math.max(0,S.money),x.price),init:D.mine,
+    btn:a=>`Put in ${fmt(a)}`,note:a=>`I'd keep ${fmt(S.money-a)}.`,onOk:a=>{D.mine=a;drawSheet();}}),S.money<=0));
+  const lm=buyLoanMax(x);
+  s.append(row('🏦 Acquisition loan',lm>0?`Up to ${fmt(lm)} at ${(r*100).toFixed(1)}% over ${LOAN_YEARS} years, repaid by the business. Banks lend more against a profitable business`:badCredit()?'My credit is damaged. Banks said no':'The bank won\'t lend against a business that lost money',fmt(D.loan),
+    ()=>amountModal({title:'Acquisition loan',sub:`Up to ${fmt(lm)} at ${(r*100).toFixed(1)}% over ${LOAN_YEARS} years.`,max:lm,init:D.loan||lm/2,btn:a=>`Borrow ${fmt(a)}`,
+      note:a=>`Yearly payment about ${fmt(annuity(a,r,LOAN_YEARS))}, paid by the business.`,onOk:a=>{D.loan=a;drawSheet();}}),lm<=0));
+  const ii=buyInterest(x);
+  s.append(row('💸 Outside investors',D.inv?`${fmt(D.inv.amt)} for ${(D.inv.eq*100).toFixed(1)}% of the company`:S.used.pitch?'Already pitched this year':ii.score<40?`Interest too low (${ii.score}/100, needs 40)`:`Interest ${ii.score}/100. Pitch for an offer`,D.inv?fmt(D.inv.amt):'',
+    ()=>{if(D.inv){choiceModal('Investor deal',`${fmt(D.inv.amt)} for ${(D.inv.eq*100).toFixed(1)}%.`,[['Drop this deal',()=>{D.inv=null;drawSheet();}],['Keep it',()=>{}]]);return;}
+      amountModal({title:'How much to raise?',sub:`Investors value it at about ${fmt(investorOffer(ii.score,x.price,0).pre)} before their money.`,max:x.price*.6,init:x.price*.3,
+        btn:a=>`Pitch for ${fmt(a)}`,note:a=>`If the pitch goes okay, they'd want about ${(investorOffer(ii.score,x.price,a).eq*100).toFixed(1)}% of the company.`,
+        onOk:a=>{S.used.pitch=true;pitch(`Buying ${x.name}`,sc=>{const fin=Math.round(ii.score*.6+sc*.4);
+          if(fin>=45){const o=investorOffer(fin,x.price,a);D.inv={amt:a,eq:o.eq};flash={t:`Investors offered ${fmt(a)} for ${(o.eq*100).toFixed(1)}% (pitch ${sc}, overall ${fin}).`,c:'good'};}
+          else flash={t:`Investors passed (pitch ${sc}, overall ${fin}, needed 45). I can try again next year.`,c:'bad'};drawSheet();});}});},
+    !D.inv&&(S.used.pitch||ii.score<40)));
+  s.append(interestBox(ii));
+  const myShare=1-(D.inv?D.inv.eq:0);
+  s.append(h('dl',{},h('dt',{},'Price'),h('dd',{},fmt(x.price)),h('dt',{},'Raised'),h('dd',{className:short>0?'bad':'good'},fmt(raised)),h('dt',{},'My ownership'),h('dd',{},`${Math.round(myShare*100)}%`),
+    D.loan?h('dt',{},'Loan payment'):null,D.loan?h('dd',{},`${fmt(annuity(D.loan,r,LOAN_YEARS))}/yr`):null));
+  if(short>0)s.append(h('p',{className:'sub warn'},`Still need ${fmt(short)}. Add my cash, a loan or investors.`));
+  if(raised>x.price)s.append(h('p',{className:'sub'},`The extra ${fmt(raised-x.price)} goes into the business as cash.`));
+  s.append(h('button',{className:'choice',disabled:short>0||S.money<D.mine||S.biz.length>=5,on:()=>{
+    S.money-=D.mine;const b=newBiz(x.type,x.name,{own:myShare,inv:D.inv?D.inv.eq:0,rep:x.rep,locs:x.locs,staff:f.staff,cash:f.cash+raised-x.price,lastRev:f.rev,lastPre:f.pre,founder:'someone else',turn:x.rep});
+    b.base=T.base;seedProducts(b);if(D.loan)addLoan(b,D.loan,.005);S.biz.push(b);S.forSale=S.forSale.filter(y=>y!==x);mile(`Bought ${x.name}`);
+    buyDeal=null;bizView=b.id;bTab='over';
+    stay(`I bought ${x.name} for ${fmt(x.price)}${D.loan?`, with a ${fmt(D.loan)} bank loan`:''}${D.inv?` and ${fmt(D.inv.amt)} from investors`:''}. I own ${Math.round(myShare*100)}%.`,'good');}},short>0?`Need ${fmt(short)} more`:`🤝 Buy ${x.name}`));
+}
+
 /* ================= finance tab ================= */
 function finTab(s,b){
   const T=Tof(b),v=bizVal(b),ro=!canManage();
@@ -2769,10 +2852,13 @@ function finTab(s,b){
 function deficitEvent(b){
   const short=-b.cash;const lm=bizLoanMax(b),room=Math.max(0,creditLimit(b)-(b.credit||0)),ii=investorInterest(b);
   const eq=investorOffer(Math.max(20,ii.score-15),Math.max(bizVal(b),BIZ[b.type].cost*.3),short*1.5).eq;
-  return {text:`${b.name} ran out of money. It's ${fmt(short)} short. How do I keep it alive?`,ch:[
-    [`Cover it from my cash (${fmt(short)})`,()=>{S.money-=short;b.cash=0;return `I covered the shortfall to keep ${b.name} alive.`},()=>S.money<short],
-    [`Emergency bank loan (${fmt(short*1.2)})`,()=>{addLoan(b,Math.round(short*1.2),.02);b.cash+=Math.round(short*1.2);return `The bank lent ${fmt(short*1.2)} at a higher rate to keep ${b.name} going.`},()=>lm<short*1.2],
-    [`Draw the credit line (${fmt(short)})`,()=>{b.credit=(b.credit||0)+short;b.cash=0;return 'I drew on the credit line to cover it.'},()=>room<short],
+    // partial help: put in what I can, then choose how to cover the rest
+    const part=(what,amt,act)=>[`${what} (${fmt(amt)} of it), then cover the rest`,()=>{act(amt);b.cash+=amt;Q.unshift(deficitEvent(b));return `I put ${fmt(amt)} toward the shortfall. ${fmt(-b.cash)} still to cover.`}];
+    const my=Math.max(0,Math.floor(S.money)),lmx=Math.floor(lm/1.2);
+    return {text:`${b.name} ran out of money. It's ${fmt(short)} short. How do I keep it alive?`,ch:[
+    my>=short?[`Cover it from my cash (${fmt(short)})`,()=>{S.money-=short;b.cash=0;return `I covered the shortfall to keep ${b.name} alive.`}]:my>1000?part('Put in all my cash',my,a=>{S.money-=a;}):[`Cover it from my cash (I only have ${fmt(my)})`,()=>'',()=>true],
+    lm>=short*1.2?[`Emergency bank loan (${fmt(short*1.2)})`,()=>{addLoan(b,Math.round(short*1.2),.02);b.cash+=Math.round(short*1.2);return `The bank lent ${fmt(short*1.2)} at a higher rate to keep ${b.name} going.`}]:lmx>1000?part('Borrow the most the bank allows',lmx,a=>{addLoan(b,Math.round(a*1.2),.02);b.cash+=Math.round(a*.2);}):[`Emergency bank loan (the bank said no: ${badCredit()?'my credit is damaged':b.yrs<1?'the business is too new':b.lastPre<0?'it lost money':'too much debt already'})`,()=>'',()=>true],
+    room>=short?[`Draw the credit line (${fmt(short)})`,()=>{b.credit=(b.credit||0)+short;b.cash=0;return 'I drew on the credit line to cover it.'}]:room>1000?part('Use the rest of the credit line',Math.floor(room),a=>{b.credit=(b.credit||0)+a;}):[`Draw the credit line (already used up)`,()=>'',()=>true],
     [`Rescue investor: ${fmt(short*1.5)} for ${(eq*100).toFixed(0)}%`,()=>{const keep=1-eq;b.own*=keep;if(b.co)b.co.share*=keep;b.inv=(b.inv||0)*keep+eq;b.cash+=Math.round(short*1.5);return `A rescue investor put in ${fmt(short*1.5)} for ${(eq*100).toFixed(0)}% of ${b.name}.`},()=>ii.score<30||b.pub||b.own<.2],
     [`Sell it for whatever I can get`,()=>{const p=Math.round(Math.max(0,BIZ[b.type].cost*.15*b.locs-b.loan.bal)*b.own);return sellBiz(b,p);}],
     ['Let it go under',()=>closeBiz(b,true)]]};
