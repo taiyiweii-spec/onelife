@@ -1922,12 +1922,14 @@ const BLOCN={me:'My nominee',co:'Co-founder',inv:'Investor director',ind:'Indepe
 function dirYes(b,d,m){const g=b.gov,c=g.conf;let p={me:.92,co:.1+d.loyal/100*.8,inv:.3+(c-50)/100,ind:.35+(c-50)/80}[d.bloc];
   if(d.bloc!=='me')p+=(d.loyal-50)/300;
   if(m==='reinstate'&&d.bloc!=='me')p+=(c-50)/100;if(m==='pay')p-=d.greed/250;if(m==='buyback')p+=d.greed/250;if(m==='divup')p+=d.greed/200;if(m==='divdown')p-=d.greed/200;
-  if(m==='acq')p+=(d.risk-50)/150;if(m==='pill')p+=(d.loyal-50)/200-d.indep/400;if(m==='remove')p=d.bloc==='me'?.05:(1-d.loyal/100)*.9+(25-c)/100;
+  if(m==='acq'||m==='expand')p+=(d.risk-50)/150+(b.lastPre>0?.1:-.15);if(m==='sale')p+=d.greed/250-d.loyal/400+(b.lastPre<0?.15:0);if(m==='pill')p+=(d.loyal-50)/200-d.indep/400;if(m==='remove')p=d.bloc==='me'?.05:(1-d.loyal/100)*.9+(25-c)/100;
   return Math.max(.03,Math.min(.97,p));}
 function boardVote(b,m){const g=govOf(b);if(!g)return {pass:true,auto:true,yes:0,no:0,votes:[]};const auto=['control','super'].includes(tier(b))&&m!=='remove';
   const votes=g.dirs.map(d=>({d,y:auto&&d.bloc==='me'?true:rnd()<dirYes(b,d,m)}));const yes=votes.filter(v=>v.y).length;
   return {pass:auto||yes>g.dirs.length/2,auto,yes,no:g.dirs.length-yes,votes};}
 const capMult=b=>['control','super','sole'].includes(tier(b))?2:(b.gov&&b.gov.capMult)||1;
+const canExpand=b=>['sole','control','super'].includes(tier(b))||(b.gov&&b.gov.exp>0);
+const saleOffer=b=>{if(!b.saleOff||b.saleOff.age!==S.age)b.saleOff={age:S.age,v:Math.round(Math.max(bizVal(b),BIZ[b.type].cost*.3*b.locs)*R(105,135)/100/1000)*1000};return b.saleOff.v;};
 const canAcquire=b=>['sole','control','super'].includes(tier(b))||(b.gov&&b.gov.acq>0);
 const divPol=b=>b.divPol||0;
 function govYear(b,pre,net,paidDiv){const g=govOf(b);if(!g)return;const why=[];let d=0;
@@ -1939,11 +1941,28 @@ function govYear(b,pre,net,paidDiv){const g=govOf(b);if(!g)return;const why=[];l
   if((b.overpaid||0)>0){d-=5;why.push('-5 my pay is above market');}
   if(paidDiv>0){const gr=g.dirs.reduce((a,x)=>a+x.greed,0)/Math.max(1,g.dirs.length);const x=2+(gr>60?1:0);d+=x;why.push(`+${x} dividends paid`);}
   if(b.pub&&b.pub.chg!=null){const x=Math.max(-5,Math.min(5,b.pub.chg/10));if(Math.abs(x)>=1){d+=x;why.push(`${x>0?'+':''}${Math.round(x)} share price`);}}
-  d+=(55-g.conf)*.05;g.conf=clamp(Math.round(g.conf+d));g.why=why;if(g.acq>0)g.acq--;
+  d+=(55-g.conf)*.05;g.conf=clamp(Math.round(g.conf+d));g.why=why;if(g.acq>0)g.acq--;if(g.exp>0)g.exp--;shareholderMotion(b,g);
   g.low=g.conf<25?g.low+1:0;
   if(g.conf<40&&!b.ousted&&b.own<=.5)line(`⚠️ Board confidence at ${b.name} is down to ${g.conf}%. If it stays under 25% for 2 years, they may vote me out.`,'bad');
   if(!b.ousted&&b.own<=.5&&g.low>=2){const v=boardVote(b,'remove');g.low=0;if(v.pass){b.ousted=true;b.life='absent';line(`🪑 The board of ${b.name} voted ${v.yes} to ${v.no} to remove me as CEO. I still own my shares and can fight back through a shareholder vote.`,'bad');mile(`Ousted as CEO of ${b.name}`);}else line(`🪑 The board of ${b.name} voted on removing me. I survived, ${v.no} to ${v.yes}.`,'good');}
   if(b.ousted&&b.own>.5){b.ousted=false;b.life='delegate';line(`As majority owner of ${b.name}, I appointed myself CEO again.`,'good');}}
+/* ---- motions other shareholders put to a vote ---- */
+function shareholderMotion(b,g){const others=(b.inv||0)+(b.co?b.co.share:0);if(others<.1||b.pub&&rnd()<.5||rnd()>.4)return;
+  const M=[];
+  if(b.lastPre>0&&divPol(b)<75)M.push(['div',`raise the dividend to ${Math.min(75,divPol(b)+25)}%`,.65]);
+  if(b.lastPre<0)M.push(['cut','cut costs hard: lay off staff and freeze spending',.6]);
+  if(b.yrs>=3)M.push(['sell',`sell the company to a buyer offering ${fmt(saleOffer(b))}`,b.lastPre<0?.65:.45]);
+  if(b.ceo&&b.lastPre<0)M.push(['ceo',`fire the CEO, ${b.ceo.name}`,.6]);
+  if(!M.length)return;const [k,txt,lean]=pick(M);
+  const vote=myYes=>{const oy=others*(rnd()<lean?1:0);const yes=(myYes?b.own:0)+oy,pass=yes>(b.own+others)/2;
+    const tally=`${Math.round(yes/(b.own+others)*100)}% voted for.`;
+    if(!pass)return `The motion failed. ${tally}`;
+    if(k==='div'){b.divPol=Math.min(75,divPol(b)+25);return `It passed. ${tally} Dividend policy is now ${b.divPol}%.`;}
+    if(k==='cut'){const n=Math.max(1,Math.round(b.staff*.2));b.staff=Math.max(1,b.staff-n);b.morale=Math.max(0,(b.morale||60)-15);b.mkt=0;return `It passed. ${tally} ${n} staff were laid off and spending was frozen. Morale fell.`;}
+    if(k==='ceo'){b.ceo=null;return `It passed. ${tally} The CEO was fired, so ${b.name} needs a new one.`;}
+    if(k==='sell'){bizView=null;return `It passed. ${tally} `+sellBiz(b,Math.round(saleOffer(b)*b.own));}};
+  Q.push({own:true,text:`🗳️ Shareholders of ${b.name} put a motion to a vote: ${txt}. I hold ${Math.round(b.own*100)}% of the votes${b.own>.5?', enough to decide it':others>.5?'. They hold a majority, so it will likely pass whatever I vote':''}.`,
+    ch:[['Vote for',()=>vote(true)],['Vote against',()=>vote(false)]]});}
 function payDividend(b,net){const pct=divPol(b);if(!pct||net<=0||b.cash<=0)return 0;const pay=Math.round(Math.min(b.cash,net*pct/100));if(pay<=0)return 0;
   b.cash-=pay;cfAdd(b,'owner',-pay);const mine=Math.round(pay*b.own*(1-divTax()));S.money+=mine;line(`💸 ${b.name} paid ${fmt(pay)} in dividends. My share was ${fmt(mine)} after ${Math.round(divTax()*100)}% tax.`);return pay;}
 /* ---- UI ---- */
@@ -1968,6 +1987,8 @@ function motionPicker(b){const g=govOf(b),t=tier(b),M=[];
   if(b.pub)M.push(['buyback','Share buyback: spend up to 10% of company value to buy back public shares']);
   M.push(['divup',`Raise the dividend to ${Math.min(75,divPol(b)+25)}%`]);if(divPol(b)>0)M.push(['divdown',`Cut the dividend to ${divPol(b)-25}%`]);
   if(!canAcquire(b))M.push(['acq','Approve an acquisition budget for 2 years']);
+  if(!canExpand(b))M.push(['expand','Approve an expansion plan: new outlets and cities for 2 years']);
+  M.push(['sale',`Sell the whole company (a buyer offers about ${fmt(saleOffer(b))})`]);
   if(b.pub&&!g.pill)M.push(['pill','Adopt a takeover defence']);
   choiceModal(`🗳️ Board meeting at ${b.name}`,`Board confidence ${g.conf}%. ${['control','super'].includes(t)?'I control the board, so my motions pass.':'Each director votes. A majority passes the motion.'}`,M.map(([k,l])=>[l,()=>runMotion(b,k,l)]).concat([['Cancel',()=>{}]]));}
 function runMotion(b,k,label){const g=govOf(b);S.used['bm'+b.id]=true;spend(1);const v=boardVote(b,k);let res='';
@@ -1975,7 +1996,7 @@ function runMotion(b,k,label){const g=govOf(b);S.used['bm'+b.id]=true;spend(1);c
     if(k==='pay'){g.capMult=Math.min(2,(g.capMult||1)+.5);res=`My pay cap is now ${Math.round(g.capMult*100)}% of normal.`;}
     if(k==='buyback'){const f=Math.min(.1,b.inv*.5,Math.max(0,b.cash)/Math.max(1,bizVal(b)));if(f<=.001)res='But the company had no spare cash for it.';else{const cost=Math.round(bizVal(b)*f);b.cash-=cost;const keep=1-f;b.own/=keep;if(b.co)b.co.share/=keep;b.inv=(b.inv-f)/keep;b.pub.sent=Math.min(3,b.pub.sent*(1+f*1.5));res=`${b.name} bought back ${(f*100).toFixed(1)}% of its shares for ${fmt(cost)}. My stake rose to ${(b.own*100).toFixed(1)}%.`;}}
     if(k==='divup'){b.divPol=Math.min(75,divPol(b)+25);res=`Dividend policy is now ${b.divPol}%.`;}if(k==='divdown'){b.divPol=Math.max(0,divPol(b)-25);res=`Dividend policy is now ${b.divPol}%.`;}
-    if(k==='acq'){g.acq=2;res='I can now merge acquisitions into this business for 2 years.';}if(k==='pill'){g.pill=true;res='Takeover raids are now much harder.';}}
+    if(k==='acq'){g.acq=2;res='I can now merge acquisitions into this business for 2 years.';}if(k==='expand'){g.exp=2;res='I can open new outlets and cities for 2 years.';}if(k==='sale'){bizView=null;const p=Math.round(saleOffer(b)*b.own);res=sellBiz(b,p)+' Every shareholder was bought out at the same price.';}if(k==='pill'){g.pill=true;res='Takeover raids are now much harder.';}}
   const tally=v.auto?'Passed by my majority control.':`Vote: ${v.yes} for, ${v.no} against. `+v.votes.map(x=>`${x.d.name} ${x.y?'✅':'❌'}`).join(', ')+'.';
   g.conf=clamp(g.conf+(v.pass?0:-2));stay(`🗳️ "${label}": ${v.pass?'passed':'failed'}. ${tally} ${res}`,v.pass?'good':'bad');}
 function agmVote(b){S.used['agm'+b.id]=true;spend(1);const g=govOf(b),co=b.co?b.co.share:0,cp=b.co&&S.rels.find(r=>r.id===b.co.pid);
@@ -2584,8 +2605,9 @@ function drawBiz(s,b){
     const T2=T;const locCost=Math.round(T.cost*1.1*S.regs.zoning*(.4+.6*cty(b).rent)*(.85+.15*cty(b).red));
     if(!T.tech&&!T.hit){const run=outletRun(b),pow=Math.max(0,b.cash)+S.money;
       s.append(h('p',{className:'sub'},`🏬 ${b.locs} outlet${b.locs>1?'s':''} in ${b.cities} cit${b.cities>1?'ies':'y'}. Each extra outlet costs about ${fmt(run)} a year to run: rent, staff and its own store manager.`));
-      s.append(row('📍 Open another outlet',`Setup ${fmt(locCost)}, then about ${fmt(run)} a year to run. A new outlet here earns about ${nextOutletPct(b)}% of your first one. Business cash first, then mine.`,fmt(locCost),()=>{payFrom(b,locCost);b.locs++;b.staff+=T.staff;mile(`Opened outlet #${b.locs} of ${b.name}`);stay(`${b.name} opened outlet #${b.locs}!`,'good')},pow<locCost));
-      s.append(row('🌆 Open in a new city',`Needs 3+ outlets and 60% reputation. Setup ${fmt(locCost*2)}, fresh customers and a small brand boost.`,fmt(locCost*2),()=>{payFrom(b,locCost*2);b.locs++;b.cities++;b.staff+=T.staff;b.base=Math.round(b.base*1.04);mile(`${b.name} expanded to a new city`);stay(`${b.name} opened in a new city!`,'good')},b.locs<3||b.rep<60||pow<locCost*2));
+      const noExp=!canExpand(b);if(noExp)s.append(h('p',{className:'sub warn'},'Other shareholders control this company. Expansion needs an approved expansion plan: propose one at a board meeting.'));
+      s.append(row('📍 Open another outlet',`Setup ${fmt(locCost)}, then about ${fmt(run)} a year to run. A new outlet here earns about ${nextOutletPct(b)}% of your first one. Business cash first, then mine.`,fmt(locCost),()=>{payFrom(b,locCost);b.locs++;b.staff+=T.staff;mile(`Opened outlet #${b.locs} of ${b.name}`);stay(`${b.name} opened outlet #${b.locs}!`,'good')},pow<locCost||noExp));
+      s.append(row('🌆 Open in a new city',`Needs 3+ outlets and 60% reputation. Setup ${fmt(locCost*2)}, fresh customers and a small brand boost.`,fmt(locCost*2),()=>{payFrom(b,locCost*2);b.locs++;b.cities++;b.staff+=T.staff;b.base=Math.round(b.base*1.04);mile(`${b.name} expanded to a new city`);stay(`${b.name} opened in a new city!`,'good')},b.locs<3||b.rep<60||pow<locCost*2||noExp));
       if(b.locs>1)s.append(row('🔻 Close an outlet',`Saves about ${fmt(run)} a year. Recover ${fmt(Math.round(T.cost*.15))} from fittings.`,'',()=>{b.locs--;if(b.cities>b.locs)b.cities=b.locs;if(b.prem>b.locs)b.prem=b.locs;b.cash+=Math.round(T.cost*.15);b.staff=Math.max(0,b.staff-T.staff);stay(`${b.name} closed an outlet. ${b.locs} left.`)}));}
     if(!T.online&&!b.online)s.append(row('🛒 Launch online sales or delivery',T.food?'More orders, but delivery apps take a cut':'Sell online too',fmt(Math.min(T.cost*.15,150000)),()=>{payFrom(b,Math.round(Math.min(T.cost*.15,150000)));b.online=true;stay(`${b.name} launched online sales.`,'good')},Math.max(0,b.cash)+S.money<Math.min(T.cost*.15,150000)));
     const canFr=!T.tech&&!T.hit&&!T.req&&!T.weather;

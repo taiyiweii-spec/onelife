@@ -89,3 +89,7 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 
 ## Putting money into a co-owned business
 - `moveCash(b,'in')` with own<100% opens `putInModal`: shareholder loan `b.sl={bal,rate}` (repaid in simBiz by `repayOwnerLoan` before dividends, counted as debt in bizVal, repaid first on close/sale) or new shares at bizVal (auto if own>50%, otherwise a vote, once a year per business, not for listed companies). Plain deposit only at 100% ownership.
+
+## Shareholder votes
+- Board motions (motionPicker/runMotion) now also include 'expand' (g.exp, 2 yrs; gates new outlets/cities via canExpand when I don't control the company) and 'sale' (sell the whole company at saleOffer, everyone bought out).
+- `shareholderMotion(b,g)` runs from govYear: other owners (>=10%) sometimes propose raising the dividend, cutting costs, selling, or firing the CEO. I vote with my stake; they vote as one bloc.
