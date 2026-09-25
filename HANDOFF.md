@@ -60,6 +60,9 @@ One Life is a BitLife-style life simulator that runs in the browser. You live on
   - **Who runs it:** you (`b.life==='hands'`), a hired CEO (`b.ceo`), or nobody (neutral, no penalty). CEO stats: operations, sales, people, integrity, loyalty, plus personality. Owner sets a mandate (Grow, Balanced, Cut costs) and a spending limit.
   - **CEO decisions (`ceoManage`)**: products and services, growth and finance only. Strategy, marketing and all hiring stay with the owner (owner's decision). A stat of 80+ decides reliably (`skill()`). Weak CEOs cost money and can make costly mistakes. Loyalty affects quitting and poaching (counter-offer popup).
 
+- **Company valuation** (`bizEV`, `bizVal`): business value = highest of earnings value (3-year weighted operating profit x type multiple adjusted for growth, reputation and economy), sales value (sales x gross margin x 0.25 x reputation factor, smaller when losing money) and asset value. Owners' value = that + cash - debts, floored at 10% of business value, then x market mood.
+- **Buildings slider** (Growth tab): buy or sell buildings, `bldCost` = fixed costs x 3 x local rent, saves `bldSave` a year; selling returns 90%.
+
 ## In progress or known issues
 - Nothing is half-built. All work is committed and published.
 - Known rough edges:
