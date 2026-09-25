@@ -84,6 +84,15 @@ nav button .ic{font-size:1.35rem;line-height:1}
 .choice.alt{background:var(--paper);color:var(--ink)}
 .choice.trait{background:var(--paper);color:var(--ink);border:2px dashed var(--looks)}
 .choice:disabled{opacity:.4;cursor:default}
+.baby{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 10px;display:flex;flex-direction:column;gap:2px}
+.baby small{color:var(--muted)}
+.babyBtns{display:flex;gap:8px;margin-top:10px}.babyBtns .choice{margin:0;flex:1}
+.field{width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;margin:0 0 12px}
+.traitGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px}
+.traitBtn{text-align:left;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);display:flex;flex-direction:column;gap:2px;font:inherit}
+.traitBtn small{color:var(--muted);font-size:.72rem;line-height:1.3}
+.traitBtn[aria-pressed="true"]{border:2px solid var(--sun);background:var(--paper)}
+.traitBtn:disabled{opacity:.4}
 .ribbon{display:inline-block;background:var(--sun);color:var(--sunInk);font-family:Fredoka,system-ui,sans-serif;font-weight:700;padding:8px 18px;border-radius:999px;margin:6px 0 14px}
 .obit{font-family:Georgia,"Times New Roman",serif;font-size:1rem;line-height:1.6;margin:0 0 14px;white-space:pre-wrap}
 dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 16px}
@@ -333,15 +342,15 @@ const relGain=n=>Math.round(n*(has('charming')?1.5:1));
 function newLife(o={}){
   const seed=o.gen?(o.seed||0):(o.seed||newSeed());if(!o.gen)RS=seed;
   const g=o.gender||pick(['M','F']);const last=o.last||pick(LAST);
-  const traits=rollTraits(o.inherit);
+  const traits=o.traits?o.traits.slice():rollTraits(o.inherit);
   S={v:4,seed,id:uid(),dyn:o.dyn||uid(),name:o.name||first(g)+' '+last,gender:g,city:o.city||pick(CITIES),age:o.age||0,alive:true,traits,
-    st:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)},money:o.money||0,sloan:0,eUsed:0,
+    st:o.st?{...o.st}:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)},money:o.money||0,sloan:0,eUsed:0,
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},homeIdx:o.homeIdx||1,
     biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[]};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
-  if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);
+  if(!o.st){if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);}
   S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate';b.gens=(b.gens||1)+(o.gen?1:0);});
   if(o.parents)S.rels.push(...o.parents);else{
     S.rels.push(person('Mother','F',R(20,40),last));S.rels.push(person('Father','M',R(22,45),last));
@@ -359,6 +368,50 @@ function newLife(o={}){
   else{const m=S.rels[0],f=S.rels[1];line(`I was born a ${g==='M'?'boy':'girl'} in ${S.city}. The nurses say I seem ${tr}.`);line(`My mother is ${m.name} (${m.age}) and my father is ${f.name} (${f.age}).`);
     const sib=living(['Sibling'])[0];if(sib)line(`I have a ${sib.gender==='M'?'brother':'sister'}, ${fname(sib.name)}, who is ${sib.age}.`);}
   Q=[];prevSnap=null;save();render();
+}
+/* ================= character picker ================= */
+// Rolls a baby from its own life code, so the card you pick is the life you get.
+function rollBaby(seed){const keep=RS;RS=seed;const g=pick(['M','F']),last=pick(LAST),name=first(g)+' '+last,city=pick(CITIES);
+  const b={seed,gender:g,last,name,city,traits:rollTraits(),st:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)}};RS=keep;babyTraitStats(b);return b;}
+function babyTraitStats(b){const keep=RS;RS=b.seed+1;const st=b.st;if(b.traits.includes('genius'))st.smarts=Math.max(st.smarts,R(70,100));if(b.traits.includes('athletic'))st.health=Math.max(st.health,R(85,100));if(b.traits.includes('charming'))st.looks=Math.min(100,st.looks+15);RS=keep;}
+function babyStats(st){return h('div',{className:'chips'},[['😊','Happy',st.happy],['❤️','Health',st.health],['🧠','Smarts',st.smarts],['✨','Looks',st.looks]].map(([i,n,v])=>h('span',{className:'chip'},`${i} ${n} ${v}`)));}
+function babyTraits(t){return h('div',{className:'chips'},t.length?t.map(k=>h('span',{className:'chip'},`${TRAITS[k].ic} ${TRAITS[k].n}`)):h('span',{className:'chip'},'No traits'));}
+function startBaby(b){closeModal();closeSheet();newLife({seed:b.seed,gender:b.gender,last:b.last,name:b.name,city:b.city,traits:b.traits,st:b.st});}
+function pickLife(babies){
+  babies=babies||[0,1,2].map(()=>rollBaby(newSeed()));
+  const m=$('modal');m.innerHTML='';
+  m.append(h('h3',{},'Choose your character'),h('p',{className:'sub'},'Pick a baby to be born as, or change one to make it yours.'));
+  babies.forEach((b,i)=>m.append(h('div',{className:'baby'},
+    h('b',{},`${b.gender==='M'?'👦':'👧'} ${b.name}`),h('small',{},`Born in ${b.city}`),babyTraits(b.traits),babyStats(b.st),
+    h('div',{className:'babyBtns'},h('button',{className:'choice',on:()=>startBaby(b)},`Play as ${fname(b.name)}`),
+      h('button',{className:'choice alt',on:()=>customBaby(babies,i)},'Customize')))));
+  m.append(h('button',{className:'choice alt',on:()=>pickLife()},'🎲 Reroll all three'),
+    h('button',{className:'choice alt',on:()=>startBaby(rollBaby(newSeed()))},'🎁 Surprise me'));
+  $('modalWrap').classList.add('open');m.scrollTop=0;
+}
+function customBaby(babies,i){
+  const b={...babies[i],traits:babies[i].traits.slice(),st:{...babies[i].st}};const base={...babies[i].st};
+  const m=$('modal');m.innerHTML='';
+  const fn=h('input',{className:'field',value:b.name.split(' ')[0],maxLength:20,'aria-label':'First name'});
+  const ln=h('input',{className:'field',value:b.last,maxLength:20,'aria-label':'Last name'});
+  const city=h('select',{className:'field','aria-label':'City'},CITIES.map(c=>h('option',{value:c,selected:c===b.city},c)));
+  const gWrap=h('div',{});const tWrap=h('div',{className:'traitGrid'});const note=h('p',{className:'sub'});const sWrap=h('div',{});
+  const drawG=()=>{gWrap.innerHTML='';gWrap.append(seg([['M','👦 Boy'],['F','👧 Girl']],b.gender,v=>{b.gender=v;drawG();}));};
+  const drawT=()=>{tWrap.innerHTML='';TR_KEYS.forEach(k=>{const on=b.traits.includes(k);
+    const clash=CLASH.find(([x,y])=>(k===x&&b.traits.includes(y))||(k===y&&b.traits.includes(x)));
+    const dis=!on&&(b.traits.length>=3||!!clash);
+    tWrap.append(h('button',{className:'traitBtn','aria-pressed':String(on),disabled:dis,title:TRAITS[k].d,
+      on:()=>{b.traits=on?b.traits.filter(x=>x!==k):b.traits.concat(k);b.st={...base};babyTraitStats(b);drawT();}},h('b',{},`${TRAITS[k].ic} ${TRAITS[k].n}`),h('small',{},TRAITS[k].d)));});
+    note.textContent=`${b.traits.length} of 3 chosen. Some traits clash, like Frugal and Big spender.`;
+    sWrap.innerHTML='';sWrap.append(babyStats(b.st));};
+  drawG();drawT();
+  m.append(h('h3',{},'Customize'),h('p',{className:'label'},'First name'),fn,h('p',{className:'label'},'Last name'),ln,
+    h('p',{className:'label'},'Boy or girl'),gWrap,h('p',{className:'label'},'City'),city,
+    h('p',{className:'label'},'Traits (up to 3)'),note,tWrap,h('p',{className:'label'},'Starting stats (set by luck)'),sWrap,
+    h('button',{className:'choice',on:()=>{const f=fn.value.trim()||first(b.gender),l=ln.value.trim()||b.last;
+      b.last=l;b.name=f+' '+l;b.city=city.value;startBaby(b);}},'Start this life'),
+    h('button',{className:'choice alt',on:()=>pickLife(babies)},'‹ Back'));
+  m.scrollTop=0;
 }
 /* ================= events ================= */
 const parent=()=>living(['Mother','Father'])[0];
@@ -1168,7 +1221,7 @@ function showDeath(){
   m.append(h('dl',{},h('dt',{},'Net worth'),h('dd',{},fmt(netWorth())),h('dt',{},'Career'),h('dd',{},S.job?title(S.job):S.retired?'Retired':'None'),
       h('dt',{},'Education'),h('dd',{},S.edu.degrees.join(', ')||'High school'),h('dt',{},'Children'),h('dd',{},String(kids().length))));
   ks.forEach(k=>m.append(h('button',{className:'choice',on:()=>{closeModal();continueAs(k)}},`Continue as ${fname(k.name)} (${k.age})`)));
-  m.append(h('button',{className:'choice alt',on:()=>{closeModal();newLife()}},'Start a new life'));
+  m.append(h('button',{className:'choice alt',on:()=>{closeModal();pickLife()}},'Start a new life'));
   $('modalWrap').classList.add('open');
 }
 function continueAs(k){
@@ -1197,7 +1250,7 @@ function menuSheet(){openSheet(s=>{
     row('📜 Company hall',`${(META.companies||[]).length} companies remembered`,'',hallSheet),
     row('🎯 Challenges',`${Object.keys(META.chals||{}).length} of ${Object.keys(CHAL).length} complete${S.chal?`. Current: ${CHAL[S.chal].n}`:''}`,'',chalSheet),
     row('🏙️ Start in tycoon mode','Skip childhood. Start at 22 with $50,000, a Business degree and the Hustler trait','',()=>choiceModal('Tycoon mode','This life ends and a new one starts at 22.',[['Start',()=>{closeSheet();newLife({start:1,age:22,money:50000,degrees:['Business'],addTrait:'hustler'})}],['Cancel',()=>{}]])),
-    row('🔄 Start a new life','Ends this life without an heir','',()=>choiceModal('Start over?','This life will end and a brand new one begins.',[['Start a new life',()=>{closeSheet();newLife()}],['Cancel',()=>{}]])));
+    row('🔄 Start a new life','Ends this life without an heir','',()=>choiceModal('Start over?','This life will end and a brand new one begins.',[['Start a new life',()=>{closeSheet();pickLife()}],['Cancel',()=>{}]])));
 });}
 function achSheet(){openSheet(s=>{
   s.append(h('button',{className:'back',on:menuSheet},'‹ Menu'),h('h3',{},'Achievements'),h('p',{className:'sub'},`${Object.keys(META.ach).length} of ${Object.keys(ACH).length}. Unlocks carry across every life.`));
@@ -2059,7 +2112,7 @@ S=load();
 function migrate(){if(S.v===3){S.v=4;Object.assign(S,{fame:S.fame||0,rivals:S.rivals||[],forSale:[],mentees:[],trend:null,regs:{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:1,holding:null,exes:[],chal:null});
   S.biz=S.biz.map(b=>{const n=newBiz(b.type,b.name);const keep={};['id','own','cash','loan','rep','staff','locs','price','base','lastRev','lastPre','yrs','public'].forEach(k=>{if(b[k]!=null)keep[k]=b[k];});
     Object.assign(n,keep,{life:b.me?'hands':'delegate',inv:1-(b.own||1)});if(b.public)n.pub={sent:1};return n;});}}
-if(S&&(S.v===3||S.v===4)){migrate();if(S.rng!=null)RS=S.rng;render();if(!S.alive)showDeath()}else newLife();
+if(S&&(S.v===3||S.v===4)){migrate();if(S.rng!=null)RS=S.rng;render();if(!S.alive)showDeath()}else pickLife();
 </script>
 </body>
 </html>
