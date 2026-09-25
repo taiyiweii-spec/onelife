@@ -2315,8 +2315,10 @@ function newBiz(type,name,o={}){const T=BIZ[type];return Object.assign({cty:resK
 const Tof=b=>BIZ[b.type];
 const lev=b=>Tof(b).lever.o[b.lever]||{};
 const mgrCount=b=>b.team.filter(p=>p.role==='Manager').length;
-const effLocs=b=>{const SAT=1-.12/cty(b).pop,c=Math.max(1,b.cities||1),per=b.locs/c;return c*(1-Math.pow(SAT,per))/(1-SAT);};
-const nextOutletPct=b=>{const c=Math.max(1,b.cities||1);return Math.round(Math.pow(1-.12/cty(b).pop,Math.floor(b.locs/c))*100);};
+// Each extra outlet brings in OUTLET_DROP less than the one before (never under 20% of the first).
+const OUTLET_DROP=.08,outletShare=i=>Math.max(.2,Math.pow(1-OUTLET_DROP,i));
+const effLocs=b=>{let t=0;for(let i=0;i<b.locs;i++)t+=outletShare(i);return t;};
+const nextOutletPct=b=>Math.round(outletShare(b.locs)*100);
 // Each outlet after the first has its own store manager, paid like staff at 1.3x.
 const storeMgrCost=b=>Tof(b).tech||Tof(b).hit?0:Math.round(Math.max(0,b.locs-1)*wagePer(b)*1.3);
 const outletCost=b=>{const T=Tof(b);return Math.round(T.cost*1.1*S.regs.zoning*(.4+.6*cty(b).rent)*(.85+.15*cty(b).red));};
@@ -2726,7 +2728,7 @@ function drawBiz(s,b){
   if(bTab==='grow'){s.append(powerNote(b));
     const T2=T;const locCost=outletCost(b);
     if(!T.tech&&!T.hit){const run=outletRun(b),pow=Math.max(0,b.cash)+S.money;
-      s.append(h('p',{className:'sub'},`🏬 ${b.locs} outlet${b.locs>1?'s':''} in ${b.cities} cit${b.cities>1?'ies':'y'}. Each extra outlet costs about ${fmt(run)} a year to run: rent, staff and its own store manager.`));
+      s.append(h('p',{className:'sub'},`🏬 ${b.locs} outlet${b.locs>1?'s':''}. Each new outlet brings in ${Math.round(OUTLET_DROP*100)}% less than the one before, as they compete for the same customers, and costs about ${fmt(run)} a year to run: rent, staff and its own store manager. Outlet #${b.locs+1} would earn about ${nextOutletPct(b)}% of your first.`));
       const noExp=!canExpand(b);if(noExp)s.append(h('p',{className:'sub warn'},'Other shareholders control this company. Expansion needs an approved expansion plan: propose one at a board meeting.'));
       {const canAdd=noExp?0:Math.floor(Math.max(0,pow)/locCost),mx=Math.max(b.locs+canAdd,b.locs,1),rec=Math.round(T.cost*.15);
         const box=h('div',{className:'supcard',style:'margin:0 0 12px'}),lbl=h('p',{className:'sub',style:'margin:4px 0'});
@@ -2738,7 +2740,7 @@ function drawBiz(s,b){
             if(d>0){payFrom(b,d*locCost);b.locs+=d;b.staff+=T.staff*d;mile(`Opened outlet #${b.locs} of ${b.name}`);stay(`${b.name} opened ${d} outlet${d>1?'s':''}. ${b.locs} in total.`,'good');}
             else{const c=-d;b.locs-=c;if(b.cities>b.locs)b.cities=b.locs;if(b.prem>b.locs)b.prem=b.locs;b.cash+=c*rec;b.staff=Math.max(0,b.staff-T.staff*c);b.morale=clamp(b.morale-3*c);stay(`${b.name} closed ${c} outlet${c>1?'s':''}. ${b.locs} left.`);}}],['Cancel',()=>{drawSheet();}]]);};
         lbl.textContent=txt(b.locs);box.append(h('p',{className:'label',style:'margin:0'},`🏬 Outlets: ${b.locs}`),sl,lbl);s.append(box);}
-      s.append(row('🌆 Open in a new city',`Needs 3+ outlets and 60% reputation. Setup ${fmt(locCost*2)}, fresh customers and a small brand boost.`,fmt(locCost*2),()=>{payFrom(b,locCost*2);b.locs++;b.cities++;b.staff+=T.staff;b.base=Math.round(b.base*1.04);mile(`${b.name} expanded to a new city`);stay(`${b.name} opened in a new city!`,'good')},b.locs<3||b.rep<60||pow<locCost*2||noExp));}
+      }
     if(!T.online&&!b.online)s.append(row('🛒 Launch online sales or delivery',T.food?'More orders, but delivery apps take a cut':'Sell online too',fmt(Math.min(T.cost*.15,150000)),()=>{payFrom(b,Math.round(Math.min(T.cost*.15,150000)));b.online=true;stay(`${b.name} launched online sales.`,'good')},Math.max(0,b.cash)+S.money<Math.min(T.cost*.15,150000)));
     const canFr=!T.tech&&!T.hit&&!T.req&&!T.weather;
     if(canFr){if(b.fr)s.append(h('p',{className:'sub'},`🏪 ${b.fr.n} franchises paying 6% royalties.`));
@@ -2899,7 +2901,7 @@ function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),
   // ---- growth ----
   if(!T.tech&&!T.hit&&M!=='cut'&&canExpand(b)){const cost=outletCost(b),run=outletRun(b),lm=bizLoanMax(b);
     const good=b.lastPre>run*.35&&b.rep>=45,rash=rnd()<Math.max(0,50-c.ops)/150;
-    if((good&&rnd()<(M==='grow'?.6:.3))||rash){const city=b.locs>=3&&b.rep>=60&&M==='grow'&&rnd()<.4,cc=city?cost*2:cost;
+    if((good&&rnd()<(M==='grow'?.6:.3))||rash){const city=false,cc=cost;
       const act=()=>{b.locs++;b.staff+=T.staff;if(city){b.cities++;b.base=Math.round(b.base*1.04);}};
       if(!rich(cc)&&M==='grow'&&lm>=cc&&cc<=lim){addLoan(b,cc);b.cash+=cc;cfAdd(b,'credit',cc);notes.push(`borrowed ${fmt(cc)} from the bank`);}
       spend(cc,city?'open in a new city':`open outlet #${b.locs+1}`,act);}}

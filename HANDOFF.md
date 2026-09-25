@@ -110,3 +110,4 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - continueAs(k) carries the child's stats, degrees, job, cash+investments+business value, home (with mortgage), partner, traits and grandchildren (become Children).
 - CEO scope narrowed (user decision): products/services, growth and finance only. Strategy (tiers, lever, marketing, celebrities, pushes, trends) and people (pay, hiring, firing, team days) stay with the owner. Rebrands need a product 2+ years old.
 - tools/ceobot.js compares owner-run vs great-CEO businesses over 12 years and flags bad decisions.
+- Outlets: 'Open in a new city' removed (CEO too). Each extra outlet brings in OUTLET_DROP (8%) less than the one before, floor 20% (effLocs/outletShare). b.cities is kept only for display on for-sale chains.
