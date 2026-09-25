@@ -2248,7 +2248,7 @@ function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;c
     pr.inv=Math.round(stock);pr.last={sold:Math.round(sold),ws:Math.round(ws),made,waste:Math.round(waste),rev:r,cost:c+hold,hold,dem:Math.round(D),uc,price:pr.price,short};pr.yrs=(pr.yrs||0)+1;pr.paidQty=null;pr.paid=0;
     const tq=sp.q+(b.q-60)*.5;pr.rating=clamp(Math.round((pr.rating||50)+(tq-(pr.rating||50))*.3));if(pr.boost)pr.boost=Math.max(0,+(pr.boost-.05).toFixed(2));
     const svc=isSvc(b);lines.push(`${P.ic} ${pr.name}: ${svc?`booked ${fmtN(sold)} of ${fmtN(made)} ${P.u} offered`:`sold ${fmtN(sold)} of ${fmtN(Math.round(D))} wanted`}${ws>=1?`, ${fmtN(ws)} sold wholesale`:''}${!svc&&waste>=1?`, ${fmtN(waste)} spoiled`:''}${pr.inv?`, ${fmtN(pr.inv)} left in stock`:''}.${short?` ${sp.n} came up short on a delivery.`:''}`);});
-  lines.forEach(t=>line(t));
+  // per-product lines are kept for tests but no longer written to the yearly story
   return {rev,cost,prepaid,refund:Math.round(refund),soldOut};}
 // Auto plans ignore today's cash: a shortfall goes through planShort (my cash, a loan, or making less) as before.
 function renewPlans(b){(b.products||[]).forEach(pr=>{if(pr.auto){const x=bestPlan(b,pr,Infinity);pr.price=x.price;pr.qty=x.qty;}if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;const cost=planCost(b,pr,q);
