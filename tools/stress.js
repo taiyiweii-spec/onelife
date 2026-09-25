@@ -58,10 +58,10 @@ function uiPass() {
   const sheets = [['jobSheet', jobSheet], ['moneySheet', moneySheet], ['relSheet', relSheet], ['actSheet', actSheet], ['menuSheet', menuSheet]];
   for (const [n, f] of sheets) { safe('ui ' + n, () => { f(); closeSheet(); }); }
   for (const t of ['overview', 'invest', 'biz', 'prop', 'ret']) safe('ui money tab ' + t, () => { mTab = t; moneySheet(); closeSheet(); });
-  for (const b of S.biz) for (const t of ['over', 'prod', 'grow', 'people', 'fin', 'risk']) safe('ui biz tab ' + t + ' (' + b.type + ')', () => { mTab = 'biz'; bTab = t; bizView = b.id; openSheet(drawMoney); closeSheet(); });
+  for (const b of S.biz) for (const t of ['over', 'prod', 'strat', 'grow', 'people', 'fin', 'risk']) safe('ui biz tab ' + t + ' (' + b.type + ')', () => { mTab = 'biz'; bTab = t; bizView = b.id; openSheet(drawMoney); closeSheet(); });
   mTab = 'overview'; bizView = null;
 }
-const TYPES = Object.keys(CAT).filter(k => BIZ[k] && !BIZ[k].deg);
+const TYPES = Object.keys(PCAT).filter(k => BIZ[k] && !BIZ[k].req && !HIDDEN.includes(k));
 function botYear() {
   if (!canManage()) return;
   // education and job
@@ -90,7 +90,7 @@ function botYear() {
       const mine = Math.min(S.money, T.cost); const loan = Math.max(0, T.cost - mine); const setup = Math.round(T.cost * (1 - T.cap));
       S.money -= mine;
       const b = newBiz(k, pick(T.names), {own: 1, inv: 0, rep: 50, cash: T.cost - setup});
-      b.items = []; b.fits = {}; b.items.push(makeItem(b, CAT[k][0][0], {})); syncStaff(b);
+      seedProducts(b); syncStaff(b);
       if (loan) addLoan(b, loan);
       S.biz.push(b); S.flags.founded = (S.flags.founded || 0) + 1; out.bizCount++;
       if (Math.random() < .5 && !S.job && !S.edu.major) b.life = 'hands';
@@ -125,7 +125,7 @@ while (lives < window.__lives) {
     if (S.age % 10 === 0) safe('uiPass', uiPass);
     if (S.age % 5 === 0) out.saveSizes.push(JSON.stringify(S).length);
     safe('save', save);
-    const re = load(); if (!re || re.age !== S.age) err('save roundtrip', new Error('save did not round-trip at age ' + S.age));
+    const re = readSlot(curSlot); if (!re || re.age !== S.age) err('save roundtrip', new Error('save did not round-trip at age ' + S.age));
   }
   out.fp = fnv((out.fp || '') + JSON.stringify(S));
   out.queueLeft += Q.length;
@@ -141,6 +141,7 @@ while (lives < window.__lives) {
 }
 out.years = years; out.totalMs = Math.round(performance.now() - t0);
 out.metaSize = JSON.stringify(META).length;
+out.phaseErrs = phaseErrs.slice(0, 20); out.phaseErrCount = phaseErrs.length;
 return out;
 })()`);
 
@@ -154,6 +155,7 @@ console.log(JSON.stringify({
   deaths: report.lives.map(l => `g${l.gen}:${l.start}->${l.death} ${l.cause} nw=${Math.round(l.nw)}`),
 }, null, 1));
 console.log('ERRORS', report.errors.length); report.errors.forEach(e => console.log(' -', e.where, '| age', e.age, '|', e.msg, '|', e.stack));
+console.log('YEAR STEP ERRORS', report.phaseErrCount); report.phaseErrs.forEach(e => console.log(' -', e.phase, '| age', e.age, '|', e.msg));
 console.log('BAD NUMBERS', report.nan.length); report.nan.forEach(n => console.log(' -', n.path, 'age', n.age));
 errs.slice(0, 10).forEach(e => console.log(e));
 process.exit(0);
