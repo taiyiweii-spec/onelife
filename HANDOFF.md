@@ -1,114 +1,86 @@
 # One Life: Handoff
 
-Read this first, then `docs/MASTER_NOTE.md` for the full game design.
-
-## Base switched (25 September 2026)
-`index.html` is now the newer 300 KB version, taken from the published artifact https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T (owned by the user). It has the Phase 1 and 2 features the master note called lost: 16 countries and taxes, moving abroad, board governance, dividends, 4 banks, wholesale, factories, cash flow. It also has 3 save slots, backup codes, an unfinished decision coming back on load, Undo year, karma, and a character creator (name, gender, country, stat sliders).
-It does NOT have the replay dice, the `YEAR_STEPS` list or the 3-card character picker from the older base (those are in git history before this commit). It uses `Math.random()` directly and its yearly routine is `YEAR_PHASES`. Sections below that describe the older base are out of date where they conflict with this note.
-**Since the switch:** replay dice are back (`rnd()`, `S.seed`, `S.rng`; only new life codes and the AI storyteller's roll use `Math.random()`; Undo year rolls fresh dice on purpose). Countries now affect everyday life: `payF()` scales salaries, part-time, side gig and talent pay by the country's wage level; `shopPrice()` scales homes by rent level and cars by `0.6 + 0.4 x pp`; `tuition()` scales by `pp`. Check used: USA lives (all factors 1) are identical before and after. Each country has its own economy (`S.cecon`, `countryEconYear()`, `localPhase()`, `bizPhase(b)`): jobs, loan rates, home prices and business sales follow it. `S.econ` stays the world economy for stocks, crypto, bonds, savings and supplier prices. Countries follow a world turn half the time; riskier countries (high `vol`) have more recessions. 150 robot lives: median net worth 517k to 411k, mean 1.33M to 1.50M (more spread, not poorer). **Business running (latest):** products use one yearly demand (no seasons); launch includes a first product with automatic production (`autoQty`); an age-up warning for businesses with nothing to sell or nobody running them; a 💡 tip per business (`bizTip`); marketing is one level (`MKTL`); the price-lock contract is gone. Who runs a business is me (`b.life==='hands'`) or a hired CEO (`b.ceo`, stats ops/sales/people/integ plus a personality, see `runFx`, `ceoYear`, `runnerBlock`). Managers no longer exist (old ones become the CEO); each extra outlet pays its own store manager (`storeMgrCost`). Businesses for sale show last year's accounts (`saleFin`, `saleReport`).
-`tools/stress.js` works with this version: 25 lives, seed 7, 0 errors, 0 year step errors, 0 bad numbers. Same seed gives the same fingerprint.
+Updated 25 September 2026. Read this first. `docs/MASTER_NOTE.md` is the older full design note (parts of it are out of date where this file disagrees).
 
 ## What this is
-One Life is a BitLife-style life simulator in the browser. You live one life year by year from birth to death: school, jobs, relationships, money, investing, property and businesses. When you die you can continue as your child (dynasty play). It is meant to be played as a published Claude artifact, and it also runs as a plain web page.
+One Life is a BitLife-style life simulator that runs in the browser. You live one life year by year from birth to death: school, jobs, relationships, money, investing, property and businesses, in 16 countries. When you die you can continue as one of your children (dynasty play). It is played as a published Claude artifact, and it also works as a plain web page.
+
+- Live game: https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T (owned by the taiyiweii@gmail.com Claude account, shared as "anyone with the link").
+- The owner is not a programmer. Explain things in plain everyday language and give clear options with a recommendation.
 
 ## Tech stack
-- One file: `index.html`, about 235 KB. Vanilla JavaScript, inline CSS, no framework and **no build step**. We decided to keep it as one file.
-- Fonts come from Google Fonts. Progress is saved in the browser's `localStorage`.
-- The optional AI features (AI storyteller, AI obituary, AI investor pitch) use `window.claude.use('sample')`. That only works inside a Claude artifact. Anywhere else the game carries on without AI.
-- Test tool: `tools/stress.js` (Node plus jsdom).
+- One file: `index.html` (about 380 KB). Vanilla JavaScript, inline CSS, no framework, **no build step**. Keep it as one file.
+- Google Fonts for type. Saves live in the browser's `localStorage` (3 slots, backup codes).
+- Optional AI features (storyteller, obituary, investor pitch) use `window.claude.use('sample')`, which only exists inside a Claude artifact. Elsewhere the game carries on without AI.
+- Test tools in `tools/` use Node plus jsdom. Browser screenshots use Playwright (Chromium).
 
 ## Run it locally
-- **Play:** open `index.html` in any browser. There is nothing to install.
-- **Test:** needs Node 18 or newer.
+- **Play:** open `index.html` in a browser. Nothing to install.
+- **Tests:** Node 18 or newer.
   ```
   npm install jsdom@24
-  node tools/stress.js index.html 25 7
+  node tools/stress.js index.html 20 7      # robot plays full lives: file, lives, seed
+  node tools/ceobot.js                      # owner-run vs great-CEO businesses, 12 years, flags bad CEO calls
+  node tools/ceobot.js cafe,gym 2           # chosen business types, 2 seeds each
   ```
-  The arguments are the HTML file, the number of lives and a seed. A robot plays full lives (dynasties included). The report shows errors, broken numbers, speed, save size and a **fingerprint**. The same seed always gives the same fingerprint.
-- **Environment variables:** none. There are no API keys or secrets.
-- **Publish:** Artifact tool, `publish` action, with `file_path: index.html`. The live game is https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T (shared with anyone with the link). To update it from a new conversation, pass that URL as `url`, and keep the `sample` capability.
+  `stress.js` must report `ERRORS 0`, `YEAR STEP ERRORS 0`, `BAD NUMBERS 0`. The same seed always gives the same fingerprint.
+- **Syntax check after edits** (catches a missing bracket before anything else):
+  ```
+  node -e "const t=require('fs').readFileSync('index.html','utf8');const re=/<script[^>]*>([\s\S]*?)<\/script>/g;let m;while(m=re.exec(t)){new Function(m[1])}"
+  ```
+- **Environment variables:** none. No API keys or secrets anywhere.
+- **Publish:** Claude Artifact tool, `publish` with `file_path: index.html` and `url: https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T`. Read the live version first if that conversation has not published it. The `sample` capability carries forward. A different Claude account cannot update that URL unless it was shared with edit rights; otherwise publish a new artifact.
 
-## Built so far
-- The imported game: life events, 16 careers, investing, property, businesses, 42 achievements, 8 challenges, dynasties.
-- Early product R&D and supplier system.
-- **Replay dice (seeded randomness):** every game roll goes through `rnd()`. Each life gets a life code (`S.seed`), and the dice position (`S.rng`) is saved with the life. The same life code plus the same choices always gives the same life. `Math.random()` is used in only two places: making new life codes, and the AI storyteller's roll, so switching AI on or off never changes a life.
-- **Yearly routine split into steps:** `YEAR_STEPS`, just above `ageUp()`, lists each yearly system in order (people, stats, prison, school, economy, university, work, income, business, angels, property, limits, events, net worth, decade review, death). Seeded robot runs gave identical fingerprints before and after the split.
-- **Character picker:** a new life (first launch, "Start a new life" in Menu or after death) opens `pickLife()`: 3 random babies, each rolled from its own life code by `rollBaby()`, with Play, Customize (name, boy or girl, city, up to 3 traits), Reroll and Surprise me. `newLife()` now also accepts `traits` and `st`. Continuing as your child, tycoon mode and challenges skip the picker. Note: the robot's fingerprints differ from before because the picker uses the test's seeded `Math.random` at page load; with the old startup line the fingerprints are identical.
-- Stress test: 75 lives and about 4,000 years with no crashes, broken numbers or stuck events. A year takes about 0.3 ms and saves are about 12 to 43 KB.
+## How the code is organised (inside index.html)
+- Game state is one object `S`. `newLife(o)` creates a life; `fillDefaults`/`migrate()` upgrade old saves (`SAVE_V=5`).
+- The year runs as ordered phases (`YEAR_PHASES`): people, stats, work, business, property, events and so on. `simBiz(b)` runs one business year.
+- **Replay dice:** every game roll uses `rnd()` (seeded). `Math.random()` is only used for new life codes and the AI storyteller's roll. Never add `Math.random()` to game logic.
+- UI is built with the tiny helper `h(tag, props, ...kids)`. Sheets: `openSheet(drawFn)`, `drawSheet()`, popups via `choiceModal`, number pickers via `amountModal`, choices queued in `Q` and shown by `showNext()`.
+- Countries: `COUNTRIES` (pay, rent, price level, taxes, volatility). `payF()`, `shopPrice()`, `tuition()`, `cty(b)`, `resC()`. Each country has its own economy (`S.cecon`, `localPhase()`, `bizPhase(b)`); `S.econ` is the world economy for stocks, crypto, bonds and savings.
 
-## In progress or broken
-- **Lost version:** the master note describes a newer 280 KB version (Phase 1 and Phase 2: countries, taxes, board governance, factories, cash flow statement and more). That file was lost. This repo holds the older base. See `docs/MASTER_NOTE.md` section 0.5 for the exact gap.
-- **Foundations clean-up, approved and half done.** Items 5 and B (see "Next tasks") are finished. These issues are still open:
-  1. Unanswered popups (the queue `Q`) are not saved. Closing the game mid-decision loses the decision.
-  2. Load only accepts save versions 3 and 4. Any other version starts a new life over the old save.
-  3. Save errors are ignored silently.
-  4. There is no export or import of saves.
+## What has been built
+- **Life:** careers with promotions, education, relationships, karma, 42 achievements, challenges, character creator, dynasties, moving abroad.
+- **Character panel:** tap the stat bars. Karma, work ethic, fame, credit score (affects loan limits and rates) and skills (business, tech, people) with real effects.
+- **Jobs:** yearly random openings, senior roles from your experience (`S.cexp`), up to 3 interviews a year with one question and 3 answers (`openings`, `applyJob`, `hireChance`).
+- **Money tab:** Overview with a personal cash flow statement (income, expenses by month and year, net). Investing, Business, **Market** (homes and cars with areas, condition, yields, deal tags) and **My assets** tabs, Retirement.
+- **Children live their own lives** (`kidLife`, `kidYear`): study, careers, dating, marriage, grandchildren, savings, investing, homes, small businesses, trouble. You influence them (suggestions accepted based on relationship, paying for university, approving partners, gifts). Continuing as a child keeps what they built.
+- **Businesses:**
+  - Products and services with one yearly demand, automatic production, suppliers, wholesale, rebrands, processing plants. Outlet capacity is shared between products (`baseCap`, `freeSpace`, `prodCap`).
+  - Outlets: each new one earns 8% less than the one before (`OUTLET_DROP`), floor 20%. No "new city" expansion any more.
+  - Sliders for number of outlets (Growth tab), staff and staff pay 70 to 150% (People tab).
+  - Financials tab: headline figures, P&L with % of income, cash flow statement (verified by bot), 5-year history. Summary table across all businesses.
+  - Funding: start-up funding screen, buying a business for sale with an acquisition loan or investors (`buyView`), for-sale listings include mid-size and chains priced on profit. Cash shortfall popups let you part-cover from several sources; production shortfall popup (`planShort`).
+  - Co-owned businesses: lend to the company (`b.sl`) or buy new shares (shareholder vote). Board motions, shareholder-proposed motions (`shareholderMotion`), expansion approval, selling the whole company.
+  - **Who runs it:** you (`b.life==='hands'`), a hired CEO (`b.ceo`), or nobody (neutral, no penalty). CEO stats: operations, sales, people, integrity, loyalty, plus personality. Owner sets a mandate (Grow, Balanced, Cut costs) and a spending limit.
+  - **CEO decisions (`ceoManage`)**: products and services, growth and finance only. Strategy, marketing and all hiring stay with the owner (owner's decision). A stat of 80+ decides reliably (`skill()`). Weak CEOs cost money and can make costly mistakes. Loyalty affects quitting and poaching (counter-offer popup).
 
-## Next tasks (priority order)
-1. **Save pending popups.** Planned design: at the start of each year, keep a snapshot of the life. Record which choice index is picked for each popup. On load, rerun that year from the snapshot using the saved dice, then reapply the recorded picks. Accept the result only if the rebuilt life matches the saved one exactly (ignore `aiNext`). Otherwise fall back to the saved life without the popups. Put the shared answer logic from `showNext()` in one function.
-2. **Versioned save upgrades.** Set `SAVE_V = 5` and write one upgrade function per version (v3 to v4 is the existing `migrate()`; v4 to v5 adds `seed`, `rng` and `pending`). Never delete a save you cannot read: copy it to `onelife-save-rescued` and tell the player.
-3. **Save safety.** Show a toast once when a save fails. Copy the main save to `onelife-save-backup` at the start of each year, and try that backup if the main save fails to load. Trim the log if a save grows past about 1.5 MB.
-4. **Backup button in Menu.** Export the life (plus achievements and family tree) as text and as a downloadable file. Import it back, merging achievements and family trees. Also add "Start a life from a code" in Menu, using the replay dice.
-5. **Label code sections by layer** (World, Life, Money, Business, Meta, UI), with a contents list at the top of the script.
-6. Then follow the master note's section 12.2: People rebuild, then Story and events, then Countries v2, and so on. The Phase 1 and 2 features need rebuilding if they are still wanted.
+## In progress or known issues
+- Nothing is half-built. All work is committed and published.
+- Known rough edges:
+  - The for-sale accounts (`saleFin`) can give big chains thin profits; those are effectively turnaround projects.
+  - A CEO whose pay falls behind market (fair pay rises with revenue) may quit even with high loyalty. The owner must press "Match market pay".
+  - One-off popup costs (fires, fines) land in the next year's cash flow statement because popups are answered after the report is made.
+  - Children always stay in the parent's country; their business is a single value, not a managed business. Grandchildren only get full lives once they become your children.
+  - Some old sections of `docs/MASTER_NOTE.md` describe an older base.
+
+## Next tasks (priority order, all waiting on the owner's go-ahead)
+1. Show buildings owned by businesses under My assets, and let their value follow the property market (proposed, not yet approved).
+2. Business "Expand abroad" (branch in another country) or a country comparison on the Start a business screen (offered, owner to choose).
+3. Make karma move with more choices (cheating, charity, firing people).
+4. More realistic living costs (city-based rent, bigger homes cost more, children cost money to raise).
+5. Optional: tune the 8% outlet drop, CEO strength and weak-CEO harshness after the owner plays more.
 
 ## Key decisions and why
 - **One HTML file, no build step:** simple to share and publish as an artifact.
-- **Replay dice:** makes bugs repeatable and lets us prove that a code rewrite changes nothing (compare fingerprints).
-- **Older file as the base (option 2):** the 280 KB version could not be found.
-- **Working agreements** from the owner (master note section 1): discuss and confirm any new design before building, build in phases, test before publishing, be upfront about mistakes, write plainly, never use em dashes in game text, show money in US dollars.
-- **The owner is not a programmer.** Explain in plain everyday language and give clear options with a recommendation.
+- **Replay dice:** bugs are repeatable, and a refactor can be proven harmless by comparing fingerprints.
+- **Do not bring back "Skip 5 years".** Global financial assets (stocks, crypto, bonds, savings) stay global; countries have their own economies. Seasons were removed.
+- **CEO scope:** products, growth and finance only, because CEOs making strategy and hiring decisions lost money in tests.
+- **Businesses nobody runs are neutral**, at the owner's request.
+- **Working agreement:** discuss and confirm any new design in plain language before building, give options with a recommendation, then build, test (stress bot, plus ceobot for CEO changes, plus a screenshot for UI), commit, push and publish. Be upfront about problems. No em dashes in game text. Money in US dollars.
 
-## Must know to avoid breaking things
-- **Never use `Math.random()` in game logic.** Use `rnd()`, `R()`, `pick()`, `wpick()` or `gauss()`. Otherwise replays and fingerprints break.
-- **Protect saves.** The save key is `onelife-save-v3` (the name is old but correct) and `S.v` is 4. Changing the shape of `S` needs an upgrade step, or players lose their lives. Achievements and the family tree live in `META` under the key `onelife-meta`.
-- **Add new yearly systems as a step in `YEAR_STEPS`,** not inside `ageUp()`.
-- **Behaviour check for refactors:** record fingerprints for a few seeds before the change (`node tools/stress.js index.html 8 <seed>`), then check they are identical after. Balance changes are expected to change fingerprints, so check those against the balance numbers in the master note instead.
-- **Edit safely.** Make edits that match exactly one place in the file (the old workflow used Python replacements that assert a single match). Syntax-check the script after every edit.
-- **Top-level order matters:** `const` and `let` values must be defined before the boot code at the bottom of the script uses them.
-- **AI features** must handle `sampleFn` being `null`, which is the case outside Claude.
-
-## Bad CEOs
-- runFx CEO range widened: worst CEO about -15% customers, +15% costs.
-- ceoYear: CEOs with weak ops/sales risk a yearly costly mistake (up to 40% chance, 5-15% of sales), followed by a keep-or-fire popup. Candidates with ops or sales below 35 are tagged "Risky".
-- A CEO (like running it yourself) covers one staff role, and CEO pay was lowered, so a café with a decent CEO can make money.
-
-## Buying with funding, job interviews, partial rescue
-- Buying a business for sale opens `buyView` (state `buyDeal`): own cash + acquisition loan (`buyLoanMax`, based on last year's profit) + investors (`buyInterest`).
-- Jobs: `S.cexp[career]={yrs,lvl}` tracks experience. `openings()` builds a yearly list (S.jobOpen): static careers (police, teach, nurse, med, law) at entry level, senior roles up to your best level in fields you've worked, plus 3-5 random roles. Up to 3 interviews a year (`S.used.apps`). `applyJob` asks one IVQ question; answers lean on mood, looks or smarts. Odd jobs skip the interview. `hireChance` shows Long shot / Fair chance / Strong fit.
-- deficitEvent: if one source can't cover it all, "put in what I can, then cover the rest" re-queues the event; disabled options say why.
-
-## Character panel
-- Tap the stat bars (`#statsWrap`) to open `charSheet`: core stats, karma, work ethic (`S.ethic`), fame, credit score (`creditScore()`, derived), skills `S.sk={biz,tech,ppl}`, traits.
-- `yearSkills()` runs each year from `yrWork`. Effects: ethic affects job performance and running your own business; skills and karma feed `hireChance`; people skill feeds raises and networking; business skill feeds investors and `runFx('me')`; the credit score scales loan limits (`creditF`) and `loanRate`.
-
-## Property market
-- Property tab: "My properties" (propView='mine') and "Market" (propView='market', tabs mkKind home/car). `marketList()` builds yearly listings in S.mkList.
-- Homes carry area (AREA: price, growth, yield), cond (COND: price, upkeep), beds, sqm, yld. Renovate from assetModal. `dealTag` shows Bargain/Overpriced with smarts 55+.
-- Cars carry age and run; `carRun` is charged yearly in propertyYear, with breakdown risk rising with age, and appears in the cash flow statement. Old saves fall back to defaults.
-
-## Putting money into a co-owned business
-- `moveCash(b,'in')` with own<100% opens `putInModal`: shareholder loan `b.sl={bal,rate}` (repaid in simBiz by `repayOwnerLoan` before dividends, counted as debt in bizVal, repaid first on close/sale) or new shares at bizVal (auto if own>50%, otherwise a vote, once a year per business, not for listed companies). Plain deposit only at 100% ownership.
-
-## Shareholder votes
-- Board motions (motionPicker/runMotion) now also include 'expand' (g.exp, 2 yrs; gates new outlets/cities via canExpand when I don't control the company) and 'sale' (sell the whole company at saleOffer, everyone bought out).
-- `shareholderMotion(b,g)` runs from govYear: other owners (>=10%) sometimes propose raising the dividend, cutting costs, selling, or firing the CEO. I vote with my stake; they vote as one bloc.
-
-## Business financials
-- `b.fh` keeps up to 10 years of {age,rev,ops,pre,net,cf,cash}, recorded after the cash flow statement each year. `opsCost(pnl)` = cost of goods + wages + owner pay + rent + marketing + other.
-- New business tab 'fins' (`finsTab`): three headline figures with change from last year, P&L, cash flow statement, and a 5-year history. `bizSummary()` shows a table across all businesses at the top of the Business tab.
-
-## CEO decisions, production shortfall, Market / My assets
-- `ceoManage(b)` runs yearly before renewPlans when a CEO runs the business: nudges prices (up if sold out, down if stock left), turns on auto production, sets marketing from margin and mandate (`b.mand` grow/bal/cut), pays down loans on cut, opens outlets (grow/bal) and may borrow. Anything above `ceoLim(b)` (b.ceoLim, default $50k, -1 = no limit) becomes an approval popup. Controls live in runnerBlock.
-- `planShort` replaces the silent production cut: pay the rest from my cash, take a bank loan, or make less. A CEO borrows automatically within its limit.
-- Money tabs: 'prop' is now "Market" (home/car listings), 'assets' is "My assets".
-- ceoManage now covers: prices, auto production, supplier search (rollSupplier, judged by ops), wholesale, rebrand, retiring losers, product research (goods) or R&D (others), processing plants, price tier/supplier tier (non-goods), lever choice, marketing level, celebrity deals, seasonal push, trend riding, staff pay, auto staff, firing weak key people, hiring key people, team building, outlets/new cities (loan-funded under grow), closing losing outlets, online, franchising, corporate contract bids, automation, buying buildings, insurance, paying down loans. Costs go through `spend()`: within ceoLim it happens, above it one approval popup per year. `skill(stat)` decides whether a choice is made well or at random.
-
-## Children's own lives
-- `kidLife(p)` gives each Child p.life: inherited stats and traits, study (MAJORS), career (CAREERS, promotions every 2+ yrs), savings, investing, a home, a small business, dating/marriage, grandchildren (type 'Grandchild', par = child id), and occasional trouble. `kidYear(p)` runs from yrPeople.
-- Influence (personSheet): suggestions stored in L.sugg and accepted via `kListens` (relationship, rebellious flag); pay for university; approve/disapprove a partner; money gifts. `kidCard` shows their life.
-- continueAs(k) carries the child's stats, degrees, job, cash+investments+business value, home (with mortgage), partner, traits and grandchildren (become Children).
-- CEO scope narrowed (user decision): products/services, growth and finance only. Strategy (tiers, lever, marketing, celebrities, pushes, trends) and people (pay, hiring, firing, team days) stay with the owner. Rebrands need a product 2+ years old.
-- tools/ceobot.js compares owner-run vs great-CEO businesses over 12 years and flags bad decisions.
-- Outlets: 'Open in a new city' removed (CEO too). Each extra outlet brings in OUTLET_DROP (8%) less than the one before, floor 20% (effLocs/outletShare). b.cities is kept only for display on for-sale chains.
-- A business nobody runs is now neutral (runFx none = no bonus or penalty); the age-up 'nobody runs' warning and tip are gone.
+## Before you change anything
+- Make edits with exact-match replacements and run the syntax check afterwards.
+- Run `tools/stress.js` (seed 7 and 42) before every publish. Run `tools/ceobot.js` after any CEO or business-economy change.
+- Keep all randomness on `rnd()`. Keep saves backward compatible: give new fields defaults (see `fillDefaults`, `ensureRunner`, getters like `hArea`, `carRun`).
+- Wrap money moved inside a business with `cfAdd(b, key, amount)` (keys: prod, owner, invest, credit) so the cash flow statement stays correct.
+- Development branch: `claude/peaceful-meitner-bz4tmp`. It has not been merged into the default branch.
