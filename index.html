@@ -1884,7 +1884,7 @@ function menuSheet(){openSheet(s=>{
     row('🌳 Family tree',`${META.tree.length} li${META.tree.length===1?'fe':'ves'} lived`,'',treeSheet),
     row('📜 Company hall',`${(META.companies||[]).length} companies remembered`,'',hallSheet),
     row('🎯 Challenges',`${Object.keys(META.chals||{}).length} of ${Object.keys(CHAL).length} complete${S.chal?`. Current: ${CHAL[S.chal].n}`:''}`,'',chalSheet),
-    row('🏙️ Start in tycoon mode','Skip childhood. Start at 22 with $50,000, a Business degree and the Hustler trait','',()=>choiceModal('Tycoon mode','This life ends and a new one starts at 22.',[['Start',()=>{closeSheet();newLife({start:1,age:22,money:50000,degrees:['Business'],addTrait:'hustler'})}],['Cancel',()=>{}]])),
+    row('🏙️ Start in tycoon mode','Skip childhood. Start at 22 with $1,000,000, a Business degree and the Hustler trait','',()=>choiceModal('Tycoon mode','This life ends and a new one starts at 22.',[['Start',()=>{closeSheet();newLife({start:1,age:22,money:1000000,degrees:['Business'],addTrait:'hustler'})}],['Cancel',()=>{}]])),
     row('🔄 Start a new life','Ends this life without an heir','',()=>choiceModal('Start over?','This life will end and a brand new one begins.',[['Start a new life',()=>{closeSheet();startNew()}],['Cancel',()=>{}]])));
   s.append(h('h4',{},'Saves and backup'),
     row('💾 My saves',`Slot ${curSlot} of ${NSLOTS}. Switch lives or start one in an empty slot`,'',savesSheet),
