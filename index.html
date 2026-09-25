@@ -2117,7 +2117,10 @@ function unitCost(b,pr){const P=pdef(b,pr.id),idx=b.contract?b.contract.idx:S.su
 const typUnits=(b,P)=>Tof(b).base*P.dem*(1-P.comp/250)/PREF[b.type]*1.1*(PCAL[b.type]||1)/P.price*volF(b);
 const outCapU=(b,P)=>Math.max(1,Math.round(typUnits(b,P)*(isSvc(b)?2:1.5)));
 const facCapU=(b,P)=>Math.round(typUnits(b,P)*4);
-const prodCap=(b,pr)=>{const P=pdef(b,pr.id);return b.locs*outCapU(b,P)+(isMaker(b)?(b.fac||0)*facCapU(b,P):0);};
+// Outlet space is shared: room another product or service isn't using can be given to this one.
+const baseCap=(b,pr)=>{const P=pdef(b,pr.id);return P?b.locs*outCapU(b,P):0;};
+const freeSpace=(b,pr)=>Math.max(0,(b.products||[]).reduce((a,o)=>{if(o===pr)return a;const bc=baseCap(b,o);return a+(bc?1-(o.qty||0)/bc:0);},0));
+const prodCap=(b,pr)=>{const P=pdef(b,pr.id);return Math.round(baseCap(b,pr)*(1+freeSpace(b,pr)))+(isMaker(b)?(b.fac||0)*facCapU(b,P):0);};
 const FACN={truck:'central kitchen',cafe:'central kitchen',restaurant:'central kitchen',bar:'central kitchen',fashion:'garment factory',farm:'processing plant',dealership:'regional distribution hub'};
 const facCost=b=>Math.round(Tof(b).cost*1.5*S.regs.zoning*(.4+.6*cty(b).rent)*(.85+.15*cty(b).red)),facRun=b=>Math.round(Tof(b).fixed*1.5),FAC_MAX=3;
 const wsCap=(b,P)=>Math.round(facCapU(b,P)*(b.fac||0)*.6);
@@ -2226,7 +2229,7 @@ function supplierSearch(b,pr){const P=pdef(b,pr.id),key='ss'+b.id+pr.id,used=S.u
     h('button',{className:'choice alt',on:closeModal},'Keep current'));
   $('modalWrap').classList.add('open');}
 function productModal(b,pr){const P=pdef(b,pr.id),L=pr.last,ro=!canManage()||b.ousted,svc=isSvc(b),sp=supOf(pr);const m=$('modal');m.innerHTML='';
-  m.append(h('h3',{},`${P.ic} ${pr.name}`),h('p',{className:'sub'},`Customer rating ${stars(pr.rating||50)}. ${svc?'Provider':'Supplier'}: ${sp.n} (quality ${sp.q}, reliability ${sp.rel}%). Cost per unit ${fmtP(unitCost(b,pr))}.${svc?` Space for up to ${fmtN(prodCap(b,pr))} ${P.u} a year.`:` Can make up to ${fmtN(prodCap(b,pr))} a year. In stock ${fmtN(pr.inv||0)}.`}`),
+  m.append(h('h3',{},`${P.ic} ${pr.name}`),h('p',{className:'sub'},`Customer rating ${stars(pr.rating||50)}. ${svc?'Provider':'Supplier'}: ${sp.n} (quality ${sp.q}, reliability ${sp.rel}%). Cost per unit ${fmtP(unitCost(b,pr))}.${svc?` Space for up to ${fmtN(prodCap(b,pr))} ${P.u} a year${freeSpace(b,pr)>.05?', including room my other services aren\'t using':''}.`:` Can make up to ${fmtN(prodCap(b,pr))} a year${freeSpace(b,pr)>.05?', including spare room from my other products':''}. In stock ${fmtN(pr.inv||0)}.`}`),
     ...mbar('Market demand',demScore(b.type,P),'good'),...mbar('Competition',compScore(b.type,P),'bad'));
   if(L){m.append(h('p',{className:'label'},'Last year'),h('dl',{},h('dt',{},'Customers wanted'),h('dd',{},fmtN(L.dem)),h('dt',{},svc?'Offered':'Made'),h('dd',{},fmtN(L.made)),h('dt',{},svc?'Booked':'Sold'),h('dd',{},`${fmtN(L.sold)}${L.dem>L.sold+1?' (sold out)':''}`),
       ...(L.ws?[h('dt',{},'Sold wholesale'),h('dd',{},fmtN(L.ws))]:[]),...(L.waste?[h('dt',{},svc?'Unused':'Spoiled'),h('dd',{},fmtN(L.waste))]:[])));
