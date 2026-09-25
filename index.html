@@ -1067,6 +1067,7 @@ function yrPeople(){
     if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
     else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
     if(p.type==='Child'&&p.alive&&p.age===18){line(`My kid ${fname(p.name)} moved out. The house is very quiet.`);S.st.happy-=3;}
+    if(p.type==='Child'&&p.alive)kidYear(p);
   });
   S.rels=S.rels.filter(p=>!p.left);
 }
@@ -1549,9 +1550,68 @@ function tabRet(s){
 function relSheet(){openSheet(s=>{
   s.append(h('h3',{},'People'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));const alive=S.rels.filter(p=>p.alive);
   if(!alive.length)s.append(h('p',{className:'sub'},'No one right now.'));
-  alive.forEach(p=>s.append(h('button',{className:'row',on:()=>personSheet(p)},h('span',{},h('b',{},p.name),h('small',{},`${p.type}, age ${p.age}`)),h('span',{},h('div',{className:'relbar'},h('i',{style:`width:${p.rel}%`}))))));
+  alive.forEach(p=>s.append(h('button',{className:'row',on:()=>personSheet(p)},h('span',{},h('b',{},p.name),h('small',{},`${p.type}, age ${p.age}${p.type==='Child'&&p.life&&p.age>=18?` · ${p.life.job?CAREERS[p.life.job.c].t[p.life.job.lvl][0]:p.life.major?'Studying '+p.life.major:'Not working'}${p.life.married?' · married':''}`:''}`)),h('span',{},h('div',{className:'relbar'},h('i',{style:`width:${p.rel}%`}))))));
   if(canManage()&&S.age>=25){s.append(h('h4',{},'Family'),row('Adopt a child','$15,000 in fees','',()=>{S.used.adopt=true;S.money-=15000;const g=pick(['M','F']);const k=person('Child',g,R(0,8),lastName());k.rel=75;S.rels.push(k);S.st.happy+=12;mile(`Adopted ${fname(k.name)}`);stay(`I adopted ${fname(k.name)}, age ${k.age}. Welcome home.`,'good')},S.used.adopt||S.money<15000,1));}
 });}
+/* ---- children live their own lives; I can only influence them ---- */
+function kidLife(p){if(p.life)return p.life;const mix=k=>Math.max(5,Math.min(99,Math.round((S.st[k]+R(20,90))/2)));
+  const tr=[];if(rnd()<.5&&S.traits.length)tr.push(pick(S.traits));while(tr.length<2){const t=pick(Object.keys(TRAITS));if(!tr.includes(t))tr.push(t);}
+  return p.life={st:{smarts:mix('smarts'),looks:mix('looks'),health:R(60,95)},tr,major:null,degYrs:0,degrees:[],job:null,partner:null,married:false,nkids:0,cash:0,home:null,inv:0,biz:null,sugg:null,paid:false,rebel:rnd()<.2};}
+const kHas=(L,t)=>L.tr.includes(t);
+const kNW=L=>Math.round(L.cash+L.inv+(L.home?L.home.v-L.home.mort:0)+(L.biz?L.biz.v:0));
+function kListens(p){const L=kidLife(p);return rnd()<Math.max(.05,Math.min(.95,p.rel/100*.9-(L.rebel?.35:0)+(kHas(L,'kind')?.1:0)));}
+function kidYear(p){const L=kidLife(p),fn=fname(p.name),a=p.age,sg=L.sugg,mk=S.mkt&&S.mkt.MKT?S.mkt.MKT.chg:5;
+  const take=k=>{if(sg&&sg.k===k){const ok=kListens(p);L.sugg=null;if(ok){p.rel=Math.min(100,p.rel+3);return sg.v;}p.rel-=3;line(`${fn} ignored my advice${L.rebel?', just to prove a point':''}.`);return undefined;}};
+  if(a<18){L.st.smarts=Math.min(99,L.st.smarts+R(0,2)+(kHas(L,'genius')?1:0));return;}
+  // education
+  if(a===18&&!L.major&&!L.job){const want=take('study'),opts=Object.entries(MAJORS).filter(([n,m])=>!m.grad&&L.st.smarts>=m.sm);
+    const goes=want!==undefined?true:opts.length&&rnd()<(.35+L.st.smarts/200+(L.paid?.25:0)-(kHas(L,'lazy')?.2:0));
+    if(goes&&opts.length){L.major=want&&MAJORS[want]&&L.st.smarts>=MAJORS[want].sm?want:pick(opts)[0];line(`🎓 ${fn} started studying ${L.major}.`);}}
+  if(L.major){L.degYrs++;if(!L.paid)L.cash-=Math.round(tuition()*.8);if(L.degYrs>=MAJORS[L.major].y){L.degrees.push(L.major);line(`🎓 ${fn} graduated in ${L.major}!`,'good');S.st.happy+=3;L.major=null;L.degYrs=0;L.paid=false;}return;}
+  // work
+  if(!L.job||rnd()<.04){const want=take('career');const ok=Object.entries(CAREERS).filter(([id,C])=>(!C.deg||L.degrees.includes(C.deg))&&L.st.smarts>=(C.sm||0));
+    const c=want&&ok.some(x=>x[0]===want)?want:ok.length?(ok.filter(([id,C])=>C.deg).length&&rnd()<.8?pick(ok.filter(([id,C])=>C.deg)):pick(ok))[0]:null;
+    if(c&&(!L.job||L.job.c!==c)){L.job={c,lvl:0,s:Math.round(CAREERS[c].t[0][1]*payF())};line(`💼 ${fn} started working as a ${CAREERS[c].t[0][0].toLowerCase()}.`);}}
+  if(L.job){const C=CAREERS[L.job.c];L.job.ly=(L.job.ly||0)+1;if(L.job.lvl<C.t.length-1&&L.job.ly>=2+L.job.lvl&&rnd()<(.12+L.st.smarts/400+(kHas(L,'ambitious')?.08:0)-(kHas(L,'lazy')?.06:0))&&L.st.smarts>=reqSm(C,L.job.lvl+1)-10){L.job.lvl++;L.job.ly=0;L.job.s=Math.max(Math.round(L.job.s*1.12),Math.round(C.t[L.job.lvl][1]*payF()));line(`📈 ${fn} was promoted to ${C.t[L.job.lvl][0].toLowerCase()}.`);}
+    L.job.s=Math.round(L.job.s*1.03);L.cash+=Math.round(L.job.s*(kHas(L,'frugal')?.3:kHas(L,'spender')?.05:.15));}
+  else L.cash-=3000;
+  // money: invest, buy a home, start a business
+  if(L.inv)L.inv=Math.round(L.inv*(1+mk/100));
+  if(L.home){L.home.v=Math.round(L.home.v*1.03);if(L.home.mort>0){const pay=Math.min(L.home.mort,Math.round(L.home.v*.05));L.home.mort-=pay;L.cash-=Math.round(pay*.6);}}
+  const inc=L.job?L.job.s:0;
+  {const want=take('invest');if((want||L.cash>inc*.6&&rnd()<.5)&&L.cash>5000){const x=Math.round(L.cash*(want?.8:.5));L.cash-=x;L.inv+=x;if(want)line(`📈 ${fn} took my advice and invested ${fmt(x)}.`);}}
+  {const want=take('home');const price=Math.round(shopPrice({p:L.married?340000:165000,k:'home'}));
+    if(!L.home&&a>=24&&(want||rnd()<.25)&&L.cash+L.inv*.5>=price*.2&&inc>price*.12){let need=Math.round(price*.2);const fromInv=Math.max(0,need-L.cash);L.inv-=fromInv;L.cash-=need-fromInv;L.home={v:price,mort:Math.round(price*.8),n:L.married?'Townhouse':'Studio apartment'};line(`🏠 ${fn} bought a ${L.home.n.toLowerCase()} for ${fmt(price)}.`,'good');}}
+  {const want=take('biz');if(!L.biz&&a>=23&&(want||(kHas(L,'ambitious')||kHas(L,'hustler'))&&rnd()<.04)&&L.cash+L.inv>40000){const k=pick(Object.keys(BIZ).filter(k=>!BIZ[k].req&&!HIDDEN.includes(k))),put=Math.round((L.cash+L.inv)*.5);L.inv=Math.max(0,L.inv-put);L.biz={type:k,name:pick(BIZ[k].names),v:put};line(`🏪 ${fn} started ${L.biz.name}, a ${BIZ[k].n.toLowerCase()}.`,'good');}}
+  if(L.biz){L.biz.v=Math.round(L.biz.v*R(75,140)/100);if(L.biz.v<put0(L.biz)*.25&&rnd()<.3){line(`${fn}'s business ${L.biz.name} closed down.`,'bad');L.biz=null;}}
+  // love and family
+  if(!L.partner&&a>=19&&a<=50&&rnd()<.24+(L.st.looks-50)/300){const g=pick(['M','F']);L.partner={name:fullName(g),g,appr:null};line(`💕 ${fn} is dating ${L.partner.name}.`);}
+  else if(L.partner&&!L.married&&a>=21&&rnd()<(L.partner.appr===false?.12:L.partner.appr?.4:.25)){L.married=true;line(`💍 ${fn} married ${L.partner.name}!`,'good');S.st.happy+=4;}
+  else if(L.partner&&!L.married&&rnd()<(L.partner.appr===false?.2:.08)){line(`💔 ${fn} and ${fname(L.partner.name)} broke up.`);L.partner=null;}
+  if(L.married&&a>=23&&a<=44&&L.nkids<4){const want=take('kids');if(want===false){}else if(rnd()<(want?.4:.15)){L.nkids++;const g=pick(['M','F']);const gk=person('Grandchild',g,0,p.name.split(' ').slice(1).join(' '));gk.rel=70;gk.par=p.id;S.rels.push(gk);line(`👶 ${fn} had a baby, ${fname(gk.name)}. I'm a grandparent!`,'good');S.st.happy+=8;unlock&&0;}}
+  // trouble
+  if((kHas(L,'hothead')||kHas(L,'reckless')||L.rebel)&&rnd()<.02){const x=R(2000,20000);L.cash-=x;p.rel-=5;line(`🚨 ${fn} got into trouble and paid ${fmt(x)} in fines.`,'bad');}
+}
+const put0=bz=>bz.v0||(bz.v0=bz.v);
+function kidCard(p){const L=kidLife(p),C=L.job&&CAREERS[L.job.c];
+  return h('dl',{},h('dt',{},'Traits'),h('dd',{},L.tr.map(t=>TRAITS[t]?TRAITS[t].ic+' '+TRAITS[t].n:t).join(', ')+(L.rebel?', 😤 rebellious':'')),
+    h('dt',{},'Smarts / looks'),h('dd',{},`${L.st.smarts} / ${L.st.looks}`),
+    h('dt',{},'Education'),h('dd',{},L.major?`Studying ${L.major} (year ${L.degYrs+1})`:L.degrees.join(', ')||(p.age<18?'At school':'High school')),
+    h('dt',{},'Work'),h('dd',{},C?`${C.t[L.job.lvl][0]}, ${fmt(L.job.s)}/yr`:p.age<18?'—':'Not working'),
+    h('dt',{},'Love'),h('dd',{},L.partner?`${L.married?'Married to':'Dating'} ${L.partner.name}`:'Single'),
+    h('dt',{},'Kids'),h('dd',{},String(L.nkids)),
+    h('dt',{},'Home'),h('dd',{},L.home?`${L.home.n}, ${fmt(L.home.v)}${L.home.mort?` (mortgage ${fmt(L.home.mort)})`:''}`:'None'),
+    h('dt',{},'Investments'),h('dd',{},fmt(L.inv)),...(L.biz?[h('dt',{},'Business'),h('dd',{},`${L.biz.name}, worth ${fmt(L.biz.v)}`)]:[]),
+    h('dt',{},'Cash'),h('dd',{className:L.cash<0?'bad':''},fmt(L.cash)),h('dt',{},'Net worth'),h('dd',{},fmt(kNW(L))));}
+function kidInfluence(p){const L=kidLife(p),fn=fname(p.name),sug=(k,v,txt)=>{L.sugg={k,v};stay(`I suggested ${fn} ${txt}. Whether they listen depends on how close we are.`);};
+  const ch=[];
+  if(p.age<=18&&!L.major&&!L.degrees.length)ch.push(['🎓 Suggest a subject to study',()=>choiceModal(`What should ${fn} study?`,'They decide at 18.',Object.entries(MAJORS).filter(([,m])=>!m.grad).map(([n,m])=>[`${n}${L.st.smarts<m.sm?` (needs smarts ${m.sm})`:''}`,()=>sug('study',n,`study ${n}`)]).concat([['Cancel',()=>{}]]))]);
+  if(p.age>=16)ch.push(['💼 Suggest a career',()=>choiceModal(`What career for ${fn}?`,'They consider it when they next look for work.',Object.entries(CAREERS).map(([id,C])=>[`${C.n}${C.deg&&!L.degrees.includes(C.deg)?` (needs ${C.deg})`:''}`,()=>sug('career',id,`a career in ${C.n.toLowerCase()}`)]).concat([['Cancel',()=>{}]]))]);
+  if(p.age>=18){ch.push(['📈 Suggest investing their savings',()=>sug('invest',true,'invest their savings')]);
+    if(!L.home)ch.push(['🏠 Suggest buying a home',()=>sug('home',true,'buy a home')]);
+    if(!L.biz)ch.push(['🏪 Suggest starting a business',()=>sug('biz',true,'start a business')]);
+    if(L.married)ch.push(['👶 Suggest having kids',()=>sug('kids',true,'have kids')],['🙅 Suggest waiting on kids',()=>sug('kids',false,'wait before having kids')]);}
+  ch.push(['Cancel',()=>{}]);choiceModal(`Influence ${fn}`,`${fn} makes their own choices. Relationship ${p.rel}%${L.rebel?', and they are rebellious':''}: the closer we are, the more likely they listen.`,ch);}
 function personSheet(p){openSheet(s=>{
   const fn=fname(p.name);
   s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},p.name),h('p',{className:'sub'},`${p.type}, age ${p.age}. Relationship ${p.rel}%.${p.prenup?' We have a prenup.':''}`));
@@ -1561,6 +1621,11 @@ function personSheet(p){openSheet(s=>{
     row('Compliment','','',()=>{mark('c');p.rel+=relGain(R(2,6));stay(`I told ${fn} something nice.`)},k('c')));
   if(p.type!=='Pet')s.append(row('Argue','','',()=>{mark('a');p.rel-=Math.round(R(8,18)*(has('hothead')?1.5:1));S.st.happy-=4;stay(`${fn} and I had a big argument.`,'bad')},k('a')));
   if(['Mother','Father'].includes(p.type))s.append(row('Ask for money','','',()=>{mark('m');if(!S.flags.poor&&rnd()<p.rel/140){const g=R(20,S.age<18?100:1500);S.money+=g;stay(`${fn} gave me ${fmt(g)}.`,'good')}else{p.rel-=4;stay(`${fn} said no.`,'bad')}},k('m')));
+  if(p.type==='Child'){s.append(h('h4',{},`${fname(p.name)}'s life`),kidCard(p));
+    if(canManage()){const L=kidLife(p);s.append(row('🧭 Influence their choices','Suggest what to study, a career, investing, a home, a business or kids','',()=>kidInfluence(p)));
+      if((p.age>=16&&p.age<=18&&!L.degrees.length&&!L.paid)||L.major&&!L.paid){const cost=Math.round(tuition()*(L.major?MAJORS[L.major].y-L.degYrs:4));s.append(row('🎓 Pay for their university',`No student debt, and more likely to study`,fmt(cost),()=>{S.money-=cost;L.paid=true;p.rel+=8;stay(`I'm paying for ${fname(p.name)}'s university.`,'good')},S.money<cost));}
+      if(L.partner&&!L.married&&L.partner.appr==null)s.append(row(`💕 Approve of ${fname(L.partner.name)}`,'Makes a wedding more likely','',()=>{L.partner.appr=true;p.rel+=4;stay(`I told ${fname(p.name)} I like ${fname(L.partner.name)}.`)}),row(`🙅 Disapprove of ${fname(L.partner.name)}`,'They may break up, or resent me','',()=>{L.partner.appr=false;p.rel-=kListens(p)?2:12;stay(`I told ${fname(p.name)} I don't approve of ${fname(L.partner.name)}.`,'bad')}));
+      if(p.age>=18)s.append(row('🎁 Give a gift of money','For a wedding, a home, a business or just because','',()=>amountModal({title:`Gift to ${fname(p.name)}`,sub:`I have ${fmt(S.money)}.`,max:Math.max(0,S.money),btn:a=>`Give ${fmt(a)}`,onOk:a=>{S.money-=a;L.cash+=a;p.rel=Math.min(100,p.rel+Math.min(20,Math.round(a/5000)));stay(`I gave ${fname(p.name)} ${fmt(a)}.`,'good')}}),S.money<=0));}}
   if(p.type==='Child'&&S.age>=18&&p.age>=16)s.append(row('Give $10,000','','',()=>{mark('g');S.money-=10000;p.rel+=15;stay(`I gave ${fn} $10,000.`)},k('g')||S.money<10000));
   if(p.type==='Partner'){
     const propose=pre=>()=>{mark('p');if(p.rel>60&&rnd()<(pre?.6:.8)){p.type='Spouse';p.prenup=pre;S.money-=R(5000,20000);S.st.happy+=15;mile(`Married ${fn}`);if(p.crush)unlock('reunion');if(pre)p.rel-=10;stay(`${fn} said yes${pre?' and signed the prenup':''}! We got married.`,'good')}else{p.rel-=10;S.st.happy-=10;stay(`${fn} said no to my proposal.`,'bad')}};
@@ -1652,7 +1717,15 @@ function continueAs(k){
   const estate=Math.max(0,Math.round(liquid*.85/heirs));
   const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
   const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
+  const gks=S.rels.filter(r=>r.type==='Grandchild'&&r.par===k.id&&r.alive).map(r=>({...r,type:'Child',rel:Math.max(r.rel,75)}));
   newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
+  if(k.life){const L=k.life;['smarts','looks'].forEach(x=>S.st[x]=L.st[x]);S.edu.degrees=[...L.degrees];if(L.major){S.edu.major=L.major;S.edu.yrs=L.degYrs;}
+    if(L.job){S.job={c:L.job.c,s:L.job.s,perf:55,lvl:L.job.lvl,yrs:3,lvlYrs:1,warn:0,style:'normal'};if(!S.careers.includes(L.job.c))S.careers.push(L.job.c);}
+    S.money+=L.cash+L.inv+(L.biz?L.biz.v:0);if(L.home)S.assets.push({n:L.home.n,v:L.home.v,k:'home',rent:false,mort:L.home.mort>0?{bal:L.home.mort,rate:loanRate(),pay:Math.round(annuity(L.home.mort,loanRate(),25))}:null});
+    if(L.partner){const sp=person(L.married?'Spouse':'Partner',L.partner.g||pick(['M','F']),Math.max(18,k.age+R(-4,4)),null,L.partner.name);sp.rel=70;S.rels.push(sp);}
+    if(L.tr)S.traits=[...new Set([...L.tr.filter(t=>TRAITS[t]),...S.traits])].slice(0,3);
+    if(L.inv||L.biz)line(`I cashed in my investments${L.biz?' and my business':''} as I took over the family.`);}
+  S.rels.push(...gks);
   S.biz.forEach(b=>{if(b.successor===k.id){b.rep=Math.min(100,b.rep+10);b.successor=null;line(`I was trained to run ${b.name}. The staff trust me already.`,'good');}b.team=b.team.filter(p=>p.childId!==k.id);b.cands=null;});
   checkAch();
 }

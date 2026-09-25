@@ -103,3 +103,8 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
 - `planShort` replaces the silent production cut: pay the rest from my cash, take a bank loan, or make less. A CEO borrows automatically within its limit.
 - Money tabs: 'prop' is now "Market" (home/car listings), 'assets' is "My assets".
 - ceoManage now covers: prices, auto production, supplier search (rollSupplier, judged by ops), wholesale, rebrand, retiring losers, product research (goods) or R&D (others), processing plants, price tier/supplier tier (non-goods), lever choice, marketing level, celebrity deals, seasonal push, trend riding, staff pay, auto staff, firing weak key people, hiring key people, team building, outlets/new cities (loan-funded under grow), closing losing outlets, online, franchising, corporate contract bids, automation, buying buildings, insurance, paying down loans. Costs go through `spend()`: within ceoLim it happens, above it one approval popup per year. `skill(stat)` decides whether a choice is made well or at random.
+
+## Children's own lives
+- `kidLife(p)` gives each Child p.life: inherited stats and traits, study (MAJORS), career (CAREERS, promotions every 2+ yrs), savings, investing, a home, a small business, dating/marriage, grandchildren (type 'Grandchild', par = child id), and occasional trouble. `kidYear(p)` runs from yrPeople.
+- Influence (personSheet): suggestions stored in L.sugg and accepted via `kListens` (relationship, rebellious flag); pay for university; approve/disapprove a partner; money gifts. `kidCard` shows their life.
+- continueAs(k) carries the child's stats, degrees, job, cash+investments+business value, home (with mortgage), partner, traits and grandchildren (become Children).
