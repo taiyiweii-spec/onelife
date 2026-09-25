@@ -1488,13 +1488,13 @@ function tabInvest(s){
   TICK.forEach(t=>{const q=S.mkt[t.s],sh=S.hold[t.s]||0,val=sh*q.p,gain=val-(S.basis[t.s]||0);
     s.append(row(t.n,sh>0?`${t.k}. Mine: ${fmt(val)} (${gain>=0?'+':''}${fmt(gain)})`:`${t.k}`,h('span',{},fmtP(q.p),h('small',{className:q.chg>=0?'good':'bad'},t.fixed!=null?`${t.fixed}%/yr`:pct(q.chg))),()=>tradeModal(t)));});
 }
-function pubRows(s){S.biz.filter(b=>b.pub).forEach(b=>{const px=sharePx(b);s.append(row(`🔔 ${b.name} (my company)`,`I own ${fmtN(b.own*SHARES)} shares (${(b.own*100).toFixed(1)}%), worth ${fmt(bizVal(b)*b.own)}`,h('span',{},fmtP(px),b.pub.chg!=null?h('small',{className:b.pub.chg>=0?'good':'bad'},pct(b.pub.chg)):null),()=>pubModal(b)));});}
+function pubRows(s){S.biz.filter(b=>b.pub).forEach(b=>{const px=sharePx(b);s.append(row(`🔔 ${b.name} (my company)`,`I own ${fmtN(b.own*shOf(b))} shares (${(b.own*100).toFixed(1)}%), worth ${fmt(bizVal(b)*b.own)}`,h('span',{},fmtP(px),b.pub.chg!=null?h('small',{className:b.pub.chg>=0?'good':'bad'},pct(b.pub.chg)):null),()=>pubModal(b)));});}
 function chgOver(hh,n){if(!hh||hh.length<2)return null;const a=hh[Math.max(0,hh.length-1-n)].nw,z=hh[hh.length-1].nw;return a?(z/a-1)*100:null;}
 function histBlock(hh,label){const c=chartEl(hh);return c?[h('p',{className:'label'},label),c]:[h('p',{className:'sub'},'The price chart fills in as the years go by.')];}
-function pubModal(b){const P=b.pub,px=sharePx(b),mine=Math.round(b.own*SHARES),flt=Math.round(b.inv*SHARES),ro=!canManage();
+function pubModal(b){const P=b.pub,px=sharePx(b),mine=Math.round(b.own*shOf(b)),flt=Math.round(b.inv*shOf(b)),ro=!canManage();
   const net=b.lastPre-corpTax(b,b.lastPre),pe=net>0?(bizVal(b)/net).toFixed(1):'n/a',g=b.yrs>1&&b.prevPre?((b.lastPre-b.prevPre)/Math.abs(b.prevPre)*100):null;
   const hh=P.h||[],avg=hh.length?hh.slice(-5).reduce((a,x)=>a+x.nw,0)/Math.min(5,hh.length):px,c1=chgOver(hh,1),c5=chgOver(hh,5);
-  const canBuy=Math.min(flt,Math.floor(Math.max(0,S.money)/px)),canSell=mine-Math.round(SHARES*.01);
+  const canBuy=Math.min(flt,Math.floor(Math.max(0,S.money)/px)),canSell=mine-Math.round(shOf(b)*.01);
   const m=$('modal');m.innerHTML='';
   m.append(h('h3',{},`🔔 ${b.name} shares`),...histBlock(hh,'Share price history'),
     h('dl',{},h('dt',{},'Price per share'),h('dd',{},fmtP(px)),h('dt',{},'Shares I own'),h('dd',{},`${fmtN(mine)} (${(b.own*100).toFixed(1)}%)`),h('dt',{},'Value of my shares'),h('dd',{},fmt(mine*px)),h('dt',{},'Shares held by the public'),h('dd',{},fmtN(flt))),
@@ -1503,8 +1503,8 @@ function pubModal(b){const P=b.pub,px=sharePx(b),mine=Math.round(b.own*SHARES),f
     h('p',{className:'label'},'Technicals (momentum and the market)'),
     h('dl',{},h('dt',{},'1-year change'),h('dd',{},c1==null?'n/a':pct(c1)),h('dt',{},'5-year change'),h('dd',{},c5==null?'n/a':pct(c5)),h('dt',{},'Trend'),h('dd',{},px>=avg?'📈 Above its 5-year average':'📉 Below its 5-year average'),h('dt',{},'Momentum'),h('dd',{},(P.mom||0)>=0?'Positive, tends to carry on':'Negative, tends to carry on')),
     h('p',{className:'sub'+(b.own<.4?' bad':'')},b.own<.4?'I own under 40%. That invites takeover attempts.':'Dropping under 40% invites takeover attempts. Buying a big block pushes the price up a little, and selling one pushes it down.'),
-    h('button',{className:'choice',disabled:ro||canBuy<1,on:()=>{closeModal();amountModal({title:`Buy ${b.name} shares`,sub:`${fmtP(px)} per share. ${fmtN(flt)} held by the public.`,min:1,max:canBuy,init:canBuy/4,step:1,fmtA:fmtN,btn:a=>`Buy ${fmtN(a)} shares`,note:a=>`Costs ${fmt(a*px)}. I'd own ${((b.own+a/SHARES)*100).toFixed(1)}%.`,onOk:a=>{S.money-=Math.round(a*px);b.own+=a/SHARES;b.inv=Math.max(0,b.inv-a/SHARES);P.sent=Math.min(3,P.sent*(1+Math.min(.1,a/SHARES*.5)));stay(`I bought ${fmtN(a)} shares of ${b.name} for ${fmt(a*px)}.`)}});}},'Buy shares'),
-    h('button',{className:'choice alt',disabled:ro||canSell<1,on:()=>{closeModal();amountModal({title:`Sell ${b.name} shares`,sub:`${fmtP(px)} per share. I must keep at least 1%.`,min:1,max:canSell,init:canSell/10,step:1,fmtA:fmtN,btn:a=>`Sell ${fmtN(a)} shares`,note:a=>`About ${fmt(a*px)}. I'd own ${((b.own-a/SHARES)*100).toFixed(1)}%.`,onOk:a=>{const v=Math.round(a*px);S.money+=v;b.own-=a/SHARES;b.inv+=a/SHARES;P.sent=Math.max(.3,P.sent*(1-Math.min(.1,a/SHARES*.5)));stay(`I sold ${fmtN(a)} shares of ${b.name} for ${fmt(v)}.`)}});}},'Sell shares'),
+    h('button',{className:'choice',disabled:ro||canBuy<1,on:()=>{closeModal();amountModal({title:`Buy ${b.name} shares`,sub:`${fmtP(px)} per share. ${fmtN(flt)} held by the public.`,min:1,max:canBuy,init:canBuy/4,step:1,fmtA:fmtN,btn:a=>`Buy ${fmtN(a)} shares`,note:a=>`Costs ${fmt(a*px)}. I'd own ${((b.own+a/shOf(b))*100).toFixed(1)}%.`,onOk:a=>{S.money-=Math.round(a*px);b.own+=a/shOf(b);b.inv=Math.max(0,b.inv-a/shOf(b));P.sent=Math.min(3,P.sent*(1+Math.min(.1,a/shOf(b)*.5)));stay(`I bought ${fmtN(a)} shares of ${b.name} for ${fmt(a*px)}.`)}});}},'Buy shares'),
+    h('button',{className:'choice alt',disabled:ro||canSell<1,on:()=>{closeModal();amountModal({title:`Sell ${b.name} shares`,sub:`${fmtP(px)} per share. I must keep at least 1%.`,min:1,max:canSell,init:canSell/10,step:1,fmtA:fmtN,btn:a=>`Sell ${fmtN(a)} shares`,note:a=>`About ${fmt(a*px)}. I'd own ${((b.own-a/shOf(b))*100).toFixed(1)}%.`,onOk:a=>{const v=Math.round(a*px);S.money+=v;b.own-=a/shOf(b);b.inv+=a/shOf(b);P.sent=Math.max(.3,P.sent*(1-Math.min(.1,a/shOf(b)*.5)));stay(`I sold ${fmtN(a)} shares of ${b.name} for ${fmt(v)}.`)}});}},'Sell shares'),
     h('button',{className:'choice alt',on:closeModal},'Close'));
   $('modalWrap').classList.add('open');}
 function fmtP(p){return p>=100?fmt(p):p>=1?'$'+p.toFixed(2):'$'+p.toPrecision(3);}
@@ -2035,7 +2035,7 @@ function syncBoard(b){const g=b.gov,plan=seatPlan(b);['me','co','inv','ind'].for
 const BLOCN={me:'My nominee',co:'Co-founder',inv:'Investor director',ind:'Independent'};
 function dirYes(b,d,m){const g=b.gov,c=g.conf;let p={me:.92,co:.1+d.loyal/100*.8,inv:.3+(c-50)/100,ind:.35+(c-50)/80}[d.bloc];
   if(d.bloc!=='me')p+=(d.loyal-50)/300;
-  if(m==='reinstate'&&d.bloc!=='me')p+=(c-50)/100;if(m==='pay')p-=d.greed/250;if(m==='buyback')p+=d.greed/250;if(m==='divup')p+=d.greed/200;if(m==='divdown')p-=d.greed/200;
+  if(m==='reinstate'&&d.bloc!=='me')p+=(c-50)/100;if(m==='pay')p-=d.greed/250;if(m==='buyback')p+=d.greed/250;if(m==='issue')p+=(b.cash<Math.max(10000,b.lastRev*.1)?.2:0)+(b.lastPre<0?.1:0)-d.greed/400;if(m==='divup')p+=d.greed/200;if(m==='divdown')p-=d.greed/200;
   if(m==='acq'||m==='expand')p+=(d.risk-50)/150+(b.lastPre>0?.1:-.15);if(m==='sale')p+=d.greed/250-d.loyal/400+(b.lastPre<0?.15:0);if(m==='pill')p+=(d.loyal-50)/200-d.indep/400;if(m==='remove')p=d.bloc==='me'?.05:(1-d.loyal/100)*.9+(25-c)/100;
   return Math.max(.03,Math.min(.97,p));}
 function boardVote(b,m){const g=govOf(b);if(!g)return {pass:true,auto:true,yes:0,no:0,votes:[]};const auto=['control','super'].includes(tier(b))&&m!=='remove';
@@ -2098,7 +2098,6 @@ function govBlock(s,b,ro){const t=tier(b),g=govOf(b),co=b.co?b.co.share:0;
 function motionPicker(b){const g=govOf(b),t=tier(b),M=[];
   if(b.ousted)M.push(['reinstate','Reinstate me as CEO']);
   if(!['control','super'].includes(t))M.push(['pay',`Raise my pay cap to ${Math.round(((g.capMult||1)+.5)*100)}% of normal`]);
-  if(b.pub)M.push(['buyback','Share buyback: spend up to 10% of company value to buy back public shares']);
   M.push(['divup',`Raise the dividend to ${Math.min(75,divPol(b)+25)}%`]);if(divPol(b)>0)M.push(['divdown',`Cut the dividend to ${divPol(b)-25}%`]);
   if(!canAcquire(b))M.push(['acq','Approve an acquisition budget for 2 years']);
   if(!canExpand(b))M.push(['expand','Approve an expansion plan: new outlets and cities for 2 years']);
@@ -2205,6 +2204,29 @@ function bestPlan(b,pr,budget){const P=pdef(b,pr.id),ref=bp(b,P),svc=isSvc(b),st
         return a+wt*(sold*p-(P.pe||svc?0:-left*uc*.85));},0)-cost-(P.pe||svc?0:stock*uc*.85);
       if(!best||prof>best.prof+.5)best={price:p,qty:q,prof:Math.round(prof)};});});
   return best;}
+/* ---- goods for this year: what's still unpaid, and what extra outlets would need ---- */
+// With d extra outlets, how much more this year's goods would cost. Automatic products grow to match demand at their
+// current price. Hand-planned products keep their plan, but any part of it that isn't paid for yet counts.
+function goodsGap(b,d=0){if(!isGoods(b)||!b.products)return {cost:0,items:[]};const L0=b.locs,S0=b.staff;b.locs+=d;b.staff+=Tof(b).staff*d;const items=[];let cost=0;
+  try{b.products.forEach(pr=>{const P=pdef(b,pr.id);if(!P||pr.paidQty==null)return;const paid=pr.paid||0,stock=isSvc(b)||P.pe?0:(pr.inv||0);
+    let q=pr.paidQty;if(pr.auto){const t=Math.min(prodCap(b,pr),Math.round(estDemand(b,pr,pr.price)*(pr.kf||1)-stock));if(t>q*1.2||d>0&&t>q)q=t;}else if((pr.qty||0)>q)q=Math.min(pr.qty,prodCap(b,pr));
+    const c=Math.round(planCost(b,pr,q)-paid);if(q>pr.paidQty&&c>0){items.push({pr,q,c});cost+=c;}});}finally{b.locs=L0;b.staff=S0;}
+  return {cost,items};}
+// Everything a business can spend right now: its cash, my cash, then its unused credit line.
+const creditRoom=b=>Math.max(0,creditLimit(b)-(b.credit||0));
+const fundPower=b=>Math.max(0,b.cash)+Math.max(0,S.money)+creditRoom(b);
+function fundBiz(b,amt){let need=Math.max(0,Math.round(amt-Math.max(0,b.cash)));
+  const mine=Math.min(need,Math.max(0,S.money));if(mine>0){S.money-=mine;b.cash+=mine;cfAdd(b,'owner',mine);need-=mine;}
+  const cr=Math.min(need,creditRoom(b));if(cr>0){b.credit=(b.credit||0)+cr;b.cash+=cr;cfAdd(b,'credit',cr);}
+  b.cash-=Math.round(amt);}
+function payGoods(b,items){items.forEach(({pr,q,c})=>{fundBiz(b,c);cfAdd(b,'prod',c);pr.paid=(pr.paid||0)+c;pr.paidQty=q;if(!pr.auto||q>(pr.qty||0))pr.qty=q;});syncStaff(b);}
+// Rough cash at the end of this year, before paying for next year's goods: sales from goods already paid for,
+// minus last year's running costs. An estimate only.
+function yearEndOutlook(b){if(!isGoods(b)||!b.pnl||!b.products)return null;const p=b.pnl;
+  const rev=b.products.reduce((a,pr)=>{const P=pdef(b,pr.id);if(!P)return a;const have=(pr.paidQty||0)+(isSvc(b)||P.pe?0:(pr.inv||0));return a+Math.min(have,estDemand(b,pr,pr.price)*(pr.kf||1))*pr.price;},0)+(p.conRev||0)+(p.royal||0);
+  const run=(p.wages||0)+(p.owner||0)+(p.rent||0)+(p.mk||0)+(p.other||0)+(p.interest||0)+(p.tax||0);
+  const end=Math.round(b.cash+rev-run),next=Math.round(b.products.reduce((a,pr)=>a+(pr.paid||0),0));
+  return {end,next,short:Math.max(0,next-end-creditRoom(b))};}
 function seedProducts(b){if(!isGoods(b))return;b.products=b.products||[];if(b.products.length)return;
   const P=[...PCAT[b.type]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0];const pr=newProduct(b,P);b.products.push(pr);pr.qty=Math.min(prodCap(b,pr),Math.max(1,estDemand(b,pr,pr.price)));}
 function ensureGoods(b){if(isGoods(b)&&!b.products)seedProducts(b);}
@@ -2798,14 +2820,14 @@ function drawBiz(s,b){
     if(!T.tech&&!T.hit){const run=outletRun(b),pow=Math.max(0,b.cash)+S.money;
       s.append(h('p',{className:'sub'},`🏬 ${b.locs} outlet${b.locs>1?'s':''}. Each new outlet brings in ${Math.round(OUTLET_DROP*100)}% less than the one before, as they compete for the same customers, and costs about ${fmt(run)} a year to run: rent, staff and its own store manager. Outlet #${b.locs+1} would earn about ${nextOutletPct(b)}% of your first.`));
       const noExp=!canExpand(b);if(noExp)s.append(h('p',{className:'sub warn'},'Other shareholders control this company. Expansion needs an approved expansion plan: propose one at a board meeting.'));
-      {const avail=Math.max(0,pow),canAdd=noExp?0:Math.floor(avail/locCost),mx=Math.max(b.locs+canAdd,b.locs,1),rec=Math.round(T.cost*.15);
+      {const gd=isGoods(b),avail=noExp?0:gd?fundPower(b):Math.max(0,pow),gap0=gd?goodsGap(b,0).cost:0,rec=Math.round(T.cost*.15);const gCost=d=>d>0&&gd?goodsGap(b,d).cost:gap0,total=d=>d*locCost+(gd?gCost(d):0);let canAdd=0;if(!noExp)while(canAdd<60&&total(canAdd+1)<=avail)canAdd++;const mx=Math.max(b.locs+canAdd,b.locs,1);const manualP=gd&&b.products.some(p=>!p.auto);
         const box=h('div',{className:'supcard',style:'margin:0 0 12px'}),lbl=h('p',{className:'sub',style:'margin:4px 0'});
-        const txt=n=>{const d=n-b.locs;return d>0?`${n} outlets: open ${d} more for ${fmt(d*locCost)} setup (business cash first, then mine), then about ${fmt(d*run)} a year more to run. A new outlet earns about ${nextOutletPct(b)}% of your first.`:d<0?`${n} outlet${n>1?'s':''}: close ${-d}. Saves about ${fmt(-d*run)} a year, recovers ${fmt(-d*rec)} from fittings. Staff there are let go.`:`${n} outlet${n>1?'s':''} now. A new outlet costs ${fmt(locCost)} to set up, then about ${fmt(run)} a year to run. ${noExp?'':canAdd?`You have ${fmt(avail)} available, enough for ${canAdd} more. Slide right to open more${b.locs>1?', left to close':''}.`:`You have ${fmt(avail)} available, so you need ${fmt(locCost-avail)} more.${b.locs>1?' Slide left to close.':''}`}`;};
+        const txt=n=>{const d=n-b.locs;if(d>0){const g=gCost(d),t=total(d);return `${n} outlets: open ${d} more. ${fmt(d*locCost)} setup${gd?` + ${fmt(g)} of goods for this year${gap0?`, including ${fmt(gap0)} still unpaid`:''}`:''} = ${fmt(t)}. Left after: ${fmt(avail-t)}. Then about ${fmt(d*run)} a year more to run. A new outlet earns about ${nextOutletPct(b)}% of your first.${manualP?" Hand-planned products keep my plan, so their stock doesn't grow.":''}`;}if(d<0)return `${n} outlet${n>1?'s':''}: close ${-d}. Saves about ${fmt(-d*run)} a year, recovers ${fmt(-d*rec)} from fittings. Staff there are let go.`;const left=avail-gap0;return `${n} outlet${n>1?'s':''} now. ${gd?(gap0?`⚠️ This year's goods still need ${fmt(gap0)}. `:`📦 This year's goods are paid for. `):''}💰 ${gd?'Left to expand with':'Available'}: ${fmt(Math.max(0,left))}${gd?' (business cash, my cash and credit line, after goods)':''}. A new outlet costs ${fmt(locCost)} to set up${gd?' plus its goods':''}, then about ${fmt(run)} a year to run. ${noExp?'':canAdd?`Enough for ${canAdd} more. Slide right to open more${b.locs>1?', left to close':''}.`:`I need ${fmt(total(1)-avail)} more for another.${b.locs>1?' Slide left to close.':''}`}`;};
         const sl=h('input',{type:'range',className:'slider',min:1,max:mx,step:1,value:String(b.locs),'aria-label':'Number of outlets'});
         sl.oninput=()=>{lbl.textContent=txt(+sl.value);};
         sl.onchange=()=>{const n=+sl.value,d=n-b.locs;if(!d)return;
-          choiceModal(d>0?`Open ${d} outlet${d>1?'s':''}?`:`Close ${-d} outlet${-d>1?'s':''}?`,txt(n),[[d>0?`Open for ${fmt(d*locCost)}`:'Close them',()=>{
-            if(d>0){payFrom(b,d*locCost);b.locs+=d;b.staff+=T.staff*d;mile(`Opened outlet #${b.locs} of ${b.name}`);stay(`${b.name} opened ${d} outlet${d>1?'s':''}. ${b.locs} in total.`,'good');}
+          choiceModal(d>0?`Open ${d} outlet${d>1?'s':''}?`:`Close ${-d} outlet${-d>1?'s':''}?`,txt(n),[[d>0?`Open for ${fmt(total(d))}`:'Close them',()=>{
+            if(d>0){const g=gd?goodsGap(b,d):null;fundBiz(b,d*locCost);cfAdd(b,'invest',d*locCost);b.locs+=d;b.staff+=T.staff*d;if(g&&g.items.length)payGoods(b,g.items);mile(`Opened outlet #${b.locs} of ${b.name}`);stay(`${b.name} opened ${d} outlet${d>1?'s':''}. ${b.locs} in total.${g&&g.cost?` I also bought ${fmt(g.cost)} of goods so they have stock this year.`:''}`,'good');}
             else{const c=-d;b.locs-=c;if(b.cities>b.locs)b.cities=b.locs;if(b.prem>b.locs)b.prem=b.locs;b.cash+=c*rec;b.staff=Math.max(0,b.staff-T.staff*c);b.morale=clamp(b.morale-3*c);stay(`${b.name} closed ${c} outlet${c>1?'s':''}. ${b.locs} left.`);}}],['Cancel',()=>{drawSheet();}]]);};
         lbl.textContent=txt(b.locs);box.append(h('p',{className:'label',style:'margin:0'},`🏬 Outlets: ${b.locs}`),sl,lbl);s.append(box);}
       }
@@ -2878,7 +2900,7 @@ function payFrom(b,c){const fromB=Math.min(Math.max(0,b.cash),c);b.cash-=fromB;S
 
 /* ================= finance module ================= */
 const LOAN_YEARS=5;
-const SHARES=1e7;const sharePx=b=>bizVal(b)/SHARES;const fmtN=n=>Math.round(n).toLocaleString('en-US');
+const SHARES=1e7;const shOf=b=>b&&b.pub&&b.pub.n?b.pub.n:SHARES;const sharePx=b=>bizVal(b)/shOf(b);const fmtN=n=>Math.round(n).toLocaleString('en-US');
 const BANKS=[
  {id:'main',ic:'🏦',n:'Main Street Bank',d:'Standard terms. Needs 1 year of trading.',add:.025,cap:1,need:b=>b.yrs>=1},
  {id:'summit',ic:'🏛️',n:'Summit Capital',d:'Lowest rates, but picky. Needs 3 years of trading and 60% reputation. Lends a bit less.',add:.012,cap:.7,need:b=>b.yrs>=3&&b.rep>=60},
@@ -3230,6 +3252,29 @@ function buyView(s){
     stay(`I bought ${x.name} for ${fmt(x.price)}${D.loan?`, with a ${fmt(D.loan)} bank loan`:''}${D.inv?` and ${fmt(D.inv.amt)} from investors`:''}. I own ${Math.round(myShare*100)}%.`,'good');}},short>0?`Need ${fmt(short)} more`:`🤝 Buy ${x.name}`));
 }
 
+/* ---- listed companies: secondary offering and share buyback. Each listed company tracks its own share count (b.pub.n) ---- */
+const hasCtl=b=>['sole','control','super'].includes(tier(b));
+// Runs act() straight away with majority control, otherwise after a board vote.
+function withBoard(b,m,label,act){if(hasCtl(b))return act('');const v=boardVote(b,m),g=govOf(b);
+  const tally=`Board vote: ${v.yes} for, ${v.no} against.`;if(!v.pass){if(g)g.conf=clamp(g.conf-2);stay(`🗳️ "${label}" failed. ${tally}`,'bad');return;}act(tally+' ');}
+function secondaryOffer(b){const V=bizVal(b),px=sharePx(b),n=shOf(b),max=Math.floor(V*.2/1000)*1000;
+  amountModal({title:`📈 Secondary offering: ${b.name}`,sub:`Sell new shares to the public at ${fmtP(px*.95)}, 5% below today's ${fmtP(px)}. The money goes into the business. Up to ${fmt(max)} (20% of company value) once a year.`,max,init:max/2,btn:a=>`Raise ${fmt(a)}`,
+    note:a=>{const ns=a/(px*.95),e=ns/(n+ns),mine=b.own*(1-e);return `Creates ${fmtN(ns)} new shares. My stake goes from ${(b.own*100).toFixed(1)}% to ${(mine*100).toFixed(1)}%.${mine<.4?' ⚠️ Under 40% invites takeover attempts.':''} Expect the share price to dip about 4%.`;},
+    onOk:a=>withBoard(b,'issue','Secondary offering',pre=>{const ns=a/(px*.95),e=ns/(n+ns),keep=1-e;S.used['so'+b.id]=true;
+      b.own*=keep;if(b.co)b.co.share*=keep;b.inv=(b.inv||0)*keep+e;b.pub.n=Math.round(n+ns);b.cash+=a;cfAdd(b,'owner',a);b.pub.sent=Math.max(.3,b.pub.sent*.96);mile(`${b.name} raised ${fmt(a)} in a secondary offering`);
+      stay(`${pre}${b.name} sold ${fmtN(ns)} new shares and raised ${fmt(a)}. I now own ${(b.own*100).toFixed(1)}%.`,'good');})});}
+function buybackMax(b){const n=shOf(b),px=sharePx(b),f=Math.min(.1,(b.inv||0)*.5),reserve=goodsGap(b).cost;return {f,cash:Math.max(0,Math.floor(Math.min(b.cash-reserve,f*n*px*1.05)/1000)*1000),reserve};}
+function shareBuyback(b){const n=shOf(b),px=sharePx(b),M=buybackMax(b);
+  const bought=C=>{const f0=C/(px*n),prem=1.02+.3*f0;return C/(px*prem);};
+  amountModal({title:`🔁 Share buyback: ${b.name}`,sub:`Buy shares back from the public with business cash and cancel them, so every remaining owner's stake grows. Up to 10% of shares a year, never more than half of what the public holds.${M.reserve?` ${fmt(M.reserve)} is kept back for this year's goods.`:''}`,max:M.cash,init:M.cash/2,btn:C=>`Spend ${fmt(C)}`,
+    note:C=>{const k=bought(C),f=k/n;return `Buys about ${fmtN(k)} shares at about ${fmtP(C/k)} each (a small premium). My stake goes from ${(b.own*100).toFixed(1)}% to ${(b.own/(1-f)*100).toFixed(1)}%. The share price usually gets a small lift.`;},
+    onOk:C=>withBoard(b,'buyback','Share buyback',pre=>{const k=bought(C),f=k/n,keep=1-f;S.used['bb'+b.id]=true;
+      b.cash-=C;cfAdd(b,'owner',-C);b.inv=Math.max(0,((b.inv||0)-f)/keep);b.own=Math.min(1,b.own/keep);if(b.co)b.co.share/=keep;b.pub.n=Math.round(n-k);b.pub.sent=Math.min(3,b.pub.sent*1.02);
+      stay(`${pre}${b.name} bought back ${fmtN(k)} shares for ${fmt(C)}. I now own ${(b.own*100).toFixed(1)}%.`,'good');})});}
+function listedBlock(s,b){const ctl=hasCtl(b),M=buybackMax(b),so=S.used['so'+b.id],bb=S.used['bb'+b.id];
+  s.append(h('h4',{},'Listed company'),h('p',{className:'sub'},`${fmtN(shOf(b))} shares at ${fmtP(sharePx(b))}. I own ${(b.own*100).toFixed(1)}%.${ctl?'':' Both moves need a board vote.'}`),
+    row('📈 Secondary offering',so?'Already done this year':'Sell new shares to raise money for the business. Dilutes every owner','',()=>secondaryOffer(b),so||bizVal(b)<50000),
+    row('🔁 Share buyback',bb?'Already done this year':M.cash<1000?(M.f<=0?'The public holds no shares to buy':'Not enough spare business cash'):`Spend up to ${fmt(M.cash)} of business cash to buy back shares`,'',()=>shareBuyback(b),bb||M.cash<1000));}
 /* ================= finance tab ================= */
 function finTab(s,b){
   const T=Tof(b),v=bizVal(b),ro=!canManage();
@@ -3259,7 +3304,7 @@ function finTab(s,b){
       h('div',{className:'btns'},row('Draw','','',()=>amountModal({title:'Draw on the credit line',max:room,init:room/2,btn:a=>`Draw ${fmt(a)}`,onOk:a=>{b.credit=(b.credit||0)+a;b.cash+=a;cfAdd(b,'credit',a);stay(`Drew ${fmt(a)} from the credit line.`)}}),room<=0),
         row('Repay','','',()=>amountModal({title:'Repay the credit line',max:Math.min(b.credit||0,b.cash),init:Math.min(b.credit||0,b.cash),btn:a=>`Repay ${fmt(a)}`,onOk:a=>{b.cash-=a;b.credit-=a;stay(`Repaid ${fmt(a)} of the credit line.`,'good')}}),!b.credit||b.cash<=0)));
     // investors
-    const ii=investorInterest(b);const why=b.pub?'Public companies raise money on the stock market':S.used['raise'+b.id]?'Already pitched this year':ii.score<40?`Interest too low (${ii.score}/100, needs 40)`:energyLeft()<1?'Needs 1 energy (⚡)':b.own<=.15?'I own too little to sell more':null;
+    const ii=investorInterest(b);const why=b.pub?'Listed companies raise money with a secondary offering (below)':S.used['raise'+b.id]?'Already pitched this year':ii.score<40?`Interest too low (${ii.score}/100, needs 40)`:energyLeft()<1?'Needs 1 energy (⚡)':b.own<=.15?'I own too little to sell more':null;
     s.append(h('h4',{},'Investors'),row('💸 Raise money from investors',why||'Sell part of the company. The money goes into the business','',()=>{const base=Math.max(v,T.cost);
       amountModal({title:`Raise money for ${b.name}`,sub:`Investors value it at about ${fmt(investorOffer(ii.score,base,0).pre)} before their money.`,max:base*.5,init:base*.2,btn:a=>`Pitch for ${fmt(a)}`,
         note:a=>`They'd want about ${(investorOffer(ii.score,base,a).eq*100).toFixed(1)}% of the company.`,
@@ -3268,6 +3313,7 @@ function finTab(s,b){
             stay(`${b.name} raised ${fmt(a)} for ${(o.eq*100).toFixed(1)}% (overall score ${fin}). I now own ${Math.round(b.own*100)}%.${b.inv>=.3?' Investors now have board seats.':''}`,'good');}
           else stay(`Investors passed. Overall score ${fin}, they needed 45. I can try again next year.`,'bad');});}});},!!why),interestBox(ii));
     // IPO
+    if(b.pub)listedBlock(s,b);
     if(!b.pub){const need=5e6;s.append(h('h4',{},'Go public'),row('🔔 IPO',v<need?`Needs a company value of ${fmt(need)} (now ${fmt(v)})`:b.yrs<3?`Needs 3 years of trading (now ${b.yrs})`:'Sell 30% of my stake to the public. Shares trade in the Investing tab','',()=>{
       const cashOut=Math.round(v*b.own*.3*1.3);S.money+=cashOut;b.inv+=b.own*.3;b.own*=.7;b.pub={sent:1};b.pub.px=sharePx(b);b.pub.h=[{age:S.age,nw:b.pub.px}];S.fame=Math.min(100,(S.fame||0)+15);unlock('ipo');mile(`Took ${b.name} public`);stay(`${b.name} went public! I cashed out ${fmt(cashOut)}.`,'good')},v<need||b.yrs<3));}
   }
@@ -3311,6 +3357,20 @@ function salaryRow(b){
 /* ================= boot ================= */
 // Warn once a year before aging up if a business has nothing to sell.
 function emptyBiz(){return S.alive&&!S.used.emptyOk?S.biz.find(b=>isGoods(b)&&!b.ousted&&b.products&&!b.products.length):null;}
+// Before a year runs: is this year's stock paid for, and will there be cash at year end for next year's?
+function goodsCheck(){if(!S.alive||!canManage())return false;S.used.goodsOk=S.used.goodsOk||{};
+  for(const b of S.biz){if(b.ousted||!isGoods(b)||S.used.goodsOk[b.id])continue;const T=Tof(b),g=goodsGap(b);
+    const again=()=>{S.used.goodsOk[b.id]=true;$('bAge').onclick();};
+    if(g.cost>=1000){const pw=fundPower(b),lm=bizLoanMax(b);
+      choiceModal(`${T.ic} ${b.name}: goods not fully paid`,`This year's ${isSvc(b)?'services':'stock'} still needs ${fmt(g.cost)} (${g.items.map(x=>x.pr.name).join(', ')}). Without it, ${b.name} runs out partway through the year and loses those sales.`,[
+        [`Pay ${fmt(g.cost)} (business cash, then mine, then credit line)`,()=>{payGoods(b,g.items);line(`I paid ${fmt(g.cost)} so ${b.name} has all the goods it needs this year.`);again();},()=>pw<g.cost],
+        [`Bank loan for ${fmt(g.cost)}`,()=>{addLoan(b,g.cost,.01);b.cash+=g.cost;cfAdd(b,'credit',g.cost);payGoods(b,g.items);line(`${b.name} borrowed ${fmt(g.cost)} for this year's goods.`);again();},()=>lm<g.cost],
+        ['Age up anyway',again]]);return true;}
+    const o=yearEndOutlook(b);
+    if(o&&o.short>=1000){choiceModal(`${T.ic} ${b.name}: heads-up for year end`,`This year's goods are paid for. But by my estimate ${b.name} ends the year with about ${fmt(o.end)}, and next year's goods cost about ${fmt(o.next)}. It may be about ${fmt(o.short)} short, even after its credit line. This is only an estimate.`,[
+        [`Put ${fmt(o.short)} in now`,()=>{S.money-=o.short;b.cash+=o.short;cfAdd(b,'owner',o.short);line(`I put ${fmt(o.short)} into ${b.name} to cover next year's goods.`);again();},()=>S.money<o.short],
+        ['Age up, I\'ll deal with it',again]]);return true;}}
+  return false;}
 function unrunBiz(){return S.alive&&!S.used.unrunOk&&canManage()?S.biz.find(b=>!b.ousted&&runBy(b)==='none'):null;}
 $('statsWrap').onclick=()=>{if(S)charSheet();};$('statsWrap').onkeydown=e=>{if(e.key==='Enter'&&S)charSheet();};
 $('bAge').onclick=()=>{if(modalOpen())return;if(!S.alive)return showDeath();
@@ -3318,6 +3378,7 @@ $('bAge').onclick=()=>{if(modalOpen())return;if(!S.alive)return showDeath();
   if(u)return choiceModal(`${Tof(u).ic} Nobody runs ${u.name}`,'Without me or a CEO in charge, quality and reputation slip every year.',[
     ['Choose who runs it',()=>{mTab='biz';bizView=u.id;bTab='people';openSheet(drawMoney);}],
     ['Age up anyway',()=>{S.used.unrunOk=true;ageUp();}]]);
+  if(goodsCheck())return;
   const b=emptyBiz();if(!b)return ageUp();
   const loss=Math.round(b.staff*wagePer(b)+(Tof(b).fixed*.5*b.locs+Tof(b).fixed*.5*Math.max(0,b.locs-b.prem)*b.rentMult)*cty(b).rent);
   choiceModal(`${Tof(b).ic} ${b.name} has nothing to sell`,`With no ${isSvc(b)?'services':'products'}, it will still pay staff and rent and lose about ${fmt(loss)} this year.`,[
