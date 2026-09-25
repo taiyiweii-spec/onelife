@@ -2283,7 +2283,7 @@ function worldBizYear(){
   S.biz.forEach(b=>{if(!S.rivals.some(r=>r.vs===b.id)&&b.yrs>=1&&rnd()<.2)spawnRival(b);});
   // marketplace
   const mine=S.biz.filter(b=>!BIZ[b.type].tech&&!BIZ[b.type].hit&&!BIZ[b.type].req).map(b=>b.type);
-  S.forSale=S.age>=18?Array.from({length:4},(_,i)=>{const k=i<2&&mine.length&&rnd()<.7?pick(mine):pick(Object.keys(BIZ).filter(k=>!BIZ[k].req&&!HIDDEN.includes(k)));const T=BIZ[k];const rep=R(15,70),locs=R(1,3);const est=Math.round((T.cost*.5*locs)*(.5+rep/100)*R(60,110)/100);return {id:uid(),type:k,name:pick(T.names),rep,locs,price:Math.max(20000,est)};}):[];
+  S.forSale=S.age>=18?Array.from({length:5},(_,i)=>{const k=i<2&&mine.length&&rnd()<.7?pick(mine):pick(Object.keys(BIZ).filter(k=>!BIZ[k].req&&!HIDDEN.includes(k)));const T=BIZ[k];const big=rnd(),tier=T.tech||T.hit?0:big<.1?2:big<.35?1:0;const rep=tier?R(40,85):R(15,70),locs=tier===2?R(10,30):tier===1?R(4,9):R(1,3);const est=Math.round((T.cost*.5*locs)*(.5+rep/100)*R(60,110)/100);const x={id:uid(),type:k,name:pick(T.names)+(tier===2?' Group':''),rep,locs,cities:tier===2?R(3,8):tier===1?R(1,3):1,big:tier,price:Math.max(20000,est)};const f=saleFin(x);if(f.pre>0)x.price=Math.round(Math.max(x.price,f.pre*R(4,8)+f.cash)/1000)*1000;return x;}):[];
   // mentees
   S.mentees.forEach(m=>{m.yrs++;if(m.yrs>=5){m.done=true;const x=rnd();if(x<.7)line(`${m.n}, the founder I mentored, shut down their company.`);else{const g=x<.94?R(50000,300000):R(1000000,6000000);S.money+=g;line(`${m.n}, the founder I mentored, sold their company. My small stake paid ${fmt(g)}!`,'good');mile(`Mentee ${m.n} paid off with ${fmt(g)}`);}}});
   S.mentees=S.mentees.filter(m=>!m.done);
@@ -2544,7 +2544,7 @@ function tabBiz(s){S.biz.forEach(syncStaff);
   // marketplace
   const mTarget=x=>S.biz.filter(b=>b.type===x.type&&!b.ousted&&canAcquire(b)&&!BIZ[x.type].tech&&!BIZ[x.type].hit);
   if(S.forSale&&S.forSale.length&&(S.biz.length<5||S.forSale.some(x=>mTarget(x).length))){s.append(h('h4',{},'Businesses for sale'),h('p',{className:'sub'},'Same type as one of mine? I can merge it in and pay with that business\'s cash first.'));S.forSale.forEach(x=>{const T=BIZ[x.type];const tg=mTarget(x);
-    s.append(row(`${T.ic} ${x.name}`,`${T.n}, ${x.locs} location${x.locs>1?'s':''}, reputation ${x.rep}%. Last year ${saleFin(x).pre>=0?'profit':'loss'} ${fmt(Math.abs(saleFin(x).pre))}.${x.rep<35?' A turnaround project.':''}${tg.length?` Can merge into ${tg.map(b=>b.name).join(' or ')}.`:''}`,fmt(x.price),()=>choiceModal(`${T.ic} ${x.name}`,`A ${T.n.toLowerCase()} for sale.${tg.length?' Merging adds its outlets to my business. Reputation blends by outlet count, and morale dips a little while teams combine.':''}`,[
+    s.append(row(`${T.ic} ${x.name}${x.big===2?' 🏢 Chain':x.big===1?' 🏬 Mid-size':''}`,`${T.n}, ${x.locs} location${x.locs>1?'s':''}${x.cities>1?` in ${x.cities} cities`:''}, reputation ${x.rep}%. Last year ${saleFin(x).pre>=0?'profit':'loss'} ${fmt(Math.abs(saleFin(x).pre))}.${x.rep<35?' A turnaround project.':''}${tg.length?` Can merge into ${tg.map(b=>b.name).join(' or ')}.`:''}`,fmt(x.price),()=>choiceModal(`${T.ic} ${x.name}`,`A ${T.n.toLowerCase()} for sale.${tg.length?' Merging adds its outlets to my business. Reputation blends by outlet count, and morale dips a little while teams combine.':''}`,[
       ...tg.map(b=>[`Merge into ${b.name} (${fmt(Math.max(0,b.cash))} business cash + mine)`,()=>mergeInto(b,x),()=>spendPower(b)<x.price]),
       ['Buy as a separate company',()=>{buyDeal={x,mine:Math.min(Math.max(0,S.money),x.price),loan:0,inv:null};flash=null;drawSheet(true);},()=>S.biz.length>=5],
       ['Not now',()=>{}]],saleReport(x)),S.biz.length>=5&&!tg.length));});}
@@ -3071,7 +3071,7 @@ function buyView(s){
   if(short>0)s.append(h('p',{className:'sub warn'},`Still need ${fmt(short)}. Add my cash, a loan or investors.`));
   if(raised>x.price)s.append(h('p',{className:'sub'},`The extra ${fmt(raised-x.price)} goes into the business as cash.`));
   s.append(h('button',{className:'choice',disabled:short>0||S.money<D.mine||S.biz.length>=5,on:()=>{
-    S.money-=D.mine;const b=newBiz(x.type,x.name,{own:myShare,inv:D.inv?D.inv.eq:0,rep:x.rep,locs:x.locs,staff:f.staff,cash:f.cash+raised-x.price,lastRev:f.rev,lastPre:f.pre,founder:'someone else',turn:x.rep});
+    S.money-=D.mine;const b=newBiz(x.type,x.name,{own:myShare,inv:D.inv?D.inv.eq:0,rep:x.rep,locs:x.locs,cities:x.cities||1,staff:f.staff,cash:f.cash+raised-x.price,lastRev:f.rev,lastPre:f.pre,founder:'someone else',turn:x.rep});
     b.base=T.base;seedProducts(b);if(D.loan)addLoan(b,D.loan,.005);S.biz.push(b);S.forSale=S.forSale.filter(y=>y!==x);mile(`Bought ${x.name}`);
     buyDeal=null;bizView=b.id;bTab='over';
     stay(`I bought ${x.name} for ${fmt(x.price)}${D.loan?`, with a ${fmt(D.loan)} bank loan`:''}${D.inv?` and ${fmt(D.inv.amt)} from investors`:''}. I own ${Math.round(myShare*100)}%.`,'good');}},short>0?`Need ${fmt(short)} more`:`🤝 Buy ${x.name}`));
