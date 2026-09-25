@@ -26,7 +26,9 @@ One Life is a BitLife-style life simulator in the browser. You live one life yea
   ```
   The arguments are the HTML file, the number of lives and a seed. A robot plays full lives (dynasties included). The report shows errors, broken numbers, speed, save size and a **fingerprint**. The same seed always gives the same fingerprint.
 - **Environment variables:** none. There are no API keys or secrets.
-- **Publish:** Artifact tool, `publish` action, with `file_path: index.html`. The live game is https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T (shared with anyone with the link). To update it from a new conversation, pass that URL as `url`, and keep the `sample` capability.
+- **Publish:** Artifact tool, `publish` action, with `file_path: index.html`, keeping the `sample` capability. There are two links:
+  - https://claude.ai/artifact/RLG41cydbEafzToL4TuZ1T is shared with anyone who has the link, but it belongs to an account outside the Beyond Insights organisation. The davidtai@beyondinsights.net account cannot update it (no edit access). It still shows the version before adoption choices.
+  - https://claude.ai/artifact/EL6GNwZG4DuB9TXPdJ9iEd is owned by the davidtai@beyondinsights.net account and is private. It has the latest version (adoption choices, 26 September 2026). To update it from a new conversation, pass that URL as `url`.
 
 ## Built so far
 - The imported game: life events, 16 careers, investing, property, businesses, 42 achievements, 8 challenges, dynasties.
