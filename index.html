@@ -477,6 +477,7 @@ function fillDefaults(s){
   if(!Array.isArray(s.exes))s.exes=[];
   if(!s.mem)s.mem={};
   if(!s.seen)s.seen={};
+  if(!s.cecon)s.cecon=initCecon(s.econ?s.econ.phase:'normal');
   return s;
 }
 function migrate(s){
@@ -567,7 +568,7 @@ function newLife(o={}){
     st:o.st?{happy:o.st.happy,health:o.st.health,smarts:o.st.smarts,looks:o.st.looks}:{happy:R(45,100),health:R(65,100),smarts:R(10,100),looks:R(10,100)},karma:R(25,75),money:o.money||0,sloan:0,eUsed:0,
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
-    hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},homeIdx:o.homeIdx||1,
+    hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
     biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[]};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
   // trait bonuses only apply to a rolled start. If the player set the sliders, their numbers stand.
@@ -823,6 +824,29 @@ const EV=[
 {id:'reckless1',rep:1,min:16,max:70,w:.3,cond:()=>has('reckless'),cls:'bad',auto:()=>{S.st.health-=R(5,15);return pick(['I tried to jump a fence on a scooter. The fence won.','I went cliff diving at a spot with a "No Diving" sign. Sprained both ankles.','I lost a bet and ate a ghost pepper. Hospital visit.'])}},
 ];
 /* ================= economy & markets ================= */
+/* S.econ is the world economy: it drives the global markets (stocks, crypto, bonds) and supplier prices.
+   S.cecon holds each country's own economy: jobs, loans, home prices and business sales follow it. */
+const initCecon=ph=>{const o={};Object.keys(COUNTRIES).forEach(k=>o[k]={phase:ph||'normal',yrs:0});return o;};
+const phaseOf=k=>((S.cecon&&S.cecon[k])||S.econ).phase;
+const localPhase=()=>phaseOf(resKey());
+const bizPhase=b=>phaseOf(b.cty&&COUNTRIES[b.cty]?b.cty:resKey());
+// Each country moves on its own, but tends to follow the world when the world economy turns.
+function countryEconYear(glob,globTurned){
+  S.cecon=S.cecon||initCecon(glob);
+  const mine=resKey();
+  Object.entries(COUNTRIES).forEach(([k,c])=>{const e=S.cecon[k]=S.cecon[k]||{phase:glob,yrs:0},old=e.phase;
+    const follow=globTurned?.5:glob==='crash'?.3:.08;
+    if(rnd()<follow)e.phase=glob;
+    else{const x=rnd(),v=c.vol,g=c.grow;
+      if(old==='normal')e.phase=x<.13*g?'boom':x<.13*g+.11*v?'recession':'normal';
+      else if(old==='boom')e.phase=x<.1*v?'crash':x<.1*v+.35?'normal':'boom';
+      else if(old==='recession')e.phase=x<.4?'normal':x<.4+.08*v?'crash':'recession';
+      else e.phase=x<.6?'recession':'normal';}
+    e.yrs=e.phase===old?e.yrs+1:0;
+    if(k===mine&&e.phase!==old&&S.age>=16){const msg={boom:'is booming.',normal:'has settled back to normal.',recession:'fell into a recession.',crash:'crashed into a deep slump.'}[e.phase];
+      line(`${c.ic} ${c.n}'s economy ${msg}`,e.phase==='boom'||e.phase==='normal'?'good':'bad');}
+  });
+}
 function econYear(){
   const e=S.econ,old=e.phase,x=rnd();
   if(old==='normal')e.phase=x<.15?'boom':x<.27?'recession':'normal';
@@ -830,7 +854,8 @@ function econYear(){
   else if(old==='recession')e.phase=x<.4?'normal':x<.5?'crash':'recession';
   else e.phase=x<.6?'recession':'normal';
   e.yrs=e.phase===old?e.yrs+1:0;
-  if(e.phase!==old&&S.age>=16){const msg={boom:'The economy is booming.',normal:'The economy has settled back to normal.',recession:'The economy fell into a recession.',crash:'The stock market crashed!'}[e.phase];line(`${PHASE[e.phase].ic} ${msg}`,e.phase==='boom'||e.phase==='normal'?'good':'bad');}
+  if(e.phase!==old&&S.age>=16){const msg={boom:'World markets are booming.',normal:'World markets have settled back to normal.',recession:'World markets fell into a slump.',crash:'The global stock market crashed!'}[e.phase];line(`🌍 ${msg}`,e.phase==='boom'||e.phase==='normal'?'good':'bad');}
+  countryEconYear(e.phase,e.phase!==old);
   const [mu,sd]=PHASE[e.phase].m;const mret=mu+gauss()*sd;
   TICK.forEach(t=>{const q=S.mkt[t.s];let r;
     if(t.fixed!=null)r=t.fixed;
@@ -845,7 +870,7 @@ function econYear(){
   });
   S.tip=null;
   S.ret.bal=Math.round(S.ret.bal*(1+S.mkt.MKT.chg/100));
-  const hr=PHASE[e.phase].home+gauss()*3;S.homeIdx*=1+hr/100;
+  const hr=PHASE[localPhase()].home+gauss()*3;S.homeIdx*=1+hr/100;
   S.assets.forEach(a=>{if(a.k==='car')a.v=Math.round(a.v*.88);else a.v=Math.round(a.v*(1+(hr+gauss()*2)/100));});
 }
 
@@ -874,7 +899,7 @@ function propertyYear(){
 function workYear(){
   const j=S.job;if(!j)return;const C=CAREERS[j.c];
   if(S.jail){line(`I lost my job as a ${title(j)} while in prison.`,'bad');S.job=null;return;}
-  const lay={boom:.01,normal:.02,recession:.07,crash:.14}[S.econ.phase]*(C.pub?.35:1);
+  const lay={boom:.01,normal:.02,recession:.07,crash:.14}[localPhase()]*(C.pub?.35:1);
   if(rnd()<lay){const sev=Math.round(j.s*.1);S.money+=sev;line(`I was laid off from my job as a ${title(j)}. I got ${fmt(sev)} in severance.`,'bad');S.job=null;S.st.happy-=12;return;}
   const contrib=Math.round(j.s*S.ret.pct/100),match=Math.round(j.s*Math.min(S.ret.pct,5)/100*.5);
   S.ret.bal+=contrib+match;S.money+=netPay(j.s-contrib);
@@ -897,7 +922,7 @@ function promote(j){const C=CAREERS[j.c];j.lvl++;j.s=Math.max(Math.round(j.s*1.1
 function hire(id){const C=CAREERS[id];S.job={c:id,s:Math.round(C.t[0][1]*payF()),perf:50,lvl:0,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[0][0]}`);}trackBest();}
 
 function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
-function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[S.econ.phase]+resC().rate);}
+function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate);}
 
 /* ================= relationships ================= */
 function divorce(p){
@@ -1109,7 +1134,7 @@ function lifeFacts(){
   const memo=Object.entries(S.mem).map(([k,v])=>k+(v.name?`: ${v.name}`:'')).join(', ');
   return `Name: ${S.name}, age ${S.age}, lives in ${S.city}. Traits: ${S.traits.map(t=>TRAITS[t].n).join(', ')}.
 Stats (0-100): happiness ${S.st.happy}, health ${S.st.health}, smarts ${S.st.smarts}, looks ${S.st.looks}. Cash ${fmt(S.money)}, net worth ${fmt(netWorth())}.
-Job: ${S.job?title(S.job):S.edu.major?'student of '+S.edu.major:S.retired?'retired':'none'}. Businesses: ${S.biz.map(b=>`${b.name} (${BIZ[b.type].n}, reputation ${b.rep}%, ${b.lastPre>=0?'profitable':'losing money'}${b.team.length?', key staff '+b.team.map(p=>p.name).join(' and '):''}${S.rivals.some(r=>r.vs===b.id)?', rival '+S.rivals.filter(r=>r.vs===b.id).map(r=>r.name).join(' and '):''})`).join('; ')||'none'}. Founder fame ${S.fame||0}%. Economy: ${PHASE[S.econ.phase].l}.
+Job: ${S.job?title(S.job):S.edu.major?'student of '+S.edu.major:S.retired?'retired':'none'}. Businesses: ${S.biz.map(b=>`${b.name} (${BIZ[b.type].n}, reputation ${b.rep}%, ${b.lastPre>=0?'profitable':'losing money'}${b.team.length?', key staff '+b.team.map(p=>p.name).join(' and '):''}${S.rivals.some(r=>r.vs===b.id)?', rival '+S.rivals.filter(r=>r.vs===b.id).map(r=>r.name).join(' and '):''})`).join('; ')||'none'}. Founder fame ${S.fame||0}%. Economy where I live: ${PHASE[localPhase()].l}. World markets: ${PHASE[S.econ.phase].l}.
 People: ${people||'none'}. Relationship: ${p?p.type+' '+p.name:'single'}. Kids: ${k.length}.
 Past moments: ${S.miles.slice(-6).map(m=>`age ${m.age}: ${m.t}`).join('; ')||'none yet'}. Remembered people/things: ${memo||'none'}.`;
 }
@@ -1237,8 +1262,8 @@ function jobSheet(){openSheet(s=>{
   else gigs.forEach(([n,ok,why,[lo,hi],stress])=>s.append(row(n,ok()?`${fmt(lo*gm)} to ${fmt(hi*gm)} a year`:why,'',()=>{S.gig={n,pay:Math.round(R(lo,hi)*gm),stress};stay(`I picked up a side gig: ${n.toLowerCase()}.`)},!ok(),2)));
   if(!S.edu.major&&!S.retired){
     s.append(h('h4',{},j?'Switch careers':'Job openings'));
-    const hireMult={boom:1.1,normal:1,recession:.85,crash:.7}[S.econ.phase];
-    if(S.econ.phase==='recession'||S.econ.phase==='crash')s.append(h('p',{className:'sub'},'Hiring is slow in this economy.'));
+    const hireMult={boom:1.1,normal:1,recession:.85,crash:.7}[localPhase()];
+    if(localPhase()==='recession'||localPhase()==='crash')s.append(h('p',{className:'sub'},'Hiring is slow in this economy.'));
     if(S.used.apply)s.append(h('p',{className:'sub'},'I can apply for one job per year.'));
     Object.entries(CAREERS).forEach(([id,C])=>{if(j&&j.c===id)return;
       const [t,sal]=C.t[0];const need=C.sm||0;
@@ -1261,8 +1286,9 @@ let mTab='overview',bizView=null;
 function moneySheet(){bizView=null;launch=null;openSheet(drawMoney);}
 function drawMoney(s){
   if(bizView){const b=S.biz.find(x=>x.id===bizView);if(b)return drawBiz(s,b);bizView=null;}
-  const ph=PHASE[S.econ.phase];
-  s.append(h('h3',{},'Money'),h('p',{className:'sub'},'Economy: ',h('span',{className:'econ'},`${ph.ic} ${ph.l}`)));
+  const ph=PHASE[localPhase()],wp=PHASE[S.econ.phase];
+  s.append(h('h3',{},'Money'),h('p',{className:'sub'},`${resC().ic} ${resC().n}: `,h('span',{className:'econ'},`${ph.ic} ${ph.l}`),' · 🌍 World markets: ',h('span',{className:'econ'},`${wp.ic} ${wp.l}`)));
+  if(mTab==='overview')s.append(h('p',{className:'label'},'Economies around the world'),h('div',{className:'chips',style:'margin:0 0 12px'},Object.entries(COUNTRIES).map(([k,c])=>h('span',{className:'chip',title:PHASE[phaseOf(k)].l},`${c.ic} ${c.n} ${PHASE[phaseOf(k)].ic}`))));
   s.append(h('div',{className:'tabs'},[['overview','Overview'],['invest','Investing'],['biz','Business'],['prop','Property'],['ret','Retirement']].map(([v,l])=>h('button',{'aria-pressed':String(mTab===v),on:()=>{mTab=v;flash=null;drawSheet(true)}},l))));
   if(S.age<18&&mTab!=='overview'&&!(mTab==='biz'&&S.biz.length)&&!(mTab==='prop'&&S.assets.length)){s.append(h('p',{className:'sub'},'I need to be 18 to invest, start a business, or buy property.'));return;}
   if(S.age<18&&mTab!=='overview')s.append(h('p',{className:'sub'},'Held in trust until I turn 18. A trustee runs things for now.'));
@@ -1486,7 +1512,7 @@ function continueAs(k){
   const estate=Math.max(0,Math.round(liquid*.85/heirs));
   const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
   const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
-  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
+  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
   S.biz.forEach(b=>{if(b.successor===k.id){b.rep=Math.min(100,b.rep+10);b.successor=null;line(`I was trained to run ${b.name}. The staff trust me already.`,'good');}b.team=b.team.filter(p=>p.childId!==k.id);b.cands=null;});
   checkAch();
 }
@@ -1853,7 +1879,7 @@ function spendBiz(b,amt){const fc=Math.min(Math.max(0,b.cash),amt);b.cash-=fc;co
 const prodSpread=b=>{const n=Math.max(1,(b.products||[]).length);return 1/(1+.35*(n-1));};
 function prodBase(b,pr){const P=pdef(b,pr.id);return Tof(b).base*demScore(b.type,P)*(1-compScore(b.type,P)/250)/PREF[b.type]*1.1*(PCAL[b.type]||1)/P.price*prodSpread(b)*volF(b);}
 function mkF(b){let mk=1;for(const k in b.ch)if(b.ch[k])mk+=CHANNELS[k].d;if(b.celeb)mk+=b.celeb.d;if(b.loyal)mk+=.06;if(b.online)mk+=b.type==='fashion'?.3:.12;return mk;}
-function commonEst(b){const need=needStaff(b),ratio=need<=0?1:Math.min(1,b.staff/need),econ={boom:.12,normal:0,recession:-.12,crash:-.28}[S.econ.phase]*Tof(b).econ;
+function commonEst(b){const need=needStaff(b),ratio=need<=0?1:Math.min(1,b.staff/need),econ={boom:.12,normal:0,recession:-.12,crash:-.28}[bizPhase(b)]*Tof(b).econ;
   return (1+econ)*(.5+b.rep/100)*(.85+b.q/400)*(lev(b).d||1)*mkF(b)*rivalFactor(b)*starBoost(b)*ratio;}
 const prodMult=(b,pr,price)=>(.8+(pr.rating||50)/250)*priceF(price/bp(b,pdef(b,pr.id)))*(1+(pr.boost||0));
 const estDemand=(b,pr,price)=>Math.round(prodBase(b,pr)*effLocs(b)*commonEst(b)*prodMult(b,pr,price));
@@ -2011,7 +2037,7 @@ function worldBizYear(){
   // suppliers
   S.supIdx=Math.max(.8,Math.min(1.5,S.supIdx*(1+({boom:4,normal:1,recession:-2,crash:-4}[S.econ.phase]+gauss()*6)/100)));
   // rivals
-  S.rivals.forEach(r=>{r.str+=R(-8,6)-(S.econ.phase==='crash'?8:0);r.yrs++;});
+  S.rivals.forEach(r=>{const rb=S.biz.find(b=>b.id===r.vs);r.str+=R(-8,6)-((rb?bizPhase(rb):S.econ.phase)==='crash'?8:0);r.yrs++;});
   S.rivals.filter(r=>r.str<12||!S.biz.some(b=>b.id===r.vs)).forEach(r=>{if(r.str<12&&S.biz.some(b=>b.id===r.vs)){line(`🏳️ My rival ${r.name} closed down.${r.who?` ${fname(r.who)} must be furious.`:''}`,'good');if(r.who)S.st.happy+=5;}});
   S.rivals=S.rivals.filter(r=>r.str>=12&&S.biz.some(b=>b.id===r.vs));
   S.biz.forEach(b=>{if(!S.rivals.some(r=>r.vs===b.id)&&b.yrs>=1&&rnd()<.2)spawnRival(b);});
@@ -2048,7 +2074,7 @@ function bizYear(){
 }
 function simBiz(b){
   const cash0=b.cash;
-  const T=Tof(b),L=lev(b),ph=S.econ.phase;
+  const T=Tof(b),L=lev(b),ph=bizPhase(b);
   const econ={boom:.12,normal:0,recession:-.12,crash:-.28}[ph]*T.econ*cty(b).vol*(L.e||1)*(b.lever==='annual'?1:1);
   if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.base=Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+(b.rep-50)/4+(L.g||0))/100)));}
   if(b.ousted)b.life='absent';
