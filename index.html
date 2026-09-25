@@ -2057,7 +2057,7 @@ function planCost(b,pr,q){const uc=unitCost(b,pr),P=pdef(b,pr.id);if(!isMaker(b)
 const capital=b=>Math.max(0,Math.round(Math.max(0,b.cash)+Math.max(0,creditLimit(b)-(b.credit||0))));
 function maxAfford(b,pr,budget){const cap=prodCap(b,pr);if(planCost(b,pr,cap)<=budget)return cap;let lo=0,hi=cap;while(lo<hi){const m=Math.ceil((lo+hi)/2);if(planCost(b,pr,m)<=budget)lo=m;else hi=m-1;}return lo;}
 function cfAdd(b,k,v){b.cfAcc=b.cfAcc||{prod:0,owner:0,invest:0};b.cfAcc[k]=(b.cfAcc[k]||0)+Math.round(v);}
-function spendBiz(b,amt){const fc=Math.min(Math.max(0,b.cash),amt);b.cash-=fc;const rest=amt-fc;if(rest>0)b.credit=(b.credit||0)+rest;}
+function spendBiz(b,amt){const fc=Math.min(Math.max(0,b.cash),amt);b.cash-=fc;const rest=amt-fc;if(rest>0){b.credit=(b.credit||0)+rest;cfAdd(b,'credit',rest);}}
 /* demand */
 const prodSpread=b=>{const n=Math.max(1,(b.products||[]).length);return 1/(1+.35*(n-1));};
 function prodBase(b,pr){const P=pdef(b,pr.id);return Tof(b).base*demScore(b.type,P)*(1-compScore(b.type,P)/250)/PREF[b.type]*1.1*(PCAL[b.type]||1)/P.price*prodSpread(b)*volF(b);}
@@ -2206,7 +2206,7 @@ function bizSummary(){const L=S.biz.filter(b=>b.pnl);if(!L.length)return null;
     ...L.flatMap(b=>[h('button',{className:'back',style:'text-align:left;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap',on:()=>{bizView=b.id;bTab='fins';flash=null;drawSheet(true)}},`${Tof(b).ic} ${b.name}`),...rw(b).map((v,i)=>h('span',{className:i>=2&&v<0?'bad':''},k(v)))]),
     ...(L.length>1?[h('b',{style:'text-align:left'},'Total'),...tot.map((v,i)=>h('b',{className:i>=2&&v<0?'bad':''},k(v)))]:[]));}
 function cashFlowBlock(b){const c=b.cf;if(!c)return h('p',{className:'sub'},'The cash flow statement appears after the first full year.');
-  const L=[['Opening cash',c.open],['Sales and other income',c.sales],['Operating costs (wages, rent, marketing, other)',-c.ops],['Production and stock paid',-c.prod],['Loan payments and interest',-c.debt],['Tax',-c.tax],['Deposits minus withdrawals',c.owner],['Investments (outlets, R&D, equipment)',-c.invest],['Credit line draws and other',c.other],['Closing cash',c.close]];
+  const L=[['Opening cash',c.open],['Sales and other income',c.sales],['Operating costs (wages, rent, marketing, other)',-c.ops],['Production and stock paid',-c.prod],['Loan payments and interest',-c.debt],['Tax',-c.tax],['Deposits minus withdrawals',c.owner],['Investments (outlets, R&D, equipment)',-c.invest],['Borrowed (credit line and loans)',c.credit||0],['One-off events and popup decisions (fires, fines, lawsuits, patents)',c.other],['Closing cash',c.close]];
   return h('dl',{},...L.filter(([l,v],i)=>i===0||i===L.length-1||Math.round(v)).flatMap(([l,v])=>[h('dt',{},l),h('dd',{className:v<0?'bad':''},fmt(v))]));}
 
 // Marketing is one level per business, priced as a share of sales so it fits any size.
@@ -2304,7 +2304,7 @@ function bizYear(){
   if(S.econ.phase==='crash'&&profitable.length)S.flags.crashProfit=true;
 }
 function simBiz(b){
-  const cash0=b.cash;
+  const cash0=b.cash,acc0=Object.assign({prod:0,owner:0,invest:0},b.cfAcc);
   const T=Tof(b),L=lev(b),ph=bizPhase(b);
   const econ={boom:.12,normal:0,recession:-.12,crash:-.28}[ph]*T.econ*cty(b).vol*(L.e||1)*(b.lever==='annual'?1:1);
   if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.base=Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+(b.rep-50)/4+(L.g||0))/100)));}
@@ -2395,15 +2395,15 @@ function simBiz(b){
   b.rep=clamp(b.rep);b.morale=clamp(b.morale);
   // cash crunch
   if(b.cash<0){
-    const lim=creditLimit(b);const room=Math.max(0,lim-(b.credit||0));if(room>0){const d=Math.min(room,-b.cash);b.credit=(b.credit||0)+d;b.cash+=d;line(`${b.name} drew ${fmt(d)} from its credit line.`);}
+    const lim=creditLimit(b);const room=Math.max(0,lim-(b.credit||0));if(room>0){const d=Math.min(room,-b.cash);b.credit=(b.credit||0)+d;b.cash+=d;cfAdd(b,'credit',d);line(`${b.name} drew ${fmt(d)} from its credit line.`);}
     if(b.cash<0&&b.ousted){const d=-b.cash;b.cash=0;const cut=Math.min(b.own*.2,.1);b.own=+(b.own-cut).toFixed(3);b.inv=+(b.inv+cut).toFixed(3);line(`The board of ${b.name} raised ${fmt(d)} from new investors to cover a shortfall. My stake was diluted to ${Math.round(b.own*100)}%.`,'bad');}
     if(b.cash<0){if(!canManage()){if(S.money>=-b.cash){S.money+=b.cash;b.cash=0;line(`${S.age<18?'My trustee':'My lawyer'} covered a cash shortfall at ${b.name}.`);}else line(closeBiz(b,true),'bad');}
       else Q.push(deficitEvent(b));}
   }
   govYear(b,pre,net,paidDiv);b.prevRep=b.rep;
-  {const A=b.cfAcc||{prod:0,owner:0,invest:0},open=cash0+A.prod-A.owner+A.invest,sales=rev+conRev+royal,ops=wages+rent+mkCost+other,
-    prodOut=A.prod+(cogs-gpre)-gref,debt=interest+Math.round(lp),close=b.cash,oth=close-open-(sales-ops-prodOut-debt-tax+A.owner-A.invest);
-    b.cf={open:Math.round(open),sales,ops,prod:Math.round(prodOut),debt,tax,owner:A.owner,invest:A.invest,other:Math.round(oth),close:Math.round(close)};b.cfClose=close;b.cfAcc={prod:0,owner:0,invest:0};}
+  {const A=b.cfAcc||{prod:0,owner:0,invest:0},open=b.cfClose!=null?b.cfClose:cash0+acc0.prod-acc0.owner+acc0.invest-(acc0.credit||0),sales=rev+conRev+royal,ops=wages+rent+mkCost+other,
+    prodOut=A.prod+(cogs-gpre)-gref,debt=interest+Math.round(lp),close=b.cash,cred=A.credit||0,oth=close-open-(sales-ops-prodOut-debt-tax+A.owner-A.invest+cred);
+    b.cf={open:Math.round(open),sales,ops,prod:Math.round(prodOut),debt,tax,owner:A.owner,invest:A.invest,credit:Math.round(cred),other:Math.round(oth),close:Math.round(close)};b.cfClose=close;b.cfAcc={prod:0,owner:0,invest:0,credit:0};}
   {const P=b.pnl||{};b.fh=b.fh||[];b.fh.push({age:S.age,rev:b.lastRev,ops:opsCost(P),pre:b.lastPre,net:P.net||0,cf:b.cf?b.cf.close-b.cf.open:0,cash:Math.round(b.cash)});if(b.fh.length>10)b.fh.shift();}
 }
 const creditLimit=b=>b.yrs>=1&&!badCredit()?Math.max(20000,Math.round(b.lastRev*.2)):0;
@@ -3006,7 +3006,7 @@ function finTab(s,b){
     // credit line
     const lim=creditLimit(b),room=Math.max(0,lim-(b.credit||0));
     s.append(h('h4',{},'Credit line'),h('p',{className:'sub'},lim?`${fmt(b.credit||0)} used of ${fmt(lim)}. 10% interest a year. It also covers shortfalls automatically.`:'Opens after 1 year of trading with good credit.'),
-      h('div',{className:'btns'},row('Draw','','',()=>amountModal({title:'Draw on the credit line',max:room,init:room/2,btn:a=>`Draw ${fmt(a)}`,onOk:a=>{b.credit=(b.credit||0)+a;b.cash+=a;stay(`Drew ${fmt(a)} from the credit line.`)}}),room<=0),
+      h('div',{className:'btns'},row('Draw','','',()=>amountModal({title:'Draw on the credit line',max:room,init:room/2,btn:a=>`Draw ${fmt(a)}`,onOk:a=>{b.credit=(b.credit||0)+a;b.cash+=a;cfAdd(b,'credit',a);stay(`Drew ${fmt(a)} from the credit line.`)}}),room<=0),
         row('Repay','','',()=>amountModal({title:'Repay the credit line',max:Math.min(b.credit||0,b.cash),init:Math.min(b.credit||0,b.cash),btn:a=>`Repay ${fmt(a)}`,onOk:a=>{b.cash-=a;b.credit-=a;stay(`Repaid ${fmt(a)} of the credit line.`,'good')}}),!b.credit||b.cash<=0)));
     // investors
     const ii=investorInterest(b);const why=b.pub?'Public companies raise money on the stock market':S.used['raise'+b.id]?'Already pitched this year':ii.score<40?`Interest too low (${ii.score}/100, needs 40)`:energyLeft()<1?'Needs 1 energy (⚡)':b.own<=.15?'I own too little to sell more':null;
@@ -3035,10 +3035,10 @@ function deficitEvent(b){
     const part=(what,amt,act)=>[`${what} (${fmt(amt)} of it), then cover the rest`,()=>{act(amt);b.cash+=amt;Q.unshift(deficitEvent(b));return `I put ${fmt(amt)} toward the shortfall. ${fmt(-b.cash)} still to cover.`}];
     const my=Math.max(0,Math.floor(S.money)),lmx=Math.floor(lm/1.2);
     return {text:`${b.name} ran out of money. It's ${fmt(short)} short. How do I keep it alive?`,ch:[
-    my>=short?[`Cover it from my cash (${fmt(short)})`,()=>{S.money-=short;b.cash=0;return `I covered the shortfall to keep ${b.name} alive.`}]:my>1000?part('Put in all my cash',my,a=>{S.money-=a;}):[`Cover it from my cash (I only have ${fmt(my)})`,()=>'',()=>true],
-    lm>=short*1.2?[`Emergency bank loan (${fmt(short*1.2)})`,()=>{addLoan(b,Math.round(short*1.2),.02);b.cash+=Math.round(short*1.2);return `The bank lent ${fmt(short*1.2)} at a higher rate to keep ${b.name} going.`}]:lmx>1000?part('Borrow the most the bank allows',lmx,a=>{addLoan(b,Math.round(a*1.2),.02);b.cash+=Math.round(a*.2);}):[`Emergency bank loan (the bank said no: ${badCredit()?'my credit is damaged':b.yrs<1?'the business is too new':b.lastPre<0?'it lost money':'too much debt already'})`,()=>'',()=>true],
-    room>=short?[`Draw the credit line (${fmt(short)})`,()=>{b.credit=(b.credit||0)+short;b.cash=0;return 'I drew on the credit line to cover it.'}]:room>1000?part('Use the rest of the credit line',Math.floor(room),a=>{b.credit=(b.credit||0)+a;}):[`Draw the credit line (already used up)`,()=>'',()=>true],
-    [`Rescue investor: ${fmt(short*1.5)} for ${(eq*100).toFixed(0)}%`,()=>{const keep=1-eq;b.own*=keep;if(b.co)b.co.share*=keep;b.inv=(b.inv||0)*keep+eq;b.cash+=Math.round(short*1.5);return `A rescue investor put in ${fmt(short*1.5)} for ${(eq*100).toFixed(0)}% of ${b.name}.`},()=>ii.score<30||b.pub||b.own<.2],
+    my>=short?[`Cover it from my cash (${fmt(short)})`,()=>{S.money-=short;b.cash=0;cfAdd(b,'owner',short);return `I covered the shortfall to keep ${b.name} alive.`}]:my>1000?part('Put in all my cash',my,a=>{S.money-=a;cfAdd(b,'owner',a);}):[`Cover it from my cash (I only have ${fmt(my)})`,()=>'',()=>true],
+    lm>=short*1.2?[`Emergency bank loan (${fmt(short*1.2)})`,()=>{addLoan(b,Math.round(short*1.2),.02);b.cash+=Math.round(short*1.2);cfAdd(b,'credit',Math.round(short*1.2));return `The bank lent ${fmt(short*1.2)} at a higher rate to keep ${b.name} going.`}]:lmx>1000?part('Borrow the most the bank allows',lmx,a=>{addLoan(b,Math.round(a*1.2),.02);cfAdd(b,'credit',Math.round(a*1.2));b.cash+=Math.round(a*.2);}):[`Emergency bank loan (the bank said no: ${badCredit()?'my credit is damaged':b.yrs<1?'the business is too new':b.lastPre<0?'it lost money':'too much debt already'})`,()=>'',()=>true],
+    room>=short?[`Draw the credit line (${fmt(short)})`,()=>{b.credit=(b.credit||0)+short;b.cash=0;cfAdd(b,'credit',short);return 'I drew on the credit line to cover it.'}]:room>1000?part('Use the rest of the credit line',Math.floor(room),a=>{b.credit=(b.credit||0)+a;cfAdd(b,'credit',a);}):[`Draw the credit line (already used up)`,()=>'',()=>true],
+    [`Rescue investor: ${fmt(short*1.5)} for ${(eq*100).toFixed(0)}%`,()=>{const keep=1-eq;b.own*=keep;if(b.co)b.co.share*=keep;b.inv=(b.inv||0)*keep+eq;b.cash+=Math.round(short*1.5);cfAdd(b,'owner',Math.round(short*1.5));return `A rescue investor put in ${fmt(short*1.5)} for ${(eq*100).toFixed(0)}% of ${b.name}.`},()=>ii.score<30||b.pub||b.own<.2],
     [`Sell it for whatever I can get`,()=>{const p=Math.round(Math.max(0,BIZ[b.type].cost*.15*b.locs-b.loan.bal)*b.own);return sellBiz(b,p);}],
     ['Let it go under',()=>closeBiz(b,true)]]};
 }
