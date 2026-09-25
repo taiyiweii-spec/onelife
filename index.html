@@ -197,6 +197,10 @@ const netPay=g=>Math.round(g-incomeTax(g));
 const taxAdj=()=>S.regs.tax/.2;
 function corpTax(b,pre){if(pre<=0)return 0;const [lo,hi,th]=cty(b).corp;const t=th?Math.min(pre,th)*lo+Math.max(0,pre-th)*hi:pre*hi;return Math.round(t*taxAdj());}
 const divTax=()=>resC().div;
+// Everyday life follows the country: pay by wage level, homes by rent level, cars partly and tuition by price level.
+const payF=()=>resC().wage;
+const tuition=()=>Math.round(TUITION*resC().pp);
+const shopPrice=it=>Math.round(it.k==='home'?it.p*S.homeIdx*resC().rent:it.p*(.6+.4*resC().pp));
 const topRate=c=>c.inc[c.inc.length-1][1];
 function countrySummary(c){return `Prices ${Math.round(c.pp*100)}% of US, wages ${Math.round(c.wage*100)}%, rent ${Math.round(c.rent*100)}%. Company tax ${c.corp[2]?`${Math.round(c.corp[0]*100)}% up to ${fmt(c.corp[2])} profit, then ${Math.round(c.corp[1]*100)}%`:`${Math.round(c.corp[1]*100)}%`}. Dividend tax ${Math.round(c.div*100)}%. Top income tax ${Math.round(topRate(c)*100)}%. ${c.grow>=1.2?'Fast-growing':c.grow<=.7?'Slow-growing':'Steady'} economy${c.vol>=1.3?', volatile':c.vol<=.8?', stable':''}. ${c.corrupt>=.3?'High corruption risk. ':''}${c.red>=1.3?'Lots of red tape.':c.red<=.6?'Easy to do business.':''}`;}
 function moveSheet(){openSheet(s=>{const cur=resKey(),mc=k=>Math.round(8000*COUNTRIES[k].rent);
@@ -637,7 +641,7 @@ const EV=[
   ['Accept the scholarship',()=>{S.talent.lvl=3;S.talent.at=S.age;S.flags.scholarship=true;S.st.happy+=15;mile(`Earned a ${S.talent.k} scholarship`);return 'Free tuition! My parents screamed.'}],
   ['Turn it down',()=>{S.talent.lvl=3;S.talent.at=S.age;return 'I turned it down to keep my options open.'}]]},
 {id:'talent4',pri:1,min:21,max:45,cond:()=>S.talent&&S.talent.lvl===3&&S.age>=S.talent.at+4,text:()=>({music:'Someone who heard me play years ago wants me to perform at weddings on weekends.',soccer:'A local club asked me to coach their youth team on weekends.',drawing:'A café owner who saw my old art show wants to commission murals.'})[S.talent.k],ch:[
-  ['Say yes',()=>{S.talent.lvl=4;S.flags.talentPay=R(8000,22000);unlock('prodigy');mile(`Turned a childhood love of ${S.talent.k} into paid work`);S.st.happy+=10;return `I said yes. It pays about ${fmt(S.flags.talentPay)} a year and I love it.`}],
+  ['Say yes',()=>{S.talent.lvl=4;S.flags.talentPay=Math.round(R(8000,22000)*payF());unlock('prodigy');mile(`Turned a childhood love of ${S.talent.k} into paid work`);S.st.happy+=10;return `I said yes. It pays about ${fmt(S.flags.talentPay)} a year and I love it.`}],
   ['I\'m too busy',()=>{S.talent.lvl=0;return 'I said no. Sometimes I still wonder.'}]]},
 {id:'sciencefair',min:9,max:13,text:'The school science fair is coming up.',ch:[
   ['Build a baking-soda volcano',()=>{S.st.smarts+=2;S.st.happy+=3;return 'It erupted all over the judge. Honorable mention.'}],
@@ -889,8 +893,8 @@ function workYear(){
 }
 function trackBest(){if(S.job&&(!S.bestJob||S.job.s>S.bestJob.s))S.bestJob={t:title(S.job),s:S.job.s};}
 function canPromote(j){const C=CAREERS[j.c];return j.lvl<C.t.length-1&&j.lvlYrs>=1&&S.st.smarts>=reqSm(C,j.lvl+1);}
-function promote(j){const C=CAREERS[j.c];j.lvl++;j.s=Math.max(Math.round(j.s*1.12),C.t[j.lvl][1]);j.lvlYrs=0;j.perf=55;S.st.happy+=10;mile(`Promoted to ${title(j)}`);trackBest();sfx('good');return `I was promoted to ${title(j)}! New salary: ${fmt(j.s)}.`;}
-function hire(id){const C=CAREERS[id];S.job={c:id,s:C.t[0][1],perf:50,lvl:0,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[0][0]}`);}trackBest();}
+function promote(j){const C=CAREERS[j.c];j.lvl++;j.s=Math.max(Math.round(j.s*1.12),Math.round(C.t[j.lvl][1]*payF()));j.lvlYrs=0;j.perf=55;S.st.happy+=10;mile(`Promoted to ${title(j)}`);trackBest();sfx('good');return `I was promoted to ${title(j)}! New salary: ${fmt(j.s)}.`;}
+function hire(id){const C=CAREERS[id];S.job={c:id,s:Math.round(C.t[0][1]*payF()),perf:50,lvl:0,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[0][0]}`);}trackBest();}
 
 function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
 function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[S.econ.phase]+resC().rate);}
@@ -965,7 +969,7 @@ function yrSchool(){
 }
 function yrEcon(){ econYear(); }
 function yrCollege(){
-  if(S.edu.major&&!S.jail){S.edu.yrs++;if(!S.flags.scholarship||MAJORS[S.edu.major].grad)S.sloan+=TUITION;
+  if(S.edu.major&&!S.jail){S.edu.yrs++;if(!S.flags.scholarship||MAJORS[S.edu.major].grad)S.sloan+=tuition();
     if(S.edu.yrs>=MAJORS[S.edu.major].y){const m=S.edu.major;S.edu.degrees.push(m);line(`I graduated with a degree in ${m}!`,'good');mile(`Earned a ${m} degree`);S.edu.major=null;S.st.smarts+=6;S.st.happy+=10;}
     else line(`I finished year ${S.edu.yrs} of ${S.edu.major}.${S.flags.scholarship&&!MAJORS[S.edu.major].grad?' My scholarship covered tuition.':' Tuition went on my student loans.'}`);}
 }
@@ -1203,7 +1207,7 @@ function jobSheet(){openSheet(s=>{
   if(S.age<18){s.append(h('p',{className:'sub'},`I'm in ${S.age<11?'elementary':S.age<14?'middle':'high'} school.`),
     row('Study harder','Boost smarts','',()=>{S.used.study=true;S.st.smarts+=Math.round(R(2,6)*(has('genius')?1.5:1));stay('I hit the books hard this year.')},S.used.study,1),
     row('Skip class','Fun now, grades later','',()=>{S.used.skip=true;S.st.happy+=5;S.st.smarts-=3;stay('I skipped class with friends.')},S.used.skip));
-    if(S.age>=15)s.append(row('Part-time job','Earn a little cash','',()=>{S.used.pt=true;const p=R(1500,4000);S.money+=p;S.st.happy-=2;stay(`I worked a part-time job and earned ${fmt(p)}.`,'good')},S.used.pt,2));
+    if(S.age>=15)s.append(row('Part-time job','Earn a little cash','',()=>{S.used.pt=true;const p=Math.round(R(1500,4000)*payF());S.money+=p;S.st.happy-=2;stay(`I worked a part-time job and earned ${fmt(p)}.`,'good')},S.used.pt,2));
     return;}
   const dg=S.edu.degrees;
   s.append(h('p',{className:'sub'},`Education: ${dg.length?dg.join(', '):S.flags.hs?'High school diploma':'No diploma'}${S.edu.major?`. Studying ${S.edu.major}, year ${S.edu.yrs+1} of ${MAJORS[S.edu.major].y}`:''}.${S.sloan>0?` Student loans: ${fmt(S.sloan)} at 4%.`:''}`));
@@ -1226,7 +1230,7 @@ function jobSheet(){openSheet(s=>{
     if(S.age>=60)s.append(row('Retire',C.pub?'Public-sector pension: 50% of salary yearly':'Live off savings and retirement account','',()=>{S.pension=C.pub?Math.round(j.s*.5):0;S.retired=true;const t=title(j);S.job=null;mile(`Retired as a ${t}`);stay(`I retired from being a ${t}.${S.pension?` Pension: ${fmt(S.pension)}/yr.`:''}`,'good')}));
   }
   s.append(h('h4',{},'Side gig this year'));
-  const gm=has('hustler')?1.3:1;
+  const gm=(has('hustler')?1.3:1)*payF();
   const gigs=[['Rideshare driving',()=>hasCar(),'Needs a car',[6000,14000],3],['Food delivery',()=>true,'',[3000,8000],2],['Tutoring',()=>S.st.smarts>=60,'Needs smarts 60+',[4000,10000],1],
     ['Freelance design or code',()=>dg.includes('Fine Arts')||dg.includes('Computer Science')||(has('creative')&&S.st.smarts>=50),'Needs an Arts or CS degree',[8000,30000],2],['Resell stuff online',()=>true,'',[500,6000],0]];
   if(S.gig)s.append(h('p',{className:'sub'},`Doing ${S.gig.n.toLowerCase()} this year. Pay arrives when I age up.`));
@@ -1239,7 +1243,7 @@ function jobSheet(){openSheet(s=>{
     Object.entries(CAREERS).forEach(([id,C])=>{if(j&&j.c===id)return;
       const [t,sal]=C.t[0];const need=C.sm||0;
       const why=S.flags.hs===false?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasCar()?'Needs a car':C.clean&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;
-      s.append(row(t,why||`${C.n}. Up to ${C.t[C.t.length-1][0].toLowerCase()}.`,fmt(sal),()=>{S.used.apply=true;
+      s.append(row(t,why||`${C.n}. Up to ${C.t[C.t.length-1][0].toLowerCase()}.`,fmt(sal*payF()),()=>{S.used.apply=true;
         const chance=(.55+(S.st.smarts-need)/200+S.st.looks/500+(has('charming')?.05:0))*hireMult;
         if(rnd()<chance){const had=S.job;hire(id);stay(`I got hired as a ${t}!${had?' I left my old job.':''}`,'good')}
         else stay(`I interviewed to be a ${t} but didn't get it.`,'bad')},!!why||S.used.apply,1));});
@@ -1248,7 +1252,7 @@ function jobSheet(){openSheet(s=>{
     const opts=Object.entries(MAJORS).filter(([n,m])=>!dg.includes(n)&&(!m.grad||dg.some(d=>!MAJORS[d].grad)));
     if(opts.length){s.append(h('h4',{},dg.length?'More education':'University'));if(j)s.append(h('p',{className:'sub'},'Studying is full-time. Enrolling means quitting my job.'));
       opts.forEach(([n,m])=>{const sm=m.sm-(n==='Fine Arts'&&has('creative')?10:0);
-        s.append(row(n+(m.grad?' (graduate)':''),`${m.y} years, ${fmt(TUITION)}/yr in loans. Needs smarts ${sm}+`,'',()=>{if(S.job){S.job=null;}S.edu.major=n;S.edu.yrs=0;stay(`I enrolled to study ${n}.`,'good')},S.st.smarts<sm));});}
+        s.append(row(n+(m.grad?' (graduate)':''),`${m.y} years, ${fmt(tuition())}/yr in loans. Needs smarts ${sm}+`,'',()=>{if(S.job){S.job=null;}S.edu.major=n;S.edu.yrs=0;stay(`I enrolled to study ${n}.`,'good')},S.st.smarts<sm));});}
   }
 });}
 
@@ -1346,7 +1350,7 @@ function tabProp(s){
   if(S.age>=18)s.append(h('p',{className:'sub'},`Living costs: ${fmt(livingCost())}/yr${hs.some(a=>!a.rent)?' (I own my home)':' in rent until I own a home'}.`));
   if(ro)return;
   s.append(h('h4',{},'Buy'),h('p',{className:'sub'},'Homes add 2% in closing costs to buy and 6% in agent fees to sell.'));
-  SHOP.forEach(it=>{const p=Math.round(it.k==='home'?it.p*S.homeIdx:it.p);
+  SHOP.forEach(it=>{const p=shopPrice(it);
     s.append(row(it.n,it.k==='car'?'Vehicle':'Property. Rent it out for about 5.5% a year',fmt(p),()=>buyModal(it,p),S.money<(it.k==='home'?p*.22:p)));});
 }
 function buyModal(it,p){
