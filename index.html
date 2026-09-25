@@ -2188,6 +2188,23 @@ function newProduct(b,P){return {id:P.id,name:P.n,price:bp(b,P),qty:0,inv:0,rati
 // Auto production: plan about what customers will want next year, less stock already on hand.
 const autoQty=(b,pr)=>{const est=estDemand(b,pr,pr.price),want=pr.last&&pr.last.price===pr.price?(est*.25+pr.last.dem*.75)*1.03:est*.9;
   return Math.min(prodCap(b,pr),Math.max(0,Math.round(want)-(isSvc(b)||pdef(b,pr.id).pe?0:(pr.inv||0))));};
+// Best-profit plan for automatic production: try prices from 30% to 300% of the suggestion and keep the one that earns
+// the most after making costs (and staff, for services). Under 65% reputation the price stays within 15% above the
+// suggestion, because premium prices without the reputation to match wear reputation down.
+const AUTO_GUARD_REP=65;
+// pr.kf learns, slowly, how far real demand runs above or below the estimate (trends, awards, synergies), without
+// chasing one lucky or unlucky year. Each price and quantity is scored across quiet, normal and busy years.
+const AUTO_SCEN=[[-1.28,.2],[-.52,.2],[0,.2],[.52,.2],[1.28,.2]],AUTO_QF=[.85,.95,1,1.08,1.16,1.25,1.4];
+function bestPlan(b,pr,budget){const P=pdef(b,pr.id),ref=bp(b,P),svc=isSvc(b),stock=svc||P.pe?0:(pr.inv||0),k=pr.kf||1,staffU=svc?wagePer(b)/upStaff(b,P):0,uc=unitCost(b,pr);
+  const maxQ=budget===Infinity?prodCap(b,pr):Math.min(prodCap(b,pr),maxAfford(b,pr,budget==null?capital(b):budget)),hi=b.rep<AUTO_GUARD_REP?1.15:3;
+  const sd=Math.min(.6,Tof(b).vol*(lev(b).v||1)*runFx(b).noise*(Tof(b).weather?1.4:1));let best=null;
+  const fs=[1];for(let i=0;i<=90;i++)fs.push(.3+(hi-.3)*i/90);
+  fs.forEach(f=>{const p=Math.round(ref*f*100)/100,mean=estDemand(b,pr,p)*k;
+    AUTO_QF.forEach(qf=>{const q=Math.max(0,Math.min(maxQ,Math.round(mean*qf-stock))),cost=planCost(b,pr,q)+q*staffU;
+      const prof=AUTO_SCEN.reduce((a,[z,wt])=>{const dem=mean*Math.max(.25,1+z*sd),sold=Math.min(stock+q,dem),left=stock+q-sold;
+        return a+wt*(sold*p-(P.pe||svc?0:-left*uc*.85));},0)-cost-(P.pe||svc?0:stock*uc*.85);
+      if(!best||prof>best.prof+.5)best={price:p,qty:q,prof:Math.round(prof)};});});
+  return best;}
 function seedProducts(b){if(!isGoods(b))return;b.products=b.products||[];if(b.products.length)return;
   const P=[...PCAT[b.type]].sort((x,y)=>(y.dem-y.comp/2)-(x.dem-x.comp/2))[0];const pr=newProduct(b,P);b.products.push(pr);pr.qty=Math.min(prodCap(b,pr),Math.max(1,estDemand(b,pr,pr.price)));}
 function ensureGoods(b){if(isGoods(b)&&!b.products)seedProducts(b);}
@@ -2198,6 +2215,7 @@ function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;c
     else{made=Math.min(Math.round(pr.qty||0),prodCap(b,pr));c=planCost(b,pr,made);}
     // One demand for the whole year. An unreliable supplier sometimes delivers short (an eighth of the year's supply, refunded).
     const D=prodBase(b,pr)*effLocs(b)*common*prodMult(b,pr,pr.price),wcap=pr.ws&&isMaker(b)?wsCap(b,P):0;
+    {const E=estDemand(b,pr,pr.price);if(E>0)pr.kf=+Math.max(.7,Math.min(1.5,(pr.kf||1)*.7+D/E*.3)).toFixed(3);}
     let stock=pr.inv||0,arr=made,short=false;
     if(made>0&&rnd()<Math.min(.9,(100-sp.rel)/62.5)){arr*=7/8;short=true;refund+=c/8;}
     stock+=arr;const sold=Math.min(stock,D);stock-=sold;
@@ -2210,7 +2228,8 @@ function goodsYear(b,common){let rev=0,cost=0,prepaid=0,refund=0,soldOut=false;c
     const svc=isSvc(b);lines.push(`${P.ic} ${pr.name}: ${svc?`booked ${fmtN(sold)} of ${fmtN(made)} ${P.u} offered`:`sold ${fmtN(sold)} of ${fmtN(Math.round(D))} wanted`}${ws>=1?`, ${fmtN(ws)} sold wholesale`:''}${!svc&&waste>=1?`, ${fmtN(waste)} spoiled`:''}${pr.inv?`, ${fmtN(pr.inv)} left in stock`:''}.${short?` ${sp.n} came up short on a delivery.`:''}`);});
   lines.forEach(t=>line(t));
   return {rev,cost,prepaid,refund:Math.round(refund),soldOut};}
-function renewPlans(b){(b.products||[]).forEach(pr=>{if(pr.auto)pr.qty=autoQty(b,pr);if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;const cost=planCost(b,pr,q);
+// Auto plans ignore today's cash: a shortfall goes through planShort (my cash, a loan, or making less) as before.
+function renewPlans(b){(b.products||[]).forEach(pr=>{if(pr.auto){const x=bestPlan(b,pr,Infinity);pr.price=x.price;pr.qty=x.qty;}if(!(pr.qty>0)){pr.paidQty=0;pr.paid=0;return;}const want=Math.min(pr.qty,prodCap(b,pr));let q=want;const cost=planCost(b,pr,q);
   if(cost>capital(b)){q=maxAfford(b,pr,capital(b));}
   const c=planCost(b,pr,q);spendBiz(b,c);cfAdd(b,'prod',c);pr.paidQty=q;pr.paid=c;
   if(q<want)planShort(b,pr,want,q);});}
@@ -2300,12 +2319,14 @@ function planModal(b,pr,fresh){const P0=pdef(b,pr.id),P=Object.assign({},P0,{pri
     if(svc){const st=svcStaff(b,{pr,q:qty});rows.push(['Staff needed (all services)',`${st}, about ${fmt(st*wagePer(b))}/yr in wages`]);}
     rows.push(['Plan cost',fmt(cost)],['Available capital after this plan',fmt(left)],['Rough profit on this',fmt(Math.round(sell*price-cost))]);
     info.append(h('dl',{},...rows.flatMap(([a,v],i)=>[h('dt',{},a),h('dd',{className:(i===rows.length-2&&left<=0)||(i===rows.length-1&&sell*price-cost<0)?'bad':''},v)])),
-      h('p',{className:'sub'},`${price>P.price*1.1?'Pricing above the suggestion cuts demand. ':price<P.price*.9?'Pricing below the suggestion lifts demand but thins margins. ':''}${avail>est*1.2?(svc?'Much more capacity than demand, so a lot will go unused. ':P.pe?'Much more than demand, so expect spoilage. ':'More than demand, so extra stock carries over. '):avail<est*.8?'Less than demand, so expect to sell out. ':''}${maxQ<maxCap?`Capital limits me to ${fmtN(maxQ)}. `:''}The plan is paid now from business cash, then the credit line, and renews automatically each year.${svc?' Staff wages are paid separately.':''}`));};
-  pR.oninput=()=>{price=+pR.value;upd();};qR.oninput=()=>{manual();qty=+qR.value;qN.value=qty;upd();};qN.oninput=()=>{manual();qty=+qN.value||0;qR.value=qty;upd();};
-  const matchBtn=h('button',{className:'row',on:()=>{qty=Math.min(maxQ,Math.max(0,estDemand(b,pr,price)-(pr.inv||0)));qR.value=qty;qN.value=qty;upd();}},'Match expected demand');
-  const sugBtn=h('button',{className:'row',on:()=>{price=P.price;pR.value=price;upd();}},'Use suggested price');
-  let auto=!!pr.auto;const autoTog=tog('🤖 Automatic production',`Each year, ${svc?'offer':'make'} about what customers will want. Moving the quantity turns it off.`,auto,()=>{auto=!auto;autoTog.setAttribute('aria-pressed',String(auto));if(auto){qty=Math.min(maxQ,Math.max(0,estDemand(b,pr,price)-(pr.inv||0)));qR.value=qty;qN.value=qty;upd();}});
+      h('p',{className:'sub'},`${auto?`🤖 Automatic: this is the best-profit price and ${svc?'capacity':'quantity'} for this year${b.rep<AUTO_GUARD_REP?`. While reputation is under ${AUTO_GUARD_REP}% (now ${b.rep}%), it stays within 15% above the suggested price to protect the brand`:''}. `:''}${price>P.price*1.1?'Pricing above the suggestion cuts demand. ':price<P.price*.9?'Pricing below the suggestion lifts demand but thins margins. ':''}${avail>est*1.2?(svc?'Much more capacity than demand, so a lot will go unused. ':P.pe?'Much more than demand, so expect spoilage. ':'More than demand, so extra stock carries over. '):avail<est*.8?'Less than demand, so expect to sell out. ':''}${maxQ<maxCap?`Capital limits me to ${fmtN(maxQ)}. `:''}The plan is paid now from business cash, then the credit line, and renews automatically each year.${svc?' Staff wages are paid separately.':''}`));};
+  pR.oninput=()=>{manual();price=+pR.value;upd();};qR.oninput=()=>{manual();qty=+qR.value;qN.value=qty;upd();};qN.oninput=()=>{manual();qty=+qN.value||0;qR.value=qty;upd();};
+  const matchBtn=h('button',{className:'row',on:()=>{manual();qty=Math.min(maxQ,Math.max(0,estDemand(b,pr,price)-(pr.inv||0)));qR.value=qty;qN.value=qty;upd();}},'Match expected demand');
+  const sugBtn=h('button',{className:'row',on:()=>{manual();price=P.price;pR.value=price;upd();}},'Use suggested price');
+  let auto=!!pr.auto;const autoTog=tog('🤖 Automatic production',`Each year, set the price and ${svc?'capacity':'quantity'} for the best profit. Moving either slider turns it off.`,auto,()=>{auto=!auto;autoTog.setAttribute('aria-pressed',String(auto));if(auto)applyBest();upd();});
   const manual=()=>{if(auto){auto=false;autoTog.setAttribute('aria-pressed','false');}};
+  const applyBest=()=>{const x=bestPlan(b,pr,Infinity);price=x.price;qty=Math.min(maxQ,x.qty);pR.value=price;qR.value=qty;qN.value=qty;};
+  if(auto)applyBest();
   ok.onclick=()=>{const cost=planCost(b,pr,qty),delta=cost-paid;if(delta>0)spendBiz(b,delta);else b.cash-=delta;cfAdd(b,'prod',delta);
     pr.price=+price.toFixed(2);pr.qty=qty;pr.auto=auto;pr.paidQty=qty;pr.paid=cost;closeModal();syncStaff(b);stay(`Plan for ${pr.name}: ${fmtN(qty)} at ${fmtP(pr.price)} each. ${delta>0?`Paid ${fmt(delta)}.`:delta<0?`Refunded ${fmt(-delta)}.`:''}`);};
   m.append(h('h3',{},`📅 ${P.ic} ${pr.name}`),h('p',{className:'sub'},fresh?'Ready. Set this year\'s plan and it starts selling right away.':'Edit this year\'s plan.'),pL,pR,autoTog,qL,qR,qN,h('div',{className:'btns',style:'grid-template-columns:1fr 1fr'},sugBtn,matchBtn),info,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
@@ -2813,7 +2834,7 @@ function bizTip(b){const svc=isSvc(b),word=svc?'service':'product',ph=bizPhase(b
   if(b.ousted)return '';
   if(isGoods(b)&&b.products&&!b.products.length)return `Nothing is on sale, so there are no sales. Open ${svc?'Services':'Products'} and add a ${word}.`;
   const prs=b.products||[];
-  const hi=prs.find(p=>p.price>bp(b,pdef(b,p.id))*1.15);if(hi)return `${hi.name} is priced ${Math.round((hi.price/bp(b,pdef(b,hi.id))-1)*100)}% above the suggestion, so fewer customers buy. Try the suggested price.`;
+  const hi=prs.find(p=>!p.auto&&p.price>bp(b,pdef(b,p.id))*1.15);if(hi)return `${hi.name} is priced ${Math.round((hi.price/bp(b,pdef(b,hi.id))-1)*100)}% above the suggestion, so fewer customers buy. Try the suggested price.`;
   const waste=prs.find(p=>!p.auto&&p.last&&p.last.made>0&&p.last.waste>p.last.made*.2);if(waste)return `A lot of ${waste.name.toLowerCase()} went to waste last year. Turn on automatic production in its plan.`;
   const out=prs.find(p=>p.last&&p.last.dem>p.last.sold*1.2);if(out)return `${out.name} sold out: about ${fmtN(out.last.dem-out.last.sold)} more customers wanted it. ${svc?'Offer more capacity':'Make more'} or raise the price a little.`;
   if(b.staff<needStaff(b))return `Understaffed: ${b.staff} of ${needStaff(b)}. Turn on auto-hire on the People tab.`;
@@ -2913,7 +2934,7 @@ function ceoManage(b){if(runBy(b)!=='ceo'||!b.ceo)return;const c=b.ceo,T=Tof(b),
     return false;};
   // ---- products ----
   (b.products||[]).forEach(pr=>{const P=pdef(b,pr.id),L=pr.last;if(!P)return;
-    if(L){const uc=unitCost(b,pr),ref=bp(b,P);
+    if(L&&!pr.auto){const uc=unitCost(b,pr),ref=bp(b,P);
       let f=L.dem>L.sold*1.03?1.05:(L.waste>L.sold*.05||(pr.inv||0)>L.sold*.1||(isSvc(b)&&L.sold<L.made*.9))?.95:1;
       if(rnd()<(70-c.sales)/120)f=pick([.9,.95,1.05,1.1]);
       const np=Math.round(Math.max(uc*1.1,Math.min(ref*1.4,Math.max(ref*.75,pr.price*f)))*100)/100;
