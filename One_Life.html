@@ -596,6 +596,8 @@ const ACH={
  devgain:['🌆','Skyline','Sell a development for a $1M profit'],
  highroller:['🎰','High roller','Win $100,000 at the casino in one year'],
  gavel:['🔨','Going once','Win an auction lot for $1M or more'],
+ bigday:['💍','Big day','Get married'],
+ lovebirds:['💞','Happily ever after','Stay married for 25 years'],
  flip:['💹','Sharp eye','Sell a collectible for 3 times what you paid'],
  curator:['🏛️','Curator','Own 10 collectibles at once'],
  fullset:['🧩','Full set','Own a collectible in every category'],
@@ -1026,6 +1028,56 @@ const EV=[
   text:c=>c.p.rel>=55?`${fname(c.p.name)} surprised me by asking to renew our vows.`:`${fname(c.p.name)} sat me down and said they want a separation.`,
   ch:c=>{const done=()=>{delete S.mem.marr;};return c.p.rel>=55?[['Say yes',()=>{done();S.money-=5000;S.st.happy+=15;c.p.rel+=10;return 'We renewed our vows on a beach. Everyone cried.'}]]
    :[['Fight for us',()=>{done();if(rnd()<.5+(has('charming')?.2:0)){c.p.rel+=30;return 'We worked through it. We\'re stronger now.'}return divorce(c.p)}],['Agree to divorce',()=>{done();return divorce(c.p)}]]}},
+/* ---- relationship storylines ---- */
+{id:'anniv',rep:1,min:22,max:90,w:1.4,cond:()=>partner()&&partner().rel>=40,init:()=>({p:partner()}),text:c=>`My anniversary with ${fname(c.p.name)} is coming up.`,ch:[
+  ['Plan something special ($500)',c=>{S.money-=500;c.p.rel+=relGain(12);sparkUp(c.p,15);S.st.happy+=5;return 'I planned a surprise. They loved it.'},()=>S.money<500],
+  ['A quiet dinner at home',c=>{c.p.rel+=5;sparkUp(c.p,5);return 'We had a simple dinner and talked about old times.'}],
+  ['Forget about it',c=>{c.p.rel-=14;sparkUp(c.p,-10);S.st.happy-=3;return 'I forgot. The silence at breakfast said everything.'}]]},
+{id:'tempt',rep:1,min:22,max:65,w:1.1,cond:()=>partner()&&S.job,init:()=>({p:partner()}),text:c=>`Someone at work keeps flirting with me, and I am with ${fname(c.p.name)}.`,ch:[
+  ['Shut it down politely',c=>{c.p.rel+=3;addKarma(2);return 'I made it clear I was taken. It felt good to be honest.'}],
+  ['Flirt back',c=>{if(rnd()<.45){c.p.rel-=35;addKarma(-4);S.st.happy-=6;return `${fname(c.p.name)} found out. It nearly ended us.`}addKarma(-3);S.st.happy+=4;return 'It was a thrill, and nobody found out. I feel a little guilty.'},null,'reckless'],
+  ['Tell my partner about it',c=>{c.p.rel+=6;return `${fname(c.p.name)} appreciated my honesty, and we laughed about it.`}]]},
+{id:'pkids',min:24,max:44,cond:()=>partner()&&partner().kids&&!kids().length&&partner().rel>=60&&!mem('pkids'),init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} wants to talk about starting a family.`,ch:[
+  ['Yes, let us try',c=>{remember('pkids');c.p.rel+=8;S.st.happy+=6;return 'We agreed to start trying for a baby. It feels exciting and a little scary.'}],
+  ['Not yet',c=>{remember('pkids');c.p.rel-=5;return 'I asked for more time. They understood, mostly.'}],
+  ['I do not want children',c=>{remember('pkids');c.p.rel-=18;return 'It was a hard conversation. They had hoped for a different answer.'}]]},
+{id:'pjob',min:25,max:55,cond:()=>partner()&&partner().rel>=55,init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} was offered a great job in another city and hopes I will come along.`,ch:[
+  ['Move with them ($6,000)',c=>{S.money-=6000;const cs=resC().cities.filter(x=>!S.city.startsWith(x));if(cs.length)S.city=`${pick(cs)}, ${resC().n}`;if(S.job){S.job=null;}c.p.rel+=15;return `We moved to ${S.city.split(',')[0]} together. I gave up my job, but we are closer.`},()=>S.money<6000],
+  ['Stay where I am',c=>{c.p.rel-=22;S.st.happy-=5;return 'I stayed. They took the job, and things between us grew distant.'}],
+  ['Ask them to stay',c=>{if(rnd()<.5){c.p.rel+=4;return 'They turned it down for me. I hope I never make them regret it.'}c.p.rel-=20;return 'They resented being asked and took the job anyway.'}]]},
+{id:'cheated',rep:1,min:24,max:80,w:.8,cond:()=>partner()&&partner().rel<38,init:()=>({p:partner()}),text:c=>`I found messages on ${fname(c.p.name)}'s phone. They have been seeing someone else.`,ch:[
+  ['Confront them',c=>{if(rnd()<.5){c.p.rel+=10;S.st.happy-=4;return 'They broke down and apologised. I do not know if I can trust them again.'}return c.p.type==='Spouse'?divorce(c.p):breakUp(c.p);}],
+  ['Forgive them',c=>{c.p.rel-=5;S.st.happy-=8;return 'I chose to forgive. The hurt has not gone away.'}],
+  ['End it',c=>c.p.type==='Spouse'?divorce(c.p):breakUp(c.p)]]},
+{id:'bored',rep:1,min:22,max:90,w:1.5,cond:()=>partner()&&sparkOf(partner())<25,init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} says things have become predictable. They miss the way we used to be.`,ch:[
+  ['Plan a surprise weekend away ($1,500)',c=>{S.money-=1500;sparkUp(c.p,30);c.p.rel+=8;S.st.happy+=5;return 'I whisked them away for the weekend. The old spark is back.'},()=>S.money<1500],
+  ['Try a new hobby together',c=>{sparkUp(c.p,15);c.p.rel+=4;return 'We signed up for a dance class. We were terrible and had a great time.'}],
+  ['Tell them it is just a phase',c=>{sparkUp(c.p,-5);c.p.rel-=10;return 'I brushed it off. They went quiet.'}]]},
+{id:'exret',rep:1,min:22,max:80,w:.9,cond:()=>partner()&&S.exes.length>0,init:()=>({p:partner(),ex:fname(pick(S.exes))}),text:c=>`${c.ex}, my ex, texted me out of nowhere: "I have been thinking about you."`,ch:[
+  ['Ignore it',c=>{c.p.rel+=2;return 'I left it unanswered and deleted the message.'}],
+  ['Show it to my partner and delete it',c=>{c.p.rel+=5;return `${fname(c.p.name)} was touched that I told them.`}],
+  ['Reply and meet for coffee',c=>{if(rnd()<.5){c.p.rel-=30;addKarma(-3);return `${fname(c.p.name)} found out about the coffee. They were furious.`}S.st.happy+=2;addKarma(-2);return 'It was a strange, nostalgic coffee. Nothing happened, but I did not tell anyone.'}]]},
+{id:'rival',rep:1,min:22,max:70,w:.9,cond:()=>partner(),init:()=>({p:partner()}),text:c=>`Someone new at ${fname(c.p.name)}'s work keeps texting them. I feel a knot of jealousy.`,ch:[
+  ['Trust them',c=>{if(rnd()<.8){c.p.rel+=4;return 'I trusted them, and it was exactly what it looked like: nothing.'}c.p.rel-=8;return 'I trusted them, but I have started to notice small things.'}],
+  ['Confront them',c=>{c.p.rel-=12;sparkUp(c.p,-4);return 'I asked too many questions. They felt watched and hurt.'},null,'hothead'],
+  ['Plan a surprise date ($300)',c=>{S.money-=300;sparkUp(c.p,18);c.p.rel+=6;return 'I turned jealousy into a surprise dinner. They were delighted.'},()=>S.money<300]]},
+{id:'exback',min:20,max:65,w:.9,cond:()=>!partner()&&S.exes.length>0,init:()=>({ex:pick(S.exes)}),text:c=>`${fname(c.ex)}, my ex, got in touch. ${pick(['They just started a company.','They say they have changed.','They saw my name in the news.'])} They would like to talk.`,ch:[
+  ['Meet them',c=>{if(rnd()<.45){const q=suitor('night');q.name=c.ex;q.chem=100;q.gd=false;makeOfficial(q,true);return `We met, talked for hours, and rekindled things with ${fname(c.ex)}.`}S.st.happy-=2;return 'We met, and it was awkward. There is a reason we ended it.'}],
+  ['Reply politely and leave it there',c=>{S.st.happy+=1;return 'I wished them well and nothing more.'}],
+  ['Block them',c=>{return 'I blocked the number. Some chapters are closed.'}]]},
+{id:'triangle',min:20,max:55,w:.8,cond:()=>!partner(),init:()=>({a:suitor('night'),b:suitor('night')}),text:c=>`I have hit it off with two people at once: ${fname(c.a.name)} and ${fname(c.b.name)}. Both want to see me again.`,ch:c=>[
+  [`Go for ${fname(c.a.name)}`,()=>{c.a.chem=100;makeOfficial(c.a,true);return `${fname(c.a.name)} and I are together now.`}],
+  [`Go for ${fname(c.b.name)}`,()=>{c.b.chem=100;makeOfficial(c.b,true);return `${fname(c.b.name)} and I are together now.`}],
+  ['See both for a while',()=>{if(rnd()<.45){S.st.happy-=6;return 'They found out about each other. Both walked away, and I felt awful.'}c.a.chem=55;c.b.chem=55;poolAdd([c.a,c.b]);return 'I kept seeing both. They are waiting on my Dating screen, but this cannot last.'}],
+  ['Neither, I want to be single',()=>'I decided to enjoy being single for now.']]},
+{id:'gossip',rep:1,min:22,max:90,w:.8,cond:()=>partner()&&((S.fame||0)>=25||netWorth()>3e6),init:()=>({p:partner()}),text:c=>`A tabloid ran photos of me with ${fname(c.p.name)} under an unflattering headline.`,ch:[
+  ['Ignore it',c=>{c.p.rel-=2;return 'The story faded in a week.'}],
+  ['Issue a warm statement about us',c=>{c.p.rel+=5;S.fame=Math.min(100,(S.fame||0)+1);return 'My statement turned the story into a love story.'}],
+  ['Pay to have it buried ($50,000)',c=>{S.money-=50000;return 'A lawyer made the story disappear. It was expensive.'},()=>S.money<50000]]},
+{id:'gala',rep:1,min:22,max:90,w:.8,cond:()=>partner()&&(netWorth()>2e6||(S.fame||0)>=30),init:()=>({p:partner()}),text:c=>'I was invited to a glittering charity gala.',ch:[
+  ['Bring my partner as my date ($1,000)',c=>{S.money-=1000;c.p.rel+=6;sparkUp(c.p,15);S.fame=Math.min(100,(S.fame||0)+1);return `${fname(c.p.name)} and I turned heads all night.`},()=>S.money<1000],
+  ['Go alone and network',c=>{S.fame=Math.min(100,(S.fame||0)+2);c.p.rel-=8;return 'I met useful people. My partner was not amused to be left at home.'}],
+  ['Skip it',c=>'I stayed in and ordered takeout.']]},
 /* ---- illness storyline ---- */
 {id:'ill',min:35,max:80,w:.5,text:"I've felt dizzy and exhausted for weeks.",ch:[
   ['See a specialist ($2,000)',()=>{S.money-=2000;remember('ill',{early:true});return 'I booked tests right away.'}],
@@ -1488,11 +1540,12 @@ function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash
 /* ================= relationships ================= */
 function divorce(p){
   const fn=fname(p.name);S.rels=S.rels.filter(x=>x!==p);S.flags.exes++;S.exes.push(p.name);S.st.happy-=12;mile(`Divorced ${fn}`);
-  if(p.prenup)return `${fn} and I divorced. The prenup kept my finances intact.`;
-  const settle=Math.round((Math.max(0,propEquity()+landEquity()+colEquity())+stakeVal())*.5);
-  if(S.money>0)S.money=Math.round(S.money/2);
-  TICK.forEach(t=>{if(S.hold[t.s]){S.hold[t.s]/=2;S.basis[t.s]=(S.basis[t.s]||0)/2;}});
-  S.ret.bal=Math.round(S.ret.bal/2);S.money-=settle;
+  if(p.prenup===true)return `${fn} and I divorced. The prenup kept my finances intact.`;
+  const pf=p.prenup==='shared'?.5:1;
+  const settle=Math.round((Math.max(0,propEquity()+landEquity()+colEquity())+stakeVal())*.5*pf);
+  if(S.money>0)S.money=Math.round(S.money*(1-.5*pf));
+  TICK.forEach(t=>{if(S.hold[t.s]){S.hold[t.s]*=1-.5*pf;S.basis[t.s]=(S.basis[t.s]||0)*(1-.5*pf);}});
+  S.ret.bal=Math.round(S.ret.bal*(1-.5*pf));S.money-=settle;
   return `${fn} and I divorced. They got half my cash, investments and retirement${settle?`, plus a ${fmt(settle)} settlement for property and business`:''}.`;
 }
 
@@ -1531,12 +1584,13 @@ let phaseErrs=[];
 /* ---- the year, as ordered phases. YEAR_PHASES runs top to bottom. ---- */
 function yrTick(){ S.age++;S.used={};S.eUsed=0;addYear(); }
 function yrPeople(){
-  S.rels.forEach(p=>{if(!p.alive)return;p.age++;p.rel-=R(0,4);
+  S.rels.forEach(p=>{if(!p.alive)return;p.age++;p.rel-=R(0,4)-(['Partner','Spouse'].includes(p.type)?Math.round(((p.compat==null?50:p.compat)-50)/25):0);
     const risk=p.type==='Pet'?(p.age>9?.22:.01):p.age>62?Math.pow((p.age-58)/45,3):.0015;
     if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
     else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
     if(p.type==='Child'&&p.alive&&p.age===18){line(`My kid ${fname(p.name)} moved out. The house is very quiet.`);S.st.happy-=3;}
     if(p.type==='Child'&&p.alive)kidYear(p);
+    if(p.alive&&['Partner','Spouse'].includes(p.type))partnerYear(p);
   });
   S.rels=S.rels.filter(p=>!p.left);
 }
@@ -1746,6 +1800,7 @@ function checkAch(){
   if(S.st.smarts>=100)unlock('genius');
   if(S.gen>=5)unlock('dynasty');
   if(kids().length>=5)unlock('bigfam');
+  {const sp=spouse();if(sp&&sp.wed!=null&&S.age-sp.wed>=25)unlock('lovebirds');}
   if(S.flags.exes>=5)unlock('heartbreak');
   if(S.flags.jailYears>=10)unlock('jailbird');
   if(S.biz.some(b=>b.type==='tech'&&bizVal(b)>=1e9))unlock('unicorn');
@@ -2421,8 +2476,11 @@ function personSheet(p){openSheet(s=>{
   s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},p.name),h('p',{className:'sub'},`${p.type}, age ${p.age}. Relationship ${p.rel}%.${p.prenup?' We have a prenup.':''}`));
   if(!S.alive||S.jail||!p.alive)return;
   const k=id=>S.used[p.id+id],mark=id=>S.used[p.id+id]=true;
-  s.append(row('Spend time together','','',()=>{mark('t');p.rel+=relGain(R(4,12));S.st.happy+=3;stay(`I spent quality time with ${fn}.`)},k('t'),1),
-    row('Compliment','','',()=>{mark('c');p.rel+=relGain(R(2,6));stay(`I told ${fn} something nice.`)},k('c')));
+  if(['Partner','Spouse'].includes(p.type)){const yrs=S.age-(p.since||S.age);
+    s.append(...mbar('Spark',Math.round(sparkOf(p)),'happy'),h('p',{className:'sub',style:'margin:-4px 0 8px'},sparkOf(p)>=70?'Passion is high. It also lifts our trust.':sparkOf(p)<25?'The spark is fading. A date night or getaway would help.':'Fine for now, but routine wears it down every year.'));
+    if(p.tr)s.append(h('dl',{},h('dt',{},'Traits'),h('dd',{},p.tr.map(t=>TRAITS[t]?TRAITS[t].ic+' '+TRAITS[t].n:t).join(', ')),h('dt',{},'Works as'),h('dd',{},p.job||'Unknown'),h('dt',{},'Compatibility'),h('dd',{},(p.compat==null?50:p.compat)+'%'),h('dt',{},'Together'),h('dd',{},p.type==='Spouse'?'Married':p.stage==='together'?'Living together':'Dating'),h('dt',{},'Love language'),h('dd',{},p.llKnown&&p.ll?LOVE_LANG[p.ll]:'Still learning'),...(yrs>=1&&p.quirk?[h('dt',{},'Habit'),h('dd',{},QUIRKS_P.find(q=>q[0]===p.quirk)[1])]:[]),h('dt',{},'Wants children'),h('dd',{},p.kids===false?'Not really':'Yes')));}
+  s.append(row('Spend time together','','',()=>{mark('t');p.rel+=Math.round(relGain(R(4,12))*lm(p,'time'));S.st.happy+=3;sparkUp(p,4);stay(`I spent quality time with ${fn}.${llTag(p,'time')}`)},k('t'),1),
+    row('Compliment','','',()=>{mark('c');p.rel+=Math.round(relGain(R(2,6))*lm(p,'words'));sparkUp(p,2);stay(`I told ${fn} something nice.${llTag(p,'words')}`)},k('c')));
   if(p.type!=='Pet')s.append(row('Argue','','',()=>{mark('a');p.rel-=Math.round(R(8,18)*(has('hothead')?1.5:1));S.st.happy-=4;stay(`${fn} and I had a big argument.`,'bad')},k('a')));
   if(['Mother','Father'].includes(p.type))s.append(row('Ask for money','','',()=>{mark('m');if(!S.flags.poor&&rnd()<p.rel/140){const g=R(20,S.age<18?100:1500);S.money+=g;stay(`${fn} gave me ${fmt(g)}.`,'good')}else{p.rel-=4;stay(`${fn} said no.`,'bad')}},k('m')));
   if(p.type==='Child'){s.append(h('h4',{},`${fname(p.name)}'s life`),kidCard(p));
@@ -2432,13 +2490,14 @@ function personSheet(p){openSheet(s=>{
       if(p.age>=18)s.append(row('🎁 Give a gift of money','For a wedding, a home, a business or just because','',()=>amountModal({title:`Gift to ${fname(p.name)}`,sub:`I have ${fmt(S.money)}.`,max:Math.max(0,S.money),btn:a=>`Give ${fmt(a)}`,onOk:a=>{S.money-=a;L.cash+=a;p.rel=Math.min(100,p.rel+Math.min(20,Math.round(a/5000)));stay(`I gave ${fname(p.name)} ${fmt(a)}.`,'good')}}),S.money<=0));}}
   if(p.type==='Child'&&S.age>=18&&p.age>=16)s.append(row('Give $10,000','','',()=>{mark('g');S.money-=10000;p.rel+=15;stay(`I gave ${fn} $10,000.`)},k('g')||S.money<10000));
   if(p.type==='Partner'){
-    const propose=pre=>()=>{mark('p');if(p.rel>60&&rnd()<(pre?.6:.8)){p.type='Spouse';p.prenup=pre;S.money-=R(5000,20000);S.st.happy+=15;mile(`Married ${fn}`);if(p.crush)unlock('reunion');if(pre)p.rel-=10;stay(`${fn} said yes${pre?' and signed the prenup':''}! We got married.`,'good')}else{p.rel-=10;S.st.happy-=10;stay(`${fn} said no to my proposal.`,'bad')}};
-    s.append(row('Propose','Needs a strong relationship','',propose(false),k('p')||S.age<18,1),row('Propose with a prenup','Protects my money in a divorce. Less likely to get a yes.','',propose(true),k('p')||S.age<18,1),
-      row('Break up','','',()=>{S.flags.exes++;S.exes.push(p.name);S.rels=S.rels.filter(x=>x!==p);act(`I broke up with ${fn}.`,'bad')}));}
+    s.append(row('🏠 Move in together',p.stage==='together'?'Already living together':'Needs a strong relationship. Once a year','',()=>{mark('mv');p.stage='together';p.rel+=8;sparkUp(p,-4);S.st.happy+=4;stay(`${fn} and I moved in together.`,'good')},p.stage==='together'||p.rel<60||!!k('mv')),
+      row('Propose','Choose a ring. Needs a strong relationship','',()=>proposeFlow(p,false),!!k('p')||S.age<18||energyLeft()<1),row('Propose with a prenup','Negotiate the terms. Protects my money in a divorce, but is a less romantic ask','',()=>prenupModal(p),!!k('p')||S.age<18||energyLeft()<1),
+      row('Break up','','',()=>act(breakUp(p),'bad')));}
   if(p.type==='Spouse')s.append(row('Divorce',p.prenup?'The prenup protects my money':'They get half of my cash, investments, retirement, property and business stakes','',()=>act(divorce(p),'bad')));
+  if(['Partner','Spouse'].includes(p.type))coupleRows(s,p);
   if(['Partner','Spouse'].includes(p.type)){const fertile=S.age>=18&&S.age<=(S.gender==='F'?45:65)&&(p.gender==='F'?p.age<=45:true)&&p.gender!==S.gender;
-    s.append(row('Try for a baby',fertile?'':p.gender===S.gender?'Try adopting from the People screen':'Not possible right now','',()=>{mark('b');if(rnd()<.45){const g=pick(['M','F']);const kid=person('Child',g,0,lastName());kid.rel=90;S.rels.push(kid);S.st.happy+=15;mile(`Welcomed baby ${fname(kid.name)}`);stay(`We welcomed a baby ${g==='M'?'boy':'girl'}, ${fname(kid.name)}!`,'good')}else stay('No baby news this year.')},k('b')||!fertile,1));
-    if(S.age>=18&&p.age>=18)s.append(row('Spend an intimate evening together','Just the two of us','',()=>{mark('i');p.rel=Math.min(100,p.rel+R(4,9));S.st.happy=Math.min(100,S.st.happy+R(3,7));stay(`${fn} and I spent a romantic evening together.`,'good')},k('i'),1));}
+    s.append(row('Try for a baby',fertile?'':p.gender===S.gender?'Try adopting from the People screen':'Not possible right now','',()=>{mark('b');if(p.kids===false&&rnd()<.7){p.rel-=6;stay(`${fn} does not want children and we argued about it.`,'bad');return;}if(rnd()<.45){const g=pick(['M','F']);const kid=person('Child',g,0,lastName());kid.rel=90;S.rels.push(kid);S.st.happy+=15;mile(`Welcomed baby ${fname(kid.name)}`);stay(`We welcomed a baby ${g==='M'?'boy':'girl'}, ${fname(kid.name)}!`,'good')}else stay('No baby news this year.')},k('b')||!fertile,1));
+    if(S.age>=18&&p.age>=18)s.append(row('Spend an intimate evening together','Just the two of us','',()=>{mark('i');p.rel=Math.min(100,p.rel+R(4,9));sparkUp(p,15);S.st.happy=Math.min(100,S.st.happy+R(3,7));stay(`${fn} and I spent a romantic evening together.`,'good')},k('i'),1));}
 });}
 
 /* ================= Activities ================= */
@@ -2451,7 +2510,6 @@ function actSheet(){openSheet(s=>{
     ['🧘','Meditate',8,true,1,()=>{S.st.happy+=R(4,9)*(has('anxious')?2:1);return 'I meditated and felt calmer.'}],
     ['🩺','Doctor',0,false,1,()=>{if(S.age>=18)S.money-=150;S.st.health+=R(5,14);return `I saw a doctor${S.age>=18?' ($150)':''}.`}],
     ['🤝','Volunteer',12,false,1,()=>{S.st.happy+=R(3,8)*(has('kind')?2:1);if(has('kind')&&rnd()<.2){S.money+=2000;return 'I volunteered at the shelter. A grateful donor sent me $2,000 for my trouble.'}return 'I volunteered at the local shelter.'}],
-    ['💘','Find love',16,false,1,findLove,!!partner()],
     ['🏖️','Vacation',18,false,2,()=>{S.money-=3000;S.st.happy+=joy(R(10,20));return 'I took a vacation ($3,000). Much needed.'},S.money<3000],
     ['🎟️','Lottery',18,false,0,lottery,S.money<10],
     ['🎰','Casino',18,false,1,()=>{CV={net:0};casinoSheet();},S.money<10],
@@ -2461,6 +2519,7 @@ function actSheet(){openSheet(s=>{
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
+  s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
   if(S.biz.length||S.flags.founded){const f0=S.fame||0;
@@ -2489,12 +2548,187 @@ function actSheet(){openSheet(s=>{
   }
 });}
 
-function findLove(){
-  const g=S.gender==='M'?pick(['F','F','F','M']):pick(['M','M','M','F']);const c=person('Partner',g,Math.max(16,S.age+R(-4,4)),lastN());
-  choiceModal(null,`I met ${c.name}, ${c.age}. Ask them out?`,[
-    ['Ask them out',()=>{if(rnd()<.35+S.st.looks/200+(has('charming')?.15:0)){S.rels.push(c);stay(`${fname(c.name)} said yes! We're dating now.`,'good')}else{S.st.happy-=5;stay(`${fname(c.name)} turned me down.`,'bad')}}],
-    ['Not interested',()=>{}]]);
-}
+/* ================= dating and relationships ================= */
+/* S.pool holds the people I have met this year (S.pool.age). A suitor becomes a Partner in S.rels when it goes official.
+   Extra person fields: tr (2 traits), job, looks, smarts, compat, kids (wants children), gd (gold digger), chem, dates, stage, wed,
+   spark (passion, separate from rel which is trust), ll (love language), quirk, secret, fam (their family), wh (whirlwind). */
+const DATE_TYPES=[['coffee','☕ Coffee',30,0],['dinner','🍽️ Dinner',150,4],['adv','🎡 Adventure day',250,6],['lux','🥂 Luxury night',3000,12]];
+const DATE_MOVES=[['cool','😎 Play it cool','Steady. Hard to go badly wrong'],['sweet','💐 Compliment them','Warm. Works best if I am kind or charming'],['tease','😜 Tease them','Risky and fun. Works if they like banter'],['bold','🔥 Make a bold move','Big reward or big embarrassment']];
+const LOVE_LANG={gifts:'Gifts',time:'Quality time',words:'Kind words',acts:'Helping out'};
+const QUIRKS_P=[['snores','snores like a chainsaw'],['workaholic','is a workaholic'],['romantic','is a secret romantic'],['cook','cooks brilliantly'],['collector','collects strange things'],['owl','is a night owl']];
+const SECRETS_P=['debt','ex','record','talent','dream'];
+const lookWord=v=>v>=80?'stunning':v>=60?'attractive':v>=40?'average':'plain';
+const matchCost=()=>Math.max(1500,Math.round(Math.max(0,netWorth())*.002/100)*100);
+const DATE_VENUES=[['app','📱 Dating app',16],['night','🍸 Night out',18],['match','💼 Matchmaker',21]];
+const lm=(p,t)=>p.ll===t?1.6:1;
+const llTag=(p,t)=>{if(p.ll===t){p.llKnown=true;return ' That clearly meant a lot to them.';}return '';};
+const sparkOf=p=>p.spark==null?55:p.spark;
+const sparkUp=(p,n)=>{p.spark=clamp(sparkOf(p)+n);};
+function compatOf(p){
+  let c=50;const mine=S.traits,th=p.tr||[];
+  th.forEach(t=>{if(mine.includes(t))c+=9;});
+  CLASH.forEach(([a,b])=>{if((mine.includes(a)&&th.includes(b))||(mine.includes(b)&&th.includes(a)))c-=14;});
+  c-=Math.abs(S.st.smarts-(p.smarts||50))/8;c+=p.cx||0;
+  return Math.max(5,Math.min(98,Math.round(c)));}
+function suitor(venue){
+  const teen=S.age<18,pref=S.pref||'auto';
+  const g=pref==='F'||pref==='M'?pref:pref==='B'?pick(['M','F']):S.gender==='M'?pick(['F','F','F','M']):pick(['M','M','M','F']);
+  const age=teen?R(16,17):Math.max(18,S.age+R(-6,6));
+  const p=person('Partner',g,age,lastN());
+  p.tr=rollTraits().slice(0,2);p.smarts=R(20,95);p.looks=Math.min(95,R(20,90)+(venue==='night'?8:0));
+  p.job=teen?'Still at school':pick(Object.values(CAREERS)).t[R(0,1)][0];p.cx=R(-10,10);p.kids=rnd()<.6;
+  p.gd=venue!=='match'&&!teen&&netWorth()>250000&&rnd()<Math.min(.35,.08+netWorth()/2e7);
+  p.ll=pick(Object.keys(LOVE_LANG));p.quirk=pick(QUIRKS_P)[0];p.secret=!teen&&rnd()<.35?pick(SECRETS_P):null;p.fam=pick(['warm','warm','strict','wealthy']);
+  p.wh=!teen&&rnd()<.07;if(p.wh)p.cx-=20;
+  p.chem=0;p.dates=0;p.spk=0;p.venue=venue;p.compat=compatOf(p);
+  if(venue==='match'&&p.compat<65){p.cx+=65-p.compat;p.compat=compatOf(p);}
+  return p;}
+const poolList=()=>S.pool&&S.pool.age===S.age?S.pool.list:[];
+function poolAdd(ps){S.pool={age:S.age,list:poolList().concat(ps)};}
+function datingSheet(){openSheet(s=>{
+  const pt=partner(),pool=poolList();
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'💘 Dating'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year. Past relationships: ${S.exes.length}.`));
+  s.append(h('p',{className:'label'},'I am interested in'),seg([['auto','Surprise me'],['F','Women'],['M','Men'],['B','Both']],S.pref||'auto',v=>{S.pref=v;stay();}));
+  if(pt){s.append(h('p',{className:'flash'},`I am with ${fname(pt.name)}. Seeing other people while I am in a relationship would be cheating. Talk to ${fname(pt.name)} from the People screen.`));return;}
+  s.append(h('h4',{},'Meet people'));
+  const info={app:['Free. Four profiles, any kind of person',0,4],night:['$120. Two people I meet in person, a better-looking crowd',120,2],match:[`${fmt(matchCost())}. Three screened, well-matched introductions`,matchCost(),3]};
+  DATE_VENUES.forEach(([k,l,min])=>{const [sub,cost,n]=info[k],used=S.used['dt'+k];
+    s.append(row(l,used?'Done this year':S.age<min?`Age ${min}+`:sub,'',()=>{S.used['dt'+k]=true;S.money-=cost;poolAdd(Array.from({length:n},()=>suitor(k)));
+      stay(`I ${k==='app'?'browsed a dating app':k==='night'?'went out for the night':'met with a matchmaker'} and met ${n} people.`);},!!used||S.age<min||S.money<cost,1));});
+  s.append(h('h4',{},pool.length?'People I have met':'Nobody yet'));
+  if(!pool.length)s.append(h('p',{className:'sub'},'Pick a way to meet people above. New faces every year.'));
+  pool.forEach(p=>s.append(row(`${fname(p.name)}, ${p.age}${p.wh?' 🔥':''}`,`${p.job}. ${p.tr.map(t=>TRAITS[t]?TRAITS[t].ic:'').join(' ')} ${lookWord(p.looks)}. Compatibility ${p.compat}%${p.wh?'. Instant chemistry':''}${p.dates?`. Chemistry ${Math.min(100,Math.round(p.chem))}%`:''}`,'',()=>suitorModal(p))));
+});}
+function suitorModal(p){
+  const fn=fname(p.name),known=p.checked||p.dates>0;
+  const facts=[['Works as',p.job],['Traits',p.tr.map(t=>TRAITS[t]?`${TRAITS[t].ic} ${TRAITS[t].n}`:t).join(', ')],['Looks',lookWord(p.looks)],['Compatibility',`${p.compat}%`],['Chemistry',p.dates?`${Math.min(100,Math.round(p.chem))}%`:'No dates yet'],['Wants children',known?(p.kids?'Yes':'Not really'):'Unknown']];
+  if(p.wh)facts.push(['First impression','🔥 Instant chemistry, but we have little in common']);
+  if(p.checked)facts.push(['Background check',p.gd?'Has a record of dating rich people for gifts':'Nothing worrying']);
+  else if(p.sus)facts.push(['My gut','Something feels off. They keep asking about money']);
+  choiceModal(`${fn}, ${p.age}`,`${p.gender==='M'?'He':'She'} could be someone special. A date costs 1 energy.`,[
+    ...DATE_TYPES.map(dt=>[`${dt[1]} ($${dt[2].toLocaleString()})`,()=>moveModal(p,dt),()=>S.money<dt[2]||energyLeft()<1]),
+    ...(p.checked?[]:[['Background check ($400)',()=>{S.money-=400;p.checked=true;gRefresh();suitorModal(p);},()=>S.money<400]]),
+    ['Not interested',()=>{S.pool.list=S.pool.list.filter(x=>x!==p);gRefresh();}],['Close',()=>{}]],
+    h('dl',{},...facts.flatMap(([a,v])=>[h('dt',{},a),h('dd',{},v)])));}
+function moveModal(p,dt){
+  choiceModal('How do I play it?',`${dt[1]} with ${fname(p.name)}. Pick an approach.`,DATE_MOVES.map(([k,l,d])=>[`${l}: ${d}`,()=>goDate(p,dt,k)]));}
+const DATE_TXT={
+  great:['{n} laughed at my jokes and we talked until they turned the lights off.','It felt easy. {n} reached across the table and took my hand.','We lost track of time. {n} did not want the night to end.'],
+  okay:['A pleasant time. {n} is nice, though I could not tell if there is a spark.','We got along fine. There were a few awkward silences.','{n} was good company. I would not mind seeing them again.'],
+  flat:['We ran out of things to say quickly. {n} kept checking the time.','{n} was polite, but the conversation never took off.'],
+  ghost:['It was a disaster. {n} left early and never replied to my messages.','We clearly wanted different things. {n} stopped answering me the next day.']};
+function goDate(p,dt,move){
+  const [k,lab,cost,bonus]=dt,fn=fname(p.name);spend(1);S.money-=cost;p.dates=(p.dates||0)+1;
+  let mv=0,vr=15;
+  if(move==='sweet'){mv=4+(has('kind')||has('charming')?6:0);vr=12;}
+  else if(move==='tease'){mv=p.tr.some(t=>['hothead','creative','charming'].includes(t))?12:0;vr=20;}
+  else if(move==='bold'){mv=has('charming')||S.st.looks>=70||has('reckless')?16:-8;vr=25;}
+  else vr=8;
+  const sc=Math.round(p.compat*.5+(S.st.looks-50)*.25+(S.st.happy-50)*.1+bonus+mv+(has('charming')?10:0)+(k==='adv'&&has('athletic')?8:0)+(p.gd&&k==='lux'?10:0)+R(-vr,vr));
+  p.chem=(p.chem||0)+Math.max(0,sc-30)*(p.wh?1.6:1);p.spk=(p.spk||0)+(sc>=62?15:sc>=42?8:3)+(move==='bold'&&sc>=42?6:0);
+  const tier=sc>=62?'great':sc>=42?'okay':sc>=25?'flat':'ghost',txt=pick(DATE_TXT[tier]).replace('{n}',fn);
+  if(p.gd&&p.dates>=2&&!p.sus&&!p.checked&&rnd()<(S.st.smarts>=60?.6:.25))p.sus=true;
+  line(`💘 ${lab.slice(2)} with ${fn}: ${txt}`,tier==='great'?'good':tier==='ghost'?'bad':'');
+  if(tier==='ghost'||(move==='bold'&&sc<18)){S.pool.list=S.pool.list.filter(x=>x!==p);S.st.happy-=3;gRefresh();return choiceModal('💘 That went badly',move==='bold'&&sc<18?`My bold move fell flat. ${fn} was embarrassed and walked out.`:txt,[['Oh well',()=>{}]]);}
+  const ready=p.chem>=100,ch=[];
+  if(ready)ch.push([`Ask ${fn} to make it official`,()=>makeOfficial(p)]);
+  ch.push(['Keep it casual',()=>{gRefresh();}],['Close',()=>{}]);
+  gRefresh();
+  choiceModal('💘 The date',`${txt}${ready?` The chemistry is strong. ${fn} seems ready to be more than a date.`:p.chem>=60?' The chemistry is building.':''}${p.sus?' Something about their questions about money bothers me.':''}`,ch);}
+function makeOfficial(p,quiet){
+  const fn=fname(p.name);if(S.pool)S.pool.list=S.pool.list.filter(x=>x!==p);
+  p.type='Partner';p.rel=Math.min(90,45+Math.round(p.compat/3)+Math.round((p.chem||0)/12));p.stage='dating';p.since=S.age;
+  p.spark=clamp(35+(p.spk||0)+(p.wh?30:0));
+  S.rels.push(p);S.st.happy+=8;mile(`Started dating ${fn}`);
+  line(`💞 ${fn} and I are official.${p.gd?'':' It feels right.'}`,'good');
+  if(quiet)return;
+  gRefresh();
+  choiceModal('💞 Official!',`${fn} and I are together now.${p.wh?' The spark is huge, but we are very different, so it may burn out fast.':''} From the People screen I can plan date nights, a getaway, meet the family, move in together, and one day propose.`,[['Wonderful',()=>{}]]);}
+function breakUp(p){S.flags.exes++;S.exes.push(p.name);S.rels=S.rels.filter(x=>x!==p);S.st.happy-=8;return `I ended things with ${fname(p.name)}.`;}
+/* ---- life as a couple ---- */
+function partnerYear(p){
+  if(p.spark==null)p.spark=55;
+  p.spark=clamp(p.spark-R(3,8)-(p.quirk==='workaholic'?3:0)+(p.quirk==='romantic'?3:0)-(p.wh?8:0));
+  if(p.spark<20&&p.rel>=40)p.rel-=3;
+  if(p.spark>=70)p.rel=Math.min(100,p.rel+2);
+  if(p.spark<15&&!p.boredSeen&&rnd()<.35){p.boredSeen=true;line(`${fname(p.name)} and I have fallen into a routine. The spark is fading.`,'bad');}
+  if(p.spark>=15)p.boredSeen=false;
+  if(p.gd)gdYear(p);
+  secretYear(p);}
+function gdYear(p){
+  const take=Math.min(25000,Math.round(Math.max(0,S.money)*.003));
+  if(take>=200){S.money-=take;line(`💸 ${fname(p.name)} keeps asking for gifts and trips. This year it cost me ${fmt(take)}.`);}
+  p.gdYrs=(p.gdYrs||0)+1;
+  if(p.gdYrs>=2&&!p.gdSeen&&rnd()<.4){p.gdSeen=true;
+    Q.push({own:true,text:`I finally see it: ${fname(p.name)} cares more about my money than about me.`,ch:[
+      ['End it',()=>p.type==='Spouse'?divorce(p):breakUp(p)],
+      ['Stay anyway',()=>{p.rel=Math.max(10,p.rel-10);S.st.happy-=4;return 'I stayed. Part of me still hopes I am wrong.';}]]});}}
+function secretYear(p){
+  if(!p.secret||p.secretOut||S.age-(p.since||S.age)<2||rnd()>.12)return;
+  p.secretOut=true;const fn=fname(p.name),amt=Math.round(R(8,60)*1000);
+  const T={
+    debt:{t:`${fn} has been hiding a ${fmt(amt)} debt from me.`,ch:[[`Help pay it off (${fmt(amt)})`,()=>{S.money-=amt;p.rel+=12;return `I cleared ${fn}'s debt. They cried with relief.`},()=>S.money<amt],['Let them handle it',()=>{p.rel-=8;return `I told ${fn} it was their problem. It stung.`}]]},
+    ex:{t:`I found out ${fn} was married before and never told me.`,ch:[['Forgive them',()=>{p.rel-=6;S.st.happy-=3;return 'I forgave them, but I wish they had trusted me sooner.'}],['Confront them hard',()=>{p.rel-=16;return `We had a terrible fight about honesty.`}]]},
+    record:{t:`${fn} finally told me about a criminal record from years ago.`,ch:[['Accept them for who they are now',()=>{p.rel+=6;return `${fn} was so relieved they cried.`}],['I cannot look past it',()=>p.type==='Spouse'?divorce(p):breakUp(p)]]},
+    talent:{t:`${fn} secretly wrote a song that went viral. They kept it from me to surprise me.`,ch:[['Be proud of them',()=>{p.rel+=10;sparkUp(p,25);S.money+=amt;return `The song earned ${fmt(amt)} and a lot of joy. I am proud.`}]]},
+    dream:{t:`${fn} confessed a dream: quitting and opening a small business.`,ch:[[`Back their dream ($20,000)`,()=>{S.money-=20000;p.rel+=14;sparkUp(p,20);return `I backed ${fn}. They are working hard to make it work.`},()=>S.money<20000],['Tell them to be realistic',()=>{p.rel-=10;return `${fn} looked crushed.`}]]}}[p.secret];
+  Q.push({own:true,text:`🤫 ${T.t}`,ch:T.ch});}
+function coupleRows(s,p){
+  const fn=fname(p.name),k=id=>S.used[p.id+id],mark=id=>S.used[p.id+id]=true;
+  s.append(row('🍷 Date night','Cozy, nice or luxury. Once a year','',()=>choiceModal(`Date night with ${fn}`,'How should we spend the evening?',[
+      ['Cozy night in ($60)',()=>{mark('dn');spend(1);S.money-=60;p.rel+=Math.round(relGain(R(3,7))*lm(p,'time'));sparkUp(p,12);S.st.happy+=2;stay(`${fn} and I had a cozy night in.${llTag(p,'time')}`,'good');},()=>S.money<60],
+      ['A nice evening out ($400)',()=>{mark('dn');spend(1);S.money-=400;p.rel+=Math.round(relGain(R(7,13))*lm(p,'time'));sparkUp(p,20);S.st.happy+=4;stay(`${fn} and I had a lovely evening out.${llTag(p,'time')}`,'good');},()=>S.money<400],
+      ['A luxury night ($3,000)',()=>{mark('dn');spend(1);S.money-=3000;p.rel+=Math.round(relGain(p.gd?R(18,26):R(13,20))*lm(p,'time'));sparkUp(p,28);S.st.happy+=joy(6);stay(`${fn} and I had a luxurious night to remember.${llTag(p,'time')}`,'good');},()=>S.money<3000],
+      ['Not now',()=>{}]]),!!k('dn')||energyLeft()<1),
+    row('✈️ Romantic getaway','A trip together. Once a year','',()=>choiceModal(`A getaway with ${fn}`,'Where should we go?',[
+      ['Beach cottage ($1,500)',()=>getaway(p,1500,22,8),()=>S.money<1500],['City break ($3,500)',()=>getaway(p,3500,26,10),()=>S.money<3500],['Far-flung paradise ($9,000)',()=>getaway(p,9000,34,14),()=>S.money<9000],['Not now',()=>{}]]),!!k('gw')||energyLeft()<1),
+    row('💬 Deep talk','Talk honestly about us. Free, once a year','',()=>{mark('dt');spend(1);
+      const ok=rnd()<.5+((p.compat==null?50:p.compat)-50)/300+(has('kind')||has('charming')?.1:0);
+      if(ok){p.rel+=Math.round(relGain(R(7,14))*lm(p,'words'));sparkUp(p,6);const news=!p.llKnown;p.llKnown=true;stay(`${fn} and I had an honest talk about our future. We feel closer.${news?` I learned that ${fn} feels most loved through ${LOVE_LANG[p.ll].toLowerCase()}.`:''}`,'good');}
+      else{p.rel-=4;stay(`My talk with ${fn} turned awkward. We both said things we did not mean.`,'bad');}},!!k('dt')||energyLeft()<1),
+    row('🧺 Help out','Do something thoughtful around the house. Free, once a year','',()=>{mark('ho');spend(1);p.rel+=Math.round(relGain(R(4,9))*lm(p,'acts'));sparkUp(p,3);stay(`I took care of things for ${fn} without being asked.${llTag(p,'acts')}`,'good');},!!k('ho')||energyLeft()<1),
+    row('🎁 Surprise gift','Spend any amount. Bigger gifts mean more, with diminishing returns','',()=>amountModal({title:`A gift for ${fn}`,sub:`I have ${fmt(S.money)}.`,min:20,max:Math.min(Math.floor(S.money),1e7),init:200,step:10,btn:a=>`Spend ${fmt(a)}`,
+      note:a=>`${fn} would feel about ${Math.round(Math.min(20,Math.round(Math.sqrt(a)/5))*(p.gd?2:1)*lm(p,'gifts'))} points closer to me.`,
+      onOk:a=>{S.money-=a;p.rel+=Math.round(Math.min(20,Math.round(Math.sqrt(a)/5))*(p.gd?2:1)*lm(p,'gifts'));sparkUp(p,Math.min(12,Math.round(Math.sqrt(a)/8)));stay(`I surprised ${fn} with a ${fmt(a)} gift.${llTag(p,'gifts')}`,'good');},onCancel:()=>{}}),S.money<20));
+  if(p.type==='Partner')s.append(row('👪 Meet their family','Dinner with their parents. It only happens once','',()=>metFamily(p),!!p.metFam||p.rel<50||energyLeft()<1));}
+function getaway(p,cost,spk,rel){
+  const fn=fname(p.name);S.used[p.id+'gw']=true;spend(1);S.money-=cost;p.rel+=Math.round(relGain(rel)*lm(p,'time'));sparkUp(p,spk);S.st.happy+=joy(8);
+  const story=pick(['It rained all week, but we stayed in and laughed more than ever.','We got lost and found the best little restaurant of our lives.','We watched the sun set from a cliff and did not say a word.','A pickpocket got my wallet on day one, and we still had the time of our lives.']);
+  if(story.includes('pickpocket'))S.money-=Math.min(300,Math.max(0,S.money));
+  line(`✈️ Our getaway: ${story}${llTag(p,'time')}`,'good');
+  if(p.type==='Partner'&&p.rel>=70&&!S.used[p.id+'p']&&rnd()<.3){gRefresh();
+    return choiceModal('🌅 The perfect moment',`${story} It feels like the right moment. Should I propose to ${fn}?`,[['Propose right now',()=>proposeFlow(p,false)],['Just enjoy the moment',()=>{}]]);}
+  stay(`${fn} and I took a trip. ${story}`,'good');}
+function metFamily(p){
+  const fn=fname(p.name),fam=p.fam||'warm';spend(1);p.metFam=true;
+  if(fam==='warm'){p.rel+=10;return stay(`${fn}'s family welcomed me like one of their own. We stayed for hours.`,'good');}
+  if(fam==='strict'){if(S.st.smarts>=55||(S.job&&S.job.lvl>=1)){p.rel+=8;return stay(`${fn}'s parents were strict, but I won them over.`,'good');}p.rel-=6;return stay(`${fn}'s parents grilled me. I do not think I made a great impression.`,'bad');}
+  if(netWorth()>=1e6||(S.fame||0)>=30){p.rel+=8;return stay(`${fn}'s wealthy parents were impressed by what I have built.`,'good');}
+  choiceModal('👪 The wealthy parents',`${fn}'s parents do not think I am good enough. They quietly offer me $250,000 to walk away.`,[
+    ['Refuse and stay',()=>{p.rel+=12;addKarma(2);stay(`I refused. ${fn} heard about it and loves me more for it.`,'good');}],
+    ['Take the money and leave',()=>{S.money+=250000;addKarma(-8);act(`${breakUp(p)} I took their $250,000. I am not proud of it.`,'bad');}]]);}
+function prenupModal(p){
+  const fn=fname(p.name);
+  choiceModal('📜 The prenup',`${fn} will read the terms carefully. How much do I want to protect?`,[
+    ['Full prenup: everything I own stays mine (less likely to get a yes)',()=>proposeFlow(p,true)],
+    ['Shared prenup: they keep half of what a normal divorce would give (a little less likely)',()=>proposeFlow(p,'shared')],
+    ['No prenup after all',()=>proposeFlow(p,false)],['Cancel',()=>{}]]);}
+function proposeFlow(p,pre){
+  const fn=fname(p.name);
+  choiceModal('💍 Choose a ring',`A better ring helps my chances, but ${fn} cares most about how close we are.`,[
+    ['Modest ring ($3,000)',()=>propose2(p,pre,3000,0),()=>S.money<3000],['Nice ring ($15,000)',()=>propose2(p,pre,15000,.08),()=>S.money<15000],['Dazzling ring ($75,000)',()=>propose2(p,pre,75000,.15),()=>S.money<75000],['Not yet',()=>{}]]);}
+function propose2(p,pre,cost,bonus){
+  const fn=fname(p.name);S.used[p.id+'p']=true;spend(1);S.money-=cost;
+  const chance=Math.min(.97,(pre===true?.6:pre==='shared'?.72:.8)+bonus+((p.compat==null?50:p.compat)-50)/300+(sparkOf(p)>=70?.05:0));
+  if(p.rel>60&&rnd()<chance){p.type='Spouse';p.prenup=pre;p.wed=S.age;if(pre===true)p.rel-=10;else if(pre)p.rel-=4;mile(`Married ${fn}`);unlock('bigday');if(p.crush)unlock('reunion');
+    gRefresh();
+    choiceModal(p.gender==='M'?'💒 He said yes':'💒 She said yes',`${fn} said yes${pre===true?' and signed the prenup':pre?' and agreed to shared terms':''}! How should we celebrate?`,[
+      ['Elope for free',()=>{S.st.happy+=8;p.rel+=3;sparkUp(p,10);stay(`${fn} and I eloped. Just the two of us.`,'good');}],
+      ['Courthouse wedding ($1,500)',()=>{S.money-=1500;S.st.happy+=10;p.rel+=5;sparkUp(p,12);stay(`${fn} and I married at the courthouse.`,'good');},()=>S.money<1500],
+      ['A nice wedding ($20,000)',()=>{S.money-=20000;S.st.happy+=15;p.rel+=9;sparkUp(p,18);stay(`${fn} and I had a beautiful wedding with family and friends.`,'good');},()=>S.money<20000],
+      ['A lavish wedding ($150,000)',()=>{S.money-=150000;S.st.happy+=18;p.rel+=12;sparkUp(p,25);S.fame=Math.min(100,(S.fame||0)+2);stay(`${fn} and I threw a lavish wedding. The photos ran in the papers.`,'good');},()=>S.money<150000]]);
+  }else{p.rel-=10;S.st.happy-=10;stay(`${fn} said no to my proposal.`,'bad');}}
+
 function lottery(){S.money-=10;const r=rnd(),m=has('lucky')?5:1;
   if(r<.0004*m){S.money+=2000000;S.st.happy+=40;S.flags.lotto=true;unlock('jackpot');mile('Won the $2,000,000 lottery jackpot');return 'I WON THE LOTTERY JACKPOT: $2,000,000!'}
   if(r<.02*m){S.money+=500;return 'I bought a $10 lottery ticket and won $500!'}return 'I bought a $10 lottery ticket. Nothing.'}
