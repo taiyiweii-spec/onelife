@@ -574,6 +574,9 @@ function marketList(){
   const homesL=Array.from({length:R(6,8)},()=>{const [n,beds,sqm0]=pick(HOMES);const t=HOMES.find(x=>x[0]===n);
     const area=pick(['city','suburb','suburb','out']),cond=pick(['new','good','good','fixer']),sqm=Math.round(sqm0*R(85,115)/100),fair=t[3]*(sqm/sqm0)*AREA[area].p*COND[cond].p*idx*rent,deal=R(84,116)/100;
     return {id:uid(),n,beds,sqm,area,cond,fair:Math.round(fair),price:Math.round(fair*deal/1000)*1000,yld:Math.round((5.5+AREA[area].y+R(-15,15)/10)*10)/10};}).sort((a,b)=>a.price-b.price);
+  [['Shophouse',0,90,380000,'shop',2.4],['Beach holiday home',3,140,620000,'holiday',.6]].forEach(([n,beds,sqm0,base,kind,yb])=>{if(rnd()<.6){const area=pick(['city','suburb','out']),cond=pick(['good','good','fixer','new']),sqm=Math.round(sqm0*R(85,115)/100),fair=base*(sqm/sqm0)*AREA[area].p*COND[cond].p*idx*rent,deal=R(84,116)/100;
+    homesL.push({id:uid(),n,kind,beds,sqm,area,cond,fair:Math.round(fair),price:Math.round(fair*deal/1000)*1000,yld:Math.round((5.5+yb+AREA[area].y+R(-15,15)/10)*10)/10});}});
+  homesL.sort((a,b)=>a.price-b.price);
   const carsL=CARS.map(([n,p,run])=>{const used=p<200000&&rnd()<.5,age=used?R(2,9):0;return {id:uid(),n,age,run,price:Math.round(p*pp*Math.pow(.87,age)*R(95,105)/100/100)*100};});
   S.mkList={age:S.age,cty:resKey(),homes:homesL,cars:carsL};return S.mkList;}
 function dealTag(l){const r=l.price/l.fair;if(S.st.smarts<55)return null;return r<.93?['🏷️ Bargain','good']:r>1.07?['⚠️ Overpriced','bad']:['Fair price',''];}
@@ -592,6 +595,8 @@ const ACH={
  ipo:['🔔','Ring the bell','Take a company public'],
  bust:['📉','Lessons learned','Have a business go under'],
  landlord:['🏘️','Landlord','Rent out 3 properties at once'],
+ portfolio:['🏢','Property portfolio','Rent out 5 properties at once'],
+ flip:['🔨','House flipper','Sell a property for 25% more than I paid, within 3 years'],
  devbuilt:['🏗️','Ribbon cutting','Finish building a commercial property'],
  devgain:['🌆','Skyline','Sell a development for a $1M profit'],
  highroller:['🎰','High roller','Win $100,000 at the casino in one year'],
@@ -1357,9 +1362,7 @@ function propertyYear(){
     S.money-=Math.round(a.v*hCond(a).up);
     if(a.mort&&a.mort.bal>0){const int=a.mort.bal*a.mort.rate;const pay=Math.min(a.mort.pay,a.mort.bal+int);a.mort.bal=Math.max(0,Math.round(a.mort.bal+int-pay));S.money-=Math.round(pay);
       if(a.mort.bal===0){a.mort=null;line(`I paid off the mortgage on my ${a.n.toLowerCase()}!`,'good');unlock('debtfree');}}
-    if(a.rent){const y=rnd();
-      if(y<.12)line(`My tenant at the ${a.n.toLowerCase()} stopped paying rent this year.`,'bad');
-      else{let r=Math.round(a.v*hYld(a));if(y<.22){const fix=Math.round(a.v*.02);r-=fix;line(`Repairs at my rental cost ${fmt(fix)}.`,'bad');}rentIn+=r;}}
+    if(a.rent)rentIn+=rentYear(a);
   });
   S.assets.filter(a=>a.k==='car').forEach(a=>{S.money-=carRun(a);if(rnd()<(a.age||0)*.025){const fix=Math.round(Math.max(800,a.v*.15+R(500,2500)));S.money-=fix;line(`My ${a.n.toLowerCase()} broke down. Repairs cost ${fmt(fix)}.`,'bad');}});
   if(rentIn){S.money+=Math.round(rentIn*.8);line(`My rental properties earned ${fmt(rentIn*.8)} after tax.`,'good');}
@@ -1823,6 +1826,7 @@ function checkAch(){
   if(S.job){const C=CAREERS[S.job.c];if(S.job.lvl===C.t.length-1){unlock('ladder');if(S.flags.jailYears>0)unlock('cell2corner');}
     if(S.job.c==='med'&&S.job.lvl>=2)unlock('surgeon');if(S.job.c==='law'&&S.job.lvl>=2)unlock('partner');}
   if(homes().filter(a=>a.rent).length>=3)unlock('landlord');
+  if(homes().filter(a=>a.rent).length>=5)unlock('portfolio');
   if(S.st.smarts>=100)unlock('genius');
   if(S.gen>=5)unlock('dynasty');
   if(kids().length>=5)unlock('bigfam');
@@ -2124,7 +2128,7 @@ function cashFlow(){const inc=[],exp=[];
   if(div){inc.push(['💸 Business dividends (based on last year)',div]);tax+=div*divTax();}
   const sdiv=TICK.reduce((t,tk)=>{if(!tk.dvy)return t;const sh=S.hold[tk.s]||0;return t+sh*price(tk.s)*tk.dvy/100;},0);
   if(sdiv>0){inc.push(['📈 Stock dividends (estimated)',sdiv]);tax+=sdiv*divTax();}
-  const rent=homes().filter(a=>a.rent).reduce((t,a)=>t+a.v*hYld(a),0);if(rent){inc.push(['🏘️ Rental income',rent]);tax+=rent*.2;}
+  const rent=homes().filter(a=>a.rent).reduce((t,a)=>t+rentNet(a),0);if(rent){inc.push(['🏘️ Rental income',rent]);tax+=rent*.2;}
   if(S.gig&&!S.jail)inc.push([`🛵 Side gig: ${S.gig.n.toLowerCase()}`,S.gig.pay]);
   if(S.retired&&S.pension)inc.push(['🏖️ Pension',S.pension]);
   if(S.flags.talentPay&&!S.jail&&S.age<70)inc.push(['⭐ Talent income',S.flags.talentPay]);
@@ -2387,7 +2391,8 @@ function tabProp(s){
   if(propView==='mine'){const val=S.assets.reduce((t,a)=>t+a.v,0),debt=hs.reduce((t,a)=>t+(a.mort?a.mort.bal:0),0);s.append(h('p',{className:'sub'},`${S.assets.length} asset${S.assets.length===1?'':'s'} worth ${fmt(val)}${debt?`, with ${fmt(debt)} of mortgages`:''}.${S.age>=18?` Living costs: ${fmt(livingCost())}/yr${hs.some(a=>!a.rent)?' (I own my home)':' in rent until I own a home'}.`:''}`));
     if(!S.assets.length&&!S.dev.length&&!S.col.length)s.append(h('p',{className:'sub'},'I don\'t own anything yet.'));
     if(hs.length)s.append(h('p',{className:'label'},'Homes'));
-    hs.forEach(a=>s.append(row(a.n,`${homeDesc(a)} ${a.rent?`Rented out at ${(hYld(a)*100).toFixed(1)}% a year`:'I live here'}${a.mort?`. Mortgage ${fmt(a.mort.bal)}`:''}`,fmt(a.v),()=>assetModal(a),ro)));
+    { const P=rentPortfolio(); if(P.n)s.append(h('p',{className:'sub'},`Rental portfolio: ${P.n} propert${P.n===1?'y':'ies'}, rent ${fmt(P.gross)} a year, minus upkeep ${fmt(P.up)}${P.int?`, mortgage interest ${fmt(P.int)}`:''}${P.fees?`, agent fees ${fmt(P.fees)}`:''}. About ${fmt(P.net)} a year before tax${P.eq>0?` (${(P.net/P.eq*100).toFixed(1)}% on my equity)`:''}.`)); }
+    hs.forEach(a=>s.append(row(a.n,`${a.kind?RK[a.kind].ic+' ':''}${homeDesc(a)} ${a.rent?`Rent ${fmt(rentNet(a))} a year. ${rentTenantLine(a)}`:'I live here'}${a.mort?`. Mortgage ${fmt(a.mort.bal)}`:''}`,fmt(a.v),()=>assetModal(a),ro)));
     if(cars.length)s.append(h('p',{className:'label'},'Cars'));
     cars.forEach(a=>s.append(row(a.n,`${a.age?`${a.age} yr${a.age>1?'s':''} old`:'New'}. Running costs ${fmt(carRun(a))}/yr`,fmt(a.v),()=>assetModal(a),ro)));
     if(S.dev.length){s.append(h('p',{className:'label'},'Land and developments'));S.dev.forEach(d=>s.append(row(`${d.type?DEV_TYPES[d.type].ic:'🌱'} ${d.n}`,devDesc(d),fmt(devEquity(d)),()=>devModal(d),ro)));}
@@ -2408,20 +2413,22 @@ function buyCar(l){const p=l.price;choiceModal(l.n,`${fmt(p)}. ${l.age?`Used, ${
 function buyHome(l){const p=l.price,r=loanRate(),loan=Math.round(p*.8),pay=Math.round(annuity(loan,r,30)),close=Math.round(p*.02);
   const canMort=S.job&&pay<=S.job.s*.4&&!badCredit();
   const kids=living(['Child']).filter(c=>c.age<18).length;
-  const done=m=>{S.money-=m;S.assets.push({n:l.n,v:p,k:'home',rent:false,mort:m<p?{bal:loan,rate:r,pay}:null,area:l.area,cond:l.cond,beds:l.beds,sqm:l.sqm,yld:l.yld});S.st.happy+=joy(8+Math.min(6,l.beds))+(kids&&l.beds>kids?4:0);S.mkList.homes=S.mkList.homes.filter(x=>x!==l);mile(`Bought a ${l.n.toLowerCase()}`);};
+  const done=m=>{S.money-=m;S.assets.push({n:l.n,v:p,k:'home',rent:!!l.kind,kind:l.kind,bought:{age:S.age,p},mort:m<p?{bal:loan,rate:r,pay}:null,area:l.area,cond:l.cond,beds:l.beds,sqm:l.sqm,yld:l.yld});S.st.happy+=joy(8+Math.min(6,l.beds))+(kids&&l.beds>kids?4:0);S.mkList.homes=S.mkList.homes.filter(x=>x!==l);mile(`Bought a ${l.n.toLowerCase()}`);};
   choiceModal(l.n,`${homeDesc(l)} Price ${fmt(p)} plus ${fmt(close)} closing costs. Upkeep about ${fmt(p*COND[l.cond].up)}/yr. If rented out, about ${fmt(p*l.yld/100)}/yr. A 30-year mortgage at ${(r*100).toFixed(1)}% needs ${fmt(p*.2)} down and costs ${fmt(pay)} a year.${canMort?'':' To get a mortgage I need a job where that payment is under 40% of my salary, and good credit.'}`,[
     ['Pay in cash',()=>{done(p+close);stay(`I bought a ${l.n.toLowerCase()} for ${fmt(p)} in cash.`,'good')},()=>S.money<p+close],
     ['Take a mortgage',()=>{done(Math.round(p*.2)+close);stay(`I bought a ${l.n.toLowerCase()} with a mortgage.`,'good')},()=>!canMort||S.money<p*.2+close],
     ['Cancel',()=>{}]]);}
 function assetModal(a){
   const eq=saleVal(a)-(a.mort?a.mort.bal:0);const ch=[];
-  if(a.k==='home'){ch.push([a.rent?'Move back in':'Rent it out',()=>{a.rent=!a.rent;stay(a.rent?`I started renting out my ${a.n.toLowerCase()}.`:`I moved into my ${a.n.toLowerCase()}.`)}]);
+  if(a.k==='home'){if(!a.kind)ch.push([a.rent?'Move back in':'Rent it out',()=>{a.rent=!a.rent;stay(a.rent?`I started renting out my ${a.n.toLowerCase()}.`:`I moved into my ${a.n.toLowerCase()}.`)}]);
+    if(a.rent)rentActions(a,ch);
     if(a.cond!=='new'){const fx=a.cond==='fixer',cost=Math.round(a.v*(fx?.15:.1)),gain=fx?.28:.12;
-      ch.push([`Renovate to ${fx?'good condition':'like new'} (${fmt(cost)}, value +${Math.round(gain*100)}%)`,()=>{S.money-=cost;a.v=Math.round(a.v*(1+gain));a.cond=fx?'good':'new';S.st.happy+=3;stay(`I renovated my ${a.n.toLowerCase()}. It's now worth ${fmt(a.v)}.`,'good')},()=>S.money<cost]);}
+      ch.push([`Renovate to ${fx?'good condition':'like new'} (${fmt(cost)}, value +${Math.round(gain*100)}%)`,()=>{S.money-=cost;a.v=Math.round(a.v*(1+gain));a.cond=fx?'good':'new';a.wear=0;S.st.happy+=3;stay(`I renovated my ${a.n.toLowerCase()}. It's now worth ${fmt(a.v)}.`,'good')},()=>S.money<cost]);}
+    rentEquityLoan(a,ch);
     if(a.mort)ch.push([`Pay off mortgage (${fmt(a.mort.bal)})`,()=>{S.money-=a.mort.bal;a.mort=null;unlock('debtfree');stay(`I paid off the mortgage on my ${a.n.toLowerCase()}.`,'good')},()=>S.money<a.mort.bal]);}
-  ch.push([`Sell (I'd get ${fmt(eq)})`,()=>{S.money+=eq;S.assets=S.assets.filter(x=>x!==a);stay(`I sold my ${a.n.toLowerCase()} and got ${fmt(eq)}.`)}]);
+  ch.push([`Sell (I'd get ${fmt(eq)})`,()=>{S.money+=eq;S.assets=S.assets.filter(x=>x!==a);if(a.bought&&S.age-a.bought.age<=3&&saleVal(a)>=a.bought.p*1.25)unlock('flip');stay(`I sold my ${a.n.toLowerCase()} and got ${fmt(eq)}.`)}]);
   ch.push(['Cancel',()=>{}]);
-  choiceModal(a.n,`${a.k==='home'?homeDesc(a)+' ':''}Worth ${fmt(a.v)}.${a.k==='home'?' Selling costs 6% in fees.':''}${a.mort?` Mortgage left: ${fmt(a.mort.bal)} at ${(a.mort.rate*100).toFixed(1)}%.`:''}`,ch);
+  choiceModal(a.n,`${a.k==='home'?homeDesc(a)+' ':''}${a.rent?rentTenantLine(a)+'. ':''}Worth ${fmt(a.v)}.${a.k==='home'?' Selling costs 6% in fees.':''}${a.mort?` Mortgage left: ${fmt(a.mort.bal)} at ${(a.mort.rate*100).toFixed(1)}%.`:''}`,ch);
 }
 function tabRet(s){
   s.append(h('p',{className:'sub'},`Balance ${fmt(S.ret.bal)}. It's invested in the market index. I put in a share of my salary before tax, from my job or from salaries I pay myself at my businesses. My employer (or my business) matches half of it, up to 5% of the salary.`));
@@ -3904,6 +3911,52 @@ function clAutoPre(C){
     if(p&&rnd()<.7){const q={...p};C.cash-=Math.round(p.fee*1.05);delete q.fee;delete q.ask;delete q.club;delete q.err;delete q.perr;q.wage=p.ask;q.yrs=3;q.mor=75;q.exp=false;C.squad.push(q);C.mkt=C.mkt.filter(x=>x!==p);line(`🧭 The director of football signed ${q.n} (${q.pos}, overall ${q.ovr}) for ${fmt(p.fee)}.`,'good');}}
   // sell players who are surplus
   while(C.squad.length>clMax(C)-1){const w=C.squad.slice().sort((a,b)=>clPVal(C,a)-clPVal(C,b))[0];C.squad=C.squad.filter(x=>x!==w);}
+}
+/* ================= real estate: tenants, agents, rent levels, shophouses, holiday homes ================= */
+const RK={shop:{n:'Shophouse',vac:.13,tq:-6,ic:'🏪'},holiday:{n:'Holiday home',vac:.1,tq:0,ic:'🏝️'}};
+const RENTL=[[.85,'Below market (-15%)'],[1,'Market rent'],[1.2,'Premium (+20%)']];
+function newTenant(b){return {n:first(pick(['M','F'])),q:cl(Math.round(gauss()*15+52+(b||0)),8,98),yrs:0};}
+function rentEnsure(a){if(!a.t)a.t=newTenant(a.agent?15:0);if(a.rentM==null)a.rentM=1;if(a.wear==null)a.wear=0;}
+function rentGross(a){rentEnsure(a);return Math.round(a.v*hYld(a)*a.rentM*(1-a.wear/500));}
+function rentNet(a){return Math.round(rentGross(a)*(a.agent?.9:1));}
+function rentYear(a){
+  rentEnsure(a);const K=RK[a.kind]||{vac:.07,tq:0},ph=localPhase(),nm=a.n.toLowerCase();
+  a.wear=Math.min(100,a.wear+R(1,3));
+  if(a.stay===S.age)return 0;
+  const vp=cl((K.vac)+(a.rentM-1)*.45+(ph==='recession'?.07:ph==='crash'?.14:ph==='boom'?-.03:0)-(a.agent?.04:0)+(a.wear>50?.05:0),.01,.6);
+  let gross=rentGross(a),got=gross;
+  if(rnd()<vp){const f=R(15,55)/100;got=Math.round(gross*(1-f));line(`My ${nm} sat empty for ${Math.max(1,Math.round(f*12))} months.`,'bad');a.t=newTenant((a.agent?15:0)+K.tq);}
+  else{
+    const T=a.t,bad=(100-T.q)/100;T.yrs++;
+    if(rnd()<bad*.3){
+      got=Math.round(gross*.4);
+      if(a.agent){const c=Math.round(gross*.12);S.money-=c;a.t=newTenant(15+K.tq);line(`${T.n} stopped paying at my ${nm}. My agent handled the eviction for ${fmt(c)} and found a new tenant.`,'bad');}
+      else{line(`${T.n} stopped paying rent at my ${nm}.`,'bad');const c=Math.round(gross*.15);
+        Q.push({text:`${T.n}, my tenant at the ${nm}, has fallen behind on rent again.`,ch:[
+          [`Evict and find someone new (${fmt(c)} in legal fees)`,()=>{S.money-=c;a.t=newTenant(K.tq);return `I ended the tenancy for ${fmt(c)}. A new tenant moves in.`;},()=>S.money<c],
+          ['Give them time to catch up',()=>{T.q=cl(T.q-8,5,99);return `${T.n} promised to catch up. I will keep an eye on it.`;}]]});}}
+    else if(rnd()<bad*.22){const c=Math.round(a.v*R(12,40)/1000);got-=c;a.wear=Math.min(100,a.wear+6);line(`${T.n} damaged the ${nm}. Repairs cost ${fmt(c)}.`,'bad');}
+    else if(T.q>=75&&T.yrs>=3&&rnd()<.25){line(`${T.n} has looked after my ${nm} for ${T.yrs} years. Reliable tenants are worth a lot.`,'good');}
+    else if(T.q<40&&rnd()<.3){a.t=newTenant((a.agent?15:0)+K.tq);}
+  }
+  return Math.round(got*(a.agent?.9:1));
+}
+function rentPortfolio(){const r=homes().filter(a=>a.rent);
+  const gross=r.reduce((t,a)=>t+rentGross(a),0),up=r.reduce((t,a)=>t+Math.round(a.v*hCond(a).up),0),int=r.reduce((t,a)=>t+(a.mort?Math.round(a.mort.bal*a.mort.rate):0),0),fees=r.reduce((t,a)=>t+(a.agent?Math.round(rentGross(a)*.1):0),0),eq=r.reduce((t,a)=>t+a.v-(a.mort?a.mort.bal:0),0);
+  return {n:r.length,gross,up,int,fees,net:gross-up-int-fees,eq};}
+function rentTenantLine(a){rentEnsure(a);const q=a.t.q,rl=RENTL.find(x=>x[0]===a.rentM);return `${a.t.n}, ${q>=70?'reliable':q>=45?'average':'risky'} tenant${a.t.yrs?` for ${a.t.yrs} yr${a.t.yrs>1?'s':''}`:''}. ${rl?rl[1]:'Market rent'}${a.agent?', agent-managed':''}${a.wear>=50?', needs maintenance':''}`;}
+function rentActions(a,ch){
+  rentEnsure(a);
+  ch.push(['Set the rent level',()=>choiceModal('Rent level',`Higher rent means more income but more empty months. Market rent for this home is about ${fmt(Math.round(a.v*hYld(a)))} a year.`,RENTL.map(([m,l])=>[l,()=>{a.rentM=m;stay(`I set the rent on my ${a.n.toLowerCase()} to ${l.toLowerCase()}.`);}]).concat([['Cancel',()=>{}]]))]);
+  ch.push([a.agent?'Let the letting agent go':'Hire a letting agent (10% of rent)',()=>{a.agent=!a.agent;if(a.agent&&a.t.q<60)a.t.q=60;stay(a.agent?`An agent now manages my ${a.n.toLowerCase()}. Better tenants, fewer headaches, 10% of the rent.`:`I manage my ${a.n.toLowerCase()} myself again.`);}]);
+  const mc=Math.round(a.v*.015);
+  if(a.wear>=10)ch.push([`Maintenance overhaul (${fmt(mc)})`,()=>{S.money-=mc;a.wear=Math.max(0,a.wear-30);stay(`I had my ${a.n.toLowerCase()} serviced.`,'good');},()=>S.money<mc]);
+  if(a.kind==='holiday'&&a.stay!==S.age)ch.push(['Holiday here this year (skip the rent)',()=>{a.stay=S.age;S.st.happy=clamp(S.st.happy+joy(9));S.st.health=clamp(S.st.health+2);stay(`I spent a holiday at my ${a.n.toLowerCase()}. No rent this year, but I felt wonderful.`,'good');}]);
+}
+function rentEquityLoan(a,ch){
+  if(badCredit())return;
+  [.4,.55].forEach(ltv=>{const room=Math.round(a.v*ltv-(a.mort?a.mort.bal:0));
+    if(room>=10000)ch.push([`Borrow against it (${fmt(room)}, up to ${Math.round(ltv*100)}% of value)`,()=>{const r=(a.mort?a.mort.rate:loanRate())+.004,bal=(a.mort?a.mort.bal:0)+room;S.money+=room;a.mort={bal,rate:r,pay:Math.round(annuity(bal,r,25))};stay(`I borrowed ${fmt(room)} against my ${a.n.toLowerCase()}.`);}]);});
 }
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
