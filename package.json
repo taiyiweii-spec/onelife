@@ -1,0 +1,6 @@
+{
+  "name": "one-life",
+  "private": true,
+  "scripts": { "test": "bash tests/run-all.sh One_Life.html" },
+  "devDependencies": { "jsdom": "^24.0.0" }
+}
