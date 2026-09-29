@@ -723,7 +723,7 @@ function fillDefaults(s){
   if(!Array.isArray(s.shorts))s.shorts=[];
   if(!s.margin)s.margin={bal:0};
   if(typeof s.ipoIdx!=='number')s.ipoIdx=0;
-  if(s.advisor===undefined)s.advisor=null;
+  s.advisor=null;
   if(typeof s.secWatch!=='number')s.secWatch=0;
   return s;
 }
@@ -1594,27 +1594,6 @@ function yrShorts(){
     return true;
   });
 }
-/* ---- investment advisor ---- */
-const ADVISORS=[
-  {tier:1,name:'Budget Broker Bob',fee:500,good:.45,label:'Basic'},
-  {tier:2,name:'Market Maven Maria',fee:5000,good:.65,label:'Premium'},
-  {tier:3,name:'Elite Strategist Ethan',fee:25000,good:.82,label:'Elite'}
-];
-function yrAdvisor(){
-  if(!S.advisor)return;
-  const a=ADVISORS.find(x=>x.tier===S.advisor.tier);if(!a)return;
-  S.money-=a.fee;
-  const stocks=TICK.filter(t=>t.k==='Stock'&&!t.penny&&S.mkt[t.s]);
-  if(!stocks.length)return;
-  const target=pick(stocks);
-  const willRise=rnd()<a.good;/* does the tip actually predict the next move? */
-  const tipBuy=willRise;/* good advisor says buy if it will rise */
-  const tipText=tipBuy
-    ?`My advisor ${a.name} says ${target.n} looks undervalued. "Buy before the market catches on."`
-    :`My advisor ${a.name} says ${target.n} is overheated. "I'd sell or short it."`;
-  S.flags.advTip={s:target.s,buy:tipBuy,good:willRise};
-  line(`💼 ${tipText} (advisor fee: ${fmt(a.fee)})`);
-}
 /* ---- insider trading events ---- */
 function insiderEvent(){
   if(S.age<22||S.jail||investVal()<10000)return;
@@ -1715,7 +1694,7 @@ function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
-  ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['advisor',yrAdvisor],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
+  ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['property',yrProperty],['land',yrLand],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
@@ -2149,19 +2128,8 @@ function iDash(s){
   if(held.length){s.append(h('p',{className:'label'},'My holdings'));
     held.forEach(t=>tickRow(s,t));}
   else s.append(h('p',{className:'sub'},'I have no investments yet. Browse the tabs to buy.'));
-  /* advisor section */
+  /* SEC warnings */
   if(S.age>=18){
-    s.append(h('p',{className:'label'},'Investment Advisor'));
-    if(S.advisor){
-      const a=ADVISORS.find(x=>x.tier===S.advisor.tier);
-      s.append(h('p',{className:'sub'},`${a.name} (${a.label}) -- ${fmt(a.fee)}/yr fee`));
-      if(S.flags.advTip)s.append(h('p',{className:'sub'},`Latest tip: ${S.flags.advTip.buy?'Buy':'Sell/short'} ${(TICK.find(t=>t.s===S.flags.advTip.s)||{n:'?'}).n}`));
-      if(a.tier<3)s.append(h('button',{className:'choice',on:()=>{const next=ADVISORS.find(x=>x.tier===a.tier+1);S.advisor={tier:next.tier};stay(`I upgraded to ${next.name} (${next.label}).`);}},`Upgrade to ${ADVISORS.find(x=>x.tier===a.tier+1).label} (${fmt(ADVISORS.find(x=>x.tier===a.tier+1).fee)}/yr)`));
-      s.append(h('button',{className:'choice',on:()=>{S.advisor=null;stay('I fired my investment advisor.');}},`Fire ${a.name}`));
-    }else{
-      s.append(h('p',{className:'sub'},'Hire an advisor to get yearly stock tips. Better advisors give better tips.'));
-      ADVISORS.forEach(a=>s.append(h('button',{className:'choice',on:()=>{S.advisor={tier:a.tier};stay(`I hired ${a.name} as my investment advisor.`);}},`Hire ${a.name} (${a.label}, ${fmt(a.fee)}/yr)`)));
-    }
     if(S.secWatch>20)s.append(h('p',{className:'sub bad'},'I have a feeling the SEC might be watching my trades...'));
     if(S.flags.tradeBan>0)s.append(h('p',{className:'sub bad'},`I'm banned from trading for ${S.flags.tradeBan} more year${S.flags.tradeBan>1?'s':''}.`));
   }
