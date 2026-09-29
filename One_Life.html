@@ -595,6 +595,10 @@ const ACH={
  devbuilt:['🏗️','Ribbon cutting','Finish building a commercial property'],
  devgain:['🌆','Skyline','Sell a development for a $1M profit'],
  highroller:['🎰','High roller','Win $100,000 at the casino in one year'],
+ gavel:['🔨','Going once','Win an auction lot for $1M or more'],
+ flip:['💹','Sharp eye','Sell a collectible for 3 times what you paid'],
+ curator:['🏛️','Curator','Own 10 collectibles at once'],
+ fullset:['🧩','Full set','Own a collectible in every category'],
  debtfree:['🗝️','Keys are mine','Pay off a mortgage'],
  jackpot:['🎟️','Jackpot','Win the lottery jackpot',1],
  memelord:['🐶','Meme lord','Make $1M profit on the meme coin',1],
@@ -715,6 +719,9 @@ function fillDefaults(s){
   if(!Array.isArray(s.assets))s.assets=[];
   if(!Array.isArray(s.angels))s.angels=[];
   if(!Array.isArray(s.dev))s.dev=[];
+  if(!Array.isArray(s.col))s.col=[];
+  if(!s.cm)s.cm={};
+  Object.keys(COL_CATS).forEach(k=>{if(s.cm[k]==null)s.cm[k]=1;});
   if(!Array.isArray(s.exes))s.exes=[];
   if(!s.mem)s.mem={};
   if(!s.seen)s.seen={};
@@ -807,7 +814,7 @@ function fileBankruptcy(){
   TICK.forEach(t=>{S.money+=(S.hold[t.s]||0)*price(t.s);S.hold[t.s]=0;S.basis[t.s]=0;});
   S.shorts.forEach(sh=>{S.money+=sh.col+Math.round((sh.entryP-price(sh.s))*sh.shares);});S.shorts=[];
   S.margin.bal=0;
-  (S.dev||[]).forEach(d=>S.money+=devEquity(d));S.dev=[];
+  (S.dev||[]).forEach(d=>S.money+=devEquity(d));S.dev=[];S.money+=Math.round(colVal()*.7);S.col=[];
   S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');}
 // Card debt limit: the larger of $100,000 or 5 times yearly income. Past it, lenders force a bankruptcy.
 const cardLimit=()=>Math.max(100000,5*(S.job?S.job.s:S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0)));
@@ -827,7 +834,7 @@ const shortProfit=()=>(S.shorts||[]).reduce((a,x)=>a+(x.entryP-price(x.s))*x.sha
 const saleVal=a=>Math.round(a.k==='home'?a.v*.94:a.v);
 const propEquity=()=>S.assets.reduce((a,x)=>a+saleVal(x)-(x.mort?x.mort.bal:0),0);
 const angelVal=()=>S.angels.reduce((a,x)=>a+x.amt,0);
-const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+landEquity()+stakeVal()+angelVal()+shortProfit()-(S.margin?S.margin.bal:0));
+const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+landEquity()+colEquity()+stakeVal()+angelVal()+shortProfit()-(S.margin?S.margin.bal:0));
 const canManage=()=>S.alive&&S.age>=18&&!S.jail;
 function initMkt(){const m={};TICK.forEach(t=>m[t.s]={p:t.start,chg:0,h:[]});return m;}
 function energyMax(){if(S.age<6)return 2;if(S.age<12)return 3;let e=5;if(has('athletic'))e++;if(has('lazy'))e--;if(S.age>=75)e--;
@@ -851,7 +858,7 @@ function newLife(o={}){
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
-    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[]};
+    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
   // trait bonuses only apply to a rolled start. If the player set the sliders, their numbers stand.
   if(!o.st){if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);}
@@ -1482,7 +1489,7 @@ function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash
 function divorce(p){
   const fn=fname(p.name);S.rels=S.rels.filter(x=>x!==p);S.flags.exes++;S.exes.push(p.name);S.st.happy-=12;mile(`Divorced ${fn}`);
   if(p.prenup)return `${fn} and I divorced. The prenup kept my finances intact.`;
-  const settle=Math.round((Math.max(0,propEquity()+landEquity())+stakeVal())*.5);
+  const settle=Math.round((Math.max(0,propEquity()+landEquity()+colEquity())+stakeVal())*.5);
   if(S.money>0)S.money=Math.round(S.money/2);
   TICK.forEach(t=>{if(S.hold[t.s]){S.hold[t.s]/=2;S.basis[t.s]=(S.basis[t.s]||0)/2;}});
   S.ret.bal=Math.round(S.ret.bal/2);S.money-=settle;
@@ -1696,7 +1703,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['property',yrProperty],['land',yrLand],['normalise',yrNormalise],
+  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -2069,6 +2076,7 @@ function tabOverview(s){
     h('dt',{},'Property equity'),h('dd',{},fmt(propEquity())),h('dt',{},'Business stakes'),h('dd',{},fmt(stakeVal())),
     h('dt',{},'Angel investments'),h('dd',{},fmt(angelVal())),
     ...(S.dev.length?[h('dt',{},'Land and developments'),h('dd',{},fmt(landEquity()))]:[]),
+    ...(S.col.length?[h('dt',{},'Collectibles'),h('dd',{},fmt(colEquity()))]:[]),
     ...(S.shorts.length?[h('dt',{},'Short positions P/L'),h('dd',{className:shortProfit()>=0?'good':'bad'},`${shortProfit()>=0?'+':''}${fmt(shortProfit())}`)]:[]),
     ...(S.margin.bal>0?[h('dt',{},'Margin loan'),h('dd',{className:'bad'},fmt(S.margin.bal))]:[]),
     h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan))));
@@ -2295,12 +2303,13 @@ function tabProp(s){
   const hs=homes(),cars=S.assets.filter(a=>a.k==='car'),ro=!canManage();
   const back=()=>null;propView=mTab==='assets'?'mine':'market';
   if(propView==='mine'){const val=S.assets.reduce((t,a)=>t+a.v,0),debt=hs.reduce((t,a)=>t+(a.mort?a.mort.bal:0),0);s.append(h('p',{className:'sub'},`${S.assets.length} asset${S.assets.length===1?'':'s'} worth ${fmt(val)}${debt?`, with ${fmt(debt)} of mortgages`:''}.${S.age>=18?` Living costs: ${fmt(livingCost())}/yr${hs.some(a=>!a.rent)?' (I own my home)':' in rent until I own a home'}.`:''}`));
-    if(!S.assets.length&&!S.dev.length)s.append(h('p',{className:'sub'},'I don\'t own anything yet.'));
+    if(!S.assets.length&&!S.dev.length&&!S.col.length)s.append(h('p',{className:'sub'},'I don\'t own anything yet.'));
     if(hs.length)s.append(h('p',{className:'label'},'Homes'));
     hs.forEach(a=>s.append(row(a.n,`${homeDesc(a)} ${a.rent?`Rented out at ${(hYld(a)*100).toFixed(1)}% a year`:'I live here'}${a.mort?`. Mortgage ${fmt(a.mort.bal)}`:''}`,fmt(a.v),()=>assetModal(a),ro)));
     if(cars.length)s.append(h('p',{className:'label'},'Cars'));
     cars.forEach(a=>s.append(row(a.n,`${a.age?`${a.age} yr${a.age>1?'s':''} old`:'New'}. Running costs ${fmt(carRun(a))}/yr`,fmt(a.v),()=>assetModal(a),ro)));
     if(S.dev.length){s.append(h('p',{className:'label'},'Land and developments'));S.dev.forEach(d=>s.append(row(`${d.type?DEV_TYPES[d.type].ic:'🌱'} ${d.n}`,devDesc(d),fmt(devEquity(d)),()=>devModal(d),ro)));}
+    if(S.col.length)s.append(h('p',{className:'label'},'Collectibles'),row('🖼️ My collection',`${S.col.length} piece${S.col.length===1?'':'s'}. Tap to sell, insure or lend to a museum`,fmt(colEquity()),()=>{aucTab='coll';aucOpen();},ro));
     return;}
   if(propView==='market'){if(ro){s.append(h('p',{className:'sub'},"I can't buy anything right now."));return;}const L=marketList();s.append(
     h('div',{className:'tabs'},[['home','🏠 Property'],['car','🚗 Cars'],['land','🏗️ Land']].map(([v,l])=>h('button',{'aria-pressed':String(mkKind===v),on:()=>{mkKind=v;drawSheet();}},l))));
@@ -2452,6 +2461,7 @@ function actSheet(){openSheet(s=>{
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
+  s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
   if(S.biz.length||S.flags.founded){const f0=S.fame||0;
     s.append(h('h4',{},'Founder life'),h('p',{className:'label'},`Founder fame ${f0}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${f0}%;background:var(--looks)`})));
@@ -2488,6 +2498,195 @@ function findLove(){
 function lottery(){S.money-=10;const r=rnd(),m=has('lucky')?5:1;
   if(r<.0004*m){S.money+=2000000;S.st.happy+=40;S.flags.lotto=true;unlock('jackpot');mile('Won the $2,000,000 lottery jackpot');return 'I WON THE LOTTERY JACKPOT: $2,000,000!'}
   if(r<.02*m){S.money+=500;return 'I bought a $10 lottery ticket and won $500!'}return 'I bought a $10 lottery ticket. Nothing.'}
+/* ================= collectibles and auctions ================= */
+/* S.col is my collection. S.cm is the market index for each category (1 = today's price when I started). S.cmHot is the category collectors are chasing.
+   S.auc is this year's sale catalogue. Buyers pay a 12% premium on the hammer price, sellers pay 10% commission. */
+const COL_CATS={
+  art:{n:'Art',ic:'🖼️',drift:3,vol:10},watch:{n:'Watches',ic:'⌚',drift:4,vol:8},wine:{n:'Fine wine',ic:'🍷',drift:2.5,vol:7},
+  coin:{n:'Rare coins',ic:'🪙',drift:2.5,vol:6},memo:{n:'Memorabilia',ic:'🎞️',drift:3,vol:11},guitar:{n:'Guitars',ic:'🎸',drift:3,vol:9}};
+const COL_RAR=['Common','Uncommon','Rare','Epic','Legendary'],COL_GROW=[.003,.006,.012,.018,.025];
+const colTier=v=>v<5e3?0:v<5e4?1:v<5e5?2:v<5e6?3:4;
+const COL_PREM=.12,COL_COMM=.10;
+const AUC_NAMES=['Paddle 12','Lady Ashcroft','Mr. Tanaka','The Duchess','A phone bidder','Baron von Riel','Dealer Moreau','Ms. Okonkwo','Sir Percival','Paddle 88'];
+const AUC_HOUSES={
+  local:{n:'Corner Saleroom',ic:'🏚️',lo:300,hi:2e4,cnt:6,bid:[2,4]},
+  regional:{n:'Regional Auction House',ic:'🏛️',lo:2e4,hi:4e5,cnt:6,bid:[2,5]},
+  grand:{n:'Grand Evening Sale',ic:'🏰',lo:4e5,hi:25e6,cnt:5,bid:[3,6]}};
+const colIdx0=()=>Object.fromEntries(Object.keys(COL_CATS).map(k=>[k,1]));
+const sig2=v=>{const d=Math.pow(10,Math.max(0,Math.floor(Math.log10(Math.max(1,v)))-1));return Math.round(v/d)*d;};
+function colName(cat){const P=a=>pick(a);
+  if(cat==='art')return `${P(['Blue','Silent','Golden','Fractured','Winter','Salt','Paper','Midnight'])} ${P(['Harbour','Orchard','Portrait','Study','Horizon','Garden','Interior','Procession'])} by ${P(['A. Verhoeven','M. Castellan','L. Okoro','J. Brandt','S. Kimura','R. Delacroix-Vale'])}`;
+  if(cat==='watch')return `${P(['Veltrin','Aurelian','Hartmann & Voss','Corvane','Meridien'])} ${P(['Chronograph','Perpetual Calendar','Diver','Moonphase','Tourbillon'])}, ${R(1948,2012)}`;
+  if(cat==='wine')return `Chateau ${P(['Montclair','Belrose','Vauclaire','Ormesson','Lunel'])} ${R(1945,2005)} (${P(['case of 12','magnum','double magnum'])})`;
+  if(cat==='coin')return `${R(1795,1935)} ${P(['gold eagle','silver dollar','sovereign','double florin','commemorative crown'])} (${P(['mint state','extremely fine','proof'])})`;
+  if(cat==='memo')return `${P(['Dex Marlowe','Sienna Vale','Jax Okoro'])}'s ${P(['award-night jacket','signed script','stage guitar','first contract','screen-worn boots'])}`;
+  return `${P(['Halvorsen','Brennick','Castille','Dunmore'])} ${P(['Sunburst','Archtop','Dreadnought','Custom'])}, ${R(1952,1984)}`;}
+const setMult=cat=>{const n=(S.col||[]).filter(x=>x.cat===cat&&!(x.fake&&x.known)).length;return n>=5?1.12:n>=3?1.06:1;};
+const colValue=it=>Math.round(it.base*S.cm[it.cat]*(1+Math.min(it.yrs,15)*COL_GROW[it.t])*(it.fake&&it.known?.04:1)*(it.known&&!it.fake?1.03:1)*setMult(it.cat)*(it.mus?1.03:1));
+const colVal=()=>(S.col||[]).reduce((a,it)=>a+colValue(it),0);
+const colEquity=()=>Math.round(colVal()*(1-COL_COMM));
+const hotMult=cat=>S.cmHot&&S.cmHot.k===cat?1.12:1;
+function aucInc(p){const u=Math.pow(10,Math.max(1,Math.floor(Math.log10(Math.max(10,p)))-1));return Math.max(u,Math.round(p*.05/u)*u);}
+function aucLot(hk){
+  const H=AUC_HOUSES[hk],cat=pick(Object.keys(COL_CATS)),fair=sig2(H.lo*Math.pow(H.hi/H.lo,rnd()));
+  let shown=fair*R(88,112)/100,flag='';const x=rnd();
+  if(x<.03){shown=fair/R(8,25);flag='sleeper';}else if(x<.11){shown=fair*R(140,200)/100;flag='hype';}
+  return {id:uid(),cat,name:colName(cat),fair,shown:sig2(shown),flag,fake:flag!=='sleeper'&&rnd()<.04,done:null,exp:null};}
+function aucCat(){
+  if(S.auc&&S.auc.age===S.age)return S.auc;
+  const o={age:S.age};Object.keys(AUC_HOUSES).forEach(k=>{o[k]=Array.from({length:AUC_HOUSES[k].cnt},()=>aucLot(k));});
+  S.auc=o;return o;}
+function colAch(){if(S.col.length>=10)unlock('curator');if(Object.keys(COL_CATS).every(k=>S.col.some(x=>x.cat===k)))unlock('fullset');}
+/* ---- live bidding ---- */
+function aucBegin(lot,hk){
+  const H=AUC_HOUSES[hk],nb=R(H.bid[0],H.bid[1]),names=AUC_NAMES.slice().sort(()=>rnd()-.5).slice(0,nb);
+  const A={lot,hk,cur:0,leader:'none',log:[],ai:names.map(n=>({n,max:lot.shown*(.55+rnd()*.7)*hotMult(lot.cat)}))};
+  A.start=Math.max(10,sig2(lot.shown*.4));
+  const c=A.ai.filter(b=>b.max>=A.start);A.cur=A.start;
+  if(c.length){const b=pick(c);A.leader=b.n;A.log.push(`${b.n} opens the bidding at ${fmt(A.start)}.`);}
+  else A.log.push(`The room is quiet. The auctioneer asks for ${fmt(A.start)}.`);
+  aucTurn(A);}
+function aucTable(A){
+  const L=A.lot,C=COL_CATS[L.cat],tot=Math.round(A.cur*(1+COL_PREM));
+  return h('div',{},h('p',{className:'label'},`${C.ic} ${C.n}. Estimate ${fmt(L.shown*.8)} to ${fmt(L.shown*1.2)}`),
+    h('p',{className:'event-text',style:'margin:0 0 6px'},A.leader==='none'?`No bids yet. Opening at ${fmt(A.cur)}.`:`Bid ${fmt(A.cur)}, held by ${A.leader==='me'?'me':A.leader}.`),
+    h('p',{className:'sub',style:'margin:0 0 6px'},`If I win at this price I pay ${fmt(tot)} with the ${Math.round(COL_PREM*100)}% buyer's premium.${L.exp?` The expert says it is worth about ${fmt(L.exp.val)} and looks ${L.exp.auth}.`:''}`),
+    h('p',{className:'sub'},A.log.slice(-4).join(' ')));}
+function aucTurn(A){
+  const inc=aucInc(A.cur),next=A.leader==='none'?A.cur:A.cur+inc,jump=A.cur+inc*3,afford=x=>S.money>=x*(1+COL_PREM);
+  choiceModal(`🔨 ${A.lot.name}`,'',[
+    [`Bid ${fmt(next)}`,()=>aucBid(A,next),()=>!afford(next)],
+    ...(A.leader==='none'?[]:[[`Jump bid to ${fmt(jump)}`,()=>aucBid(A,jump),()=>!afford(jump)]]),
+    ['Set my limit...',()=>aucLimit(A),()=>!afford(next)],
+    ['Walk away',()=>aucEnd(A,A.leader==='none'?null:A.leader)]],aucTable(A));}
+function aucBid(A,to){A.cur=to;A.leader='me';A.log.push(`I bid ${fmt(to)}.`);aucRespond(A);}
+function aucRespond(A){
+  const nx=A.cur+aucInc(A.cur),c=A.ai.filter(b=>b.max>=nx&&rnd()>.12);
+  if(!c.length)return aucEnd(A,'me');
+  const b=pick(c);A.cur=nx;A.leader=b.n;A.log.push(`${b.n} bids ${fmt(nx)}.`);aucTurn(A);}
+function aucLimit(A){
+  const cap=Math.floor(S.money/(1+COL_PREM)),next=A.leader==='none'?A.cur:A.cur+aucInc(A.cur);
+  amountModal({title:'Set my limit',sub:`I will bid for myself up to this hammer price, then stop. The current bid is ${fmt(A.cur)}. The ${Math.round(COL_PREM*100)}% premium is added on top.`,min:next,max:cap,init:Math.min(cap,Math.max(next,Math.round(A.lot.shown*1.1))),step:10,
+    btn:a=>`Bid up to ${fmt(a)}`,note:a=>`At most ${fmt(Math.round(a*(1+COL_PREM)))} with the premium.`,
+    onOk:L=>{A.cur=next;A.leader='me';A.log.push(`I bid ${fmt(next)} and set my limit at ${fmt(L)}.`);
+      for(let g=0;g<60;g++){const nx=A.cur+aucInc(A.cur),c=A.ai.filter(b=>b.max>=nx&&rnd()>.12);
+        if(!c.length)return aucEnd(A,'me');
+        const b=pick(c);A.cur=nx;A.leader=b.n;A.log.push(`${b.n} bids ${fmt(nx)}.`);
+        const mine=A.cur+aucInc(A.cur);if(mine>L)return aucEnd(A,b.n);
+        A.cur=mine;A.leader='me';A.log.push(`I counter at ${fmt(mine)}.`);}
+      aucEnd(A,'me');},onCancel:()=>aucTurn(A)});}
+function aucEnd(A,who){
+  const L=A.lot,price=A.cur,back=[['Back to the catalog',()=>gRefresh()]];
+  if(who==null){L.done='passed';return choiceModal('🔨 Passed',`Nobody bid, so ${L.name} was passed.`,back);}
+  if(who!=='me'){L.done='lost';return choiceModal('🔨 Sold to '+who,`The hammer fell at ${fmt(price)}. ${who} takes ${L.name}.`,back);}
+  const total=Math.round(price*(1+COL_PREM));
+  S.money-=total;L.done='won';
+  const it={id:uid(),cat:L.cat,name:L.name,base:L.fair/S.cm[L.cat],t:colTier(L.fair),yrs:0,paid:total,fake:L.fake,known:false,mus:false};
+  S.col.push(it);mile(`Won ${L.name} at auction`);sfx('good');
+  if(price>=1e6)unlock('gavel');colAch();
+  let extra='';
+  if(L.flag==='sleeper'){it.known=true;S.fame=Math.min(100,(S.fame||0)+3);extra=` After the sale, experts studied it and announced a discovery: it is a lost masterwork worth about ${fmt(L.fair)}!`;toast('🔨 A hidden treasure!');}
+  gRefresh();
+  choiceModal('🔨 Sold to me!',`The hammer fell at ${fmt(price)}. With the premium I paid ${fmt(total)} for ${L.name}.${extra}`,back);}
+/* ---- selling ---- */
+function colFakeCheck(it){
+  if(!(it.fake&&!it.known)||rnd()>=.85)return false;
+  it.known=true;gRefresh();
+  choiceModal('🔨 Forgery!',`The house experts examined ${it.name} and flagged it as a forgery. The sale was withdrawn and it is worth almost nothing now.`,[['Ouch',()=>{}]]);return true;}
+function colHouse(it){
+  const v=colValue(it),ideal=v>=4e5?'grand':v>=2e4?'regional':'local';
+  choiceModal(`Sell ${it.name}`,`Worth about ${fmt(v)}. The house takes ${Math.round(COL_COMM*100)}% commission. Pieces do best at the house that suits their price. Pick a reserve, the lowest price I will accept.`,
+    Object.entries(AUC_HOUSES).map(([k,H])=>[`${H.ic} ${H.n}${k===ideal?' (best fit)':''}`,()=>colReserve(it,k)]).concat([['Cancel',()=>{}]]));}
+function colReserve(it,hk){
+  const v=colValue(it);
+  choiceModal('Set the reserve',`${AUC_HOUSES[hk].n}. Estimate ${fmt(v*.8)} to ${fmt(v*1.2)}. A higher reserve can mean no sale, and an unsold lot costs a 2% catalogue fee.`,[
+    [`Low reserve, ${fmt(v*.7)} (sells almost surely)`,()=>colSale(it,hk,.7)],[`Fair reserve, ${fmt(v*.95)}`,()=>colSale(it,hk,.95)],[`Ambitious reserve, ${fmt(v*1.2)} (may not sell)`,()=>colSale(it,hk,1.2)],['Back',()=>colHouse(it)]]);}
+function colSale(it,hk,rp){
+  if(colFakeCheck(it))return;
+  const v=colValue(it),H=AUC_HOUSES[hk],ideal=v>=4e5?'grand':v>=2e4?'regional':'local',match=hk===ideal;
+  let nb=R(H.bid[0],H.bid[1]);if(!match)nb=Math.max(1,nb-2);
+  const mult=(match?1:.9)*hotMult(it.cat),maxes=Array.from({length:nb},()=>v*(.55+rnd()*.7)*mult).sort((a,b)=>b-a);
+  const second=maxes[1]||v*.4;let price=Math.min(maxes[0],Math.round(second*1.03+aucInc(second)));price=Math.round(price/10)*10;
+  const names=AUC_NAMES.slice().sort(()=>rnd()-.5).slice(0,Math.max(2,nb)),start=Math.max(10,sig2(price*.35)),lines=[`Bidding opens at ${fmt(start)}.`];
+  const steps=R(2,4);for(let k=1;k<=steps;k++){const p=Math.round((start+(price-start)*k/(steps+1))/10)*10;lines.push(`${names[k%names.length]} bids ${fmt(p)}.`);}
+  let head,res,cls='';
+  if(price<v*rp){const fee=Math.min(Math.round(v*.02),Math.max(0,Math.floor(S.money)));S.money-=fee;head='🔨 Bought in';lines.push(`The bidding stalls at ${fmt(price)}, under my reserve.`);res=`Unsold. The house charged a ${fmt(fee)} catalogue fee. I still own ${it.name}.`;cls='bad';}
+  else{const net=Math.round(price*(1-COL_COMM)),profit=net-it.paid;
+    lines.push(`Sold to ${names[0]} for ${fmt(price)}!`);
+    S.money+=net;S.col=S.col.filter(x=>x!==it);
+    if(it.paid>0&&net>=3*it.paid)unlock('flip');
+    if(it.fake&&!it.known){addKarma(-3);lines.push('The buyer\'s experts missed the forgery. Not my finest hour.');}
+    mile(`Sold ${it.name} at auction`);head='🔨 Sold!';
+    res=`After ${Math.round(COL_COMM*100)}% commission I received ${fmt(net)}. That is a ${profit>=0?'profit':'loss'} of ${fmt(Math.abs(profit))} on what I paid.`;cls=profit>=0?'good':'bad';}
+  gRefresh();
+  choiceModal(head,res,[['Back to my collection',()=>gRefresh()]],h('div',{},...lines.map(t=>h('p',{className:'sub',style:'margin:0 0 4px'},t))));}
+function colDealer(it){
+  if(colFakeCheck(it))return;
+  const net=Math.round(colValue(it)*.8);S.money+=net;S.col=S.col.filter(x=>x!==it);
+  stay(`I sold ${it.name} to a dealer for ${fmt(net)}. Quick, but the dealer took a cut.`);}
+function colItemModal(it){
+  const v=colValue(it),ro=!canManage(),cost=Math.max(200,Math.round(v*.015)),facts=[['Worth now',fmt(v)],['I paid',fmt(it.paid)],['Held',`${it.yrs} year${it.yrs===1?'':'s'}`],['Rarity',COL_RAR[it.t]],['Status',it.fake&&it.known?'Forgery':it.known?'Authenticated':'Not authenticated']];
+  const ch=[['Sell at auction...',()=>colHouse(it),()=>ro||it.mus],[`Sell to a dealer now (${fmt(Math.round(v*.8))})`,()=>colDealer(it),()=>ro||it.mus]];
+  if(!it.known)ch.push([`Have it authenticated (${fmt(cost)})`,()=>{S.money-=cost;it.known=true;
+    if(it.fake)stay(`The experts confirmed it: ${it.name} is a forgery, worth almost nothing. The ${fmt(cost)} check at least stopped me selling it blind.`,'bad');
+    else stay(`${it.name} is genuine. The certificate lifts its value by about 3%.`,'good');},()=>ro||S.money<cost]);
+  ch.push([it.mus?'Recall from the museum':'Lend to a museum (fame, safe from theft, but not for sale)',()=>{it.mus=!it.mus;stay(it.mus?`I lent ${it.name} to the city museum. Visitors will see my name on the plaque.`:`${it.name} came home from the museum.`);}]);
+  ch.push(['Close',()=>{}]);
+  choiceModal(`${COL_CATS[it.cat].ic} ${it.name}`,`${COL_RAR[it.t]} ${COL_CATS[it.cat].n.toLowerCase()}. ${it.mus?'On loan to the museum.':''}`,ch,h('dl',{},...facts.flatMap(([a,x])=>[h('dt',{},a),h('dd',{},x)])));}
+/* ---- screens ---- */
+let aucTab='sales',aucView=null;
+function aucOpen(){aucView=null;openSheet(drawAuc);}
+function drawAuc(s){
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🔨 Auction house'),h('p',{className:'sub'},`Cash ${fmt(S.money)}. My collection is worth ${fmt(colEquity())} after selling costs.`));
+  s.append(h('div',{className:'tabs'},[['sales','🔨 Sales'],['coll','🖼️ My collection']].map(([v,l])=>h('button',{'aria-pressed':String(aucTab===v),on:()=>{aucTab=v;aucView=null;drawSheet(true)}},l))));
+  (aucTab==='sales'?aucSales:aucColl)(s);}
+function aucSales(s){
+  const cat=aucCat(),ro=!canManage();
+  if(S.cmHot)s.append(h('p',{className:'flash'},`🔥 Collectors are chasing ${COL_CATS[S.cmHot.k].n.toLowerCase()} right now, so bidders pay more for them.`));
+  if(aucView){const H=AUC_HOUSES[aucView];
+    s.append(h('button',{className:'back',on:()=>{aucView=null;drawSheet(true)}},'‹ All sales'),h('h4',{},`${H.ic} ${H.n}`),h('p',{className:'sub'},`${cat[aucView].length} lots. Buyers pay a ${Math.round(COL_PREM*100)}% premium on top of the hammer price. Estimates are only a guide: some lots are bargains, some are overhyped, and a few are fakes.`));
+    cat[aucView].forEach(l=>{const C=COL_CATS[l.cat];s.append(row(`${C.ic} ${l.name}`,`Estimate ${fmt(l.shown*.8)} to ${fmt(l.shown*1.2)}${l.done==='won'?'. I won this lot':l.done==='lost'?'. Sold to another bidder':l.done==='passed'?'. Passed':''}`,l.done?'':'Bid',()=>lotModal(l,aucView),ro||!!l.done));});
+    return;}
+  s.append(h('p',{className:'sub'},'Three sales a year. Attending a sale costs 1 energy, once for the year. New lots every year.'));
+  Object.entries(AUC_HOUSES).forEach(([k,H])=>{const seen=S.used['auc'+k];
+    s.append(row(`${H.ic} ${H.n}`,`Lots from ${fmt(H.lo)} to ${fmt(H.hi)}. ${seen?'I am registered this year':'Costs 1 energy to attend'}`,'',()=>{if(!seen){spend(1);S.used['auc'+k]=true;}aucView=k;drawSheet(true);},ro||(!seen&&energyLeft()<1)));});}
+function lotModal(l,hk){
+  const C=COL_CATS[l.cat],cost=Math.max(100,Math.round(l.shown*.01));
+  const facts=[['Estimate',`${fmt(l.shown*.8)} to ${fmt(l.shown*1.2)}`],['Category',C.n]];
+  if(l.exp)facts.push(['Expert says',`worth about ${fmt(l.exp.val)}, looks ${l.exp.auth}`]);
+  choiceModal(`${C.ic} ${l.name}`,'A lot in the sale. Bidding is live: rivals will bid against me and I can raise, jump, or set a limit.',[
+    ['Start bidding',()=>aucBegin(l,hk)],
+    [l.exp?'Expert already consulted':`Consult an expert (${fmt(cost)})`,()=>{S.money-=cost;
+      l.exp={val:sig2(l.fair*R(94,106)/100),auth:l.fake?(rnd()<.85?'doubtful':'genuine'):(rnd()<.04?'doubtful':'genuine')};gRefresh();lotModal(l,hk);},()=>!!l.exp||S.money<cost],
+    ['Walk past',()=>{}]],h('dl',{},...facts.flatMap(([a,x])=>[h('dt',{},a),h('dd',{},x)])));}
+function aucColl(s){
+  const col=S.col,ro=!canManage();
+  if(!col.length){s.append(h('p',{className:'sub'},'I do not own any collectibles yet. Win a lot at a sale and it will be kept here. I can hold it as the market moves, then resell it at auction later.'));return;}
+  const byCat=Object.keys(COL_CATS).map(k=>[k,col.filter(x=>x.cat===k)]).filter(x=>x[1].length);
+  s.append(h('dl',{},h('dt',{},'Pieces'),h('dd',{},String(col.length)),h('dt',{},'Worth if sold at auction'),h('dd',{},fmt(colEquity())),h('dt',{},'Paid in total'),h('dd',{},fmt(col.reduce((a,x)=>a+x.paid,0)))));
+  s.append(h('p',{className:'sub'},`Market by category: ${Object.entries(COL_CATS).map(([k,C])=>`${C.ic} ${S.cm[k]>=1?'+':''}${Math.round((S.cm[k]-1)*100)}%`).join('  ')}. Three pieces in one category add 6% to their value and five add 12%.`));
+  s.append(tog('🛡️ Insure my collection','About 0.8% of its value a year. Pays out 85% if a piece is stolen or burns',S.colIns,()=>{S.colIns=!S.colIns;stay(S.colIns?'My collection is insured.':'I cancelled the insurance.');},ro));
+  byCat.forEach(([k,list])=>{s.append(h('h4',{},`${COL_CATS[k].ic} ${COL_CATS[k].n}${list.length>=3?` (set bonus +${list.length>=5?12:6}%)`:''}`));
+    list.forEach(it=>{const v=colValue(it),d=v-it.paid;s.append(row(it.name,`${COL_RAR[it.t]}. Held ${it.yrs} yr${it.yrs===1?'':'s'}. ${it.fake&&it.known?'Forgery. ':it.known?'Authenticated. ':''}${it.mus?'On loan to the museum. ':''}${d>=0?'Up':'Down'} ${fmt(Math.abs(d))} on what I paid`,fmt(v),()=>colItemModal(it),ro));});});}
+/* ---- the year ---- */
+function yrCollect(){
+  const cats=Object.keys(COL_CATS),ph=PHASE[S.econ.phase].m[0]*.15;
+  if(S.cmHot){S.cmHot.yrs--;if(S.cmHot.yrs<0){const k=S.cmHot.k;S.cm[k]=Math.max(.35,S.cm[k]*.94);if(S.col.length)line(`🔨 The ${COL_CATS[k].n.toLowerCase()} frenzy cooled off.`);S.cmHot=null;}}
+  else if(rnd()<.15){const k=pick(cats);S.cmHot={k,yrs:2};if(S.col.length)line(`🔨 Collectors are chasing ${COL_CATS[k].n.toLowerCase()} this year.`);}
+  cats.forEach(k=>{const C=COL_CATS[k];S.cm[k]=Math.max(.35,Math.min(5,S.cm[k]*(1+(C.drift+ph+(S.cmHot&&S.cmHot.k===k?10:0)+gauss()*C.vol)/100)));});
+  if(!S.col.length)return;
+  let cost=0;
+  S.col.slice().forEach(it=>{
+    const v=colValue(it);cost+=v*.003+(S.colIns?v*.008:0);it.yrs+=it.mus?2:1;
+    if(it.mus&&it.t>=3)S.fame=Math.min(100,(S.fame||0)+1);
+    if(!it.mus&&rnd()<.012){const how=pick(['stolen','damaged in a fire']);S.col=S.col.filter(x=>x!==it);
+      if(S.colIns){const p=Math.round(v*.85);S.money+=p;line(`🖼️ ${it.name} was ${how}. Insurance paid ${fmt(p)}.`,'bad');}
+      else line(`🖼️ ${it.name} was ${how}. It was not insured, so it is gone.`,'bad');return;}
+    if(it.fake&&!it.known&&rnd()<.10){it.known=true;line(`🖼️ Experts examined ${it.name} and declared it a forgery. It is worth almost nothing now.`,'bad');}});
+  cost=Math.round(Math.min(cost,Math.max(0,S.money)));S.money-=cost;
+  if(cost>=1000)line(`🖼️ Storage${S.colIns?' and insurance':''} for my collection cost ${fmt(cost)}.`);
+}
+
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -2721,7 +2920,7 @@ function continueAs(k){
   const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
   const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
   const gks=S.rels.filter(r=>r.type==='Grandchild'&&r.par===k.id&&r.alive).map(r=>({...r,type:'Child',rel:Math.max(r.rel,75)}));
-  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,dev:S.dev,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
+  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,dev:S.dev,col:S.col,cm:S.cm,cmHot:S.cmHot,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
   if(k.life){const L=k.life;['smarts','looks'].forEach(x=>S.st[x]=L.st[x]);S.edu.degrees=[...L.degrees];if(L.major){S.edu.major=L.major;S.edu.yrs=L.degYrs;}
     if(L.job){S.job={c:L.job.c,s:L.job.s,perf:55,lvl:L.job.lvl,yrs:3,lvlYrs:1,warn:0,style:'normal'};if(!S.careers.includes(L.job.c))S.careers.push(L.job.c);}
     S.money+=L.cash+L.inv+(L.biz?L.biz.v:0);if(L.home)S.assets.push({n:L.home.n,v:L.home.v,k:'home',rent:false,mort:L.home.mort>0?{bal:L.home.mort,rate:loanRate(),pay:Math.round(annuity(L.home.mort,loanRate(),25))}:null});
