@@ -7,7 +7,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 ## 1. Current state (2026-09-29)
 
 - **Environment:** moved from a claude.ai project to Claude Code on 2026-09-29. Local folder with git. No `project_read`/`project_write` any more.
-- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.31 (card debt limit).
+- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.32 (land development).
 - **Test reference (2026-09-29, `npm test`, 6 lives):** syntax 1 script, 0 failed, 0 em dashes. Playtest 23 runs, 0 failed, FINGERPRINT `1da74e7c2331017d`. Old saves 0 failed. Balance 0 numbers moved more than 10%. The fingerprint changes whenever code changes; that is expected.
 - **Published artifact:** `https://claude.ai/artifact/J81Q77oc1qsPDd44ZeUYLs` (Version 1, has 3.5.31, `sample` capability on, published from Claude Code on 2026-09-30). The older `95FEiEA9QhTYSxeDsSbcWN` (Version 11) is stale and could not be reached from Claude Code. To update the new one, republish with `url` and keep `capabilities:{"sample":{}}`.
 - **Dropped by decision (2026-09-29):** the B1/B2 brand engine and Block W wealth spec mentioned in older chat memory were never in this file. David chose to drop them and start fresh. Do not look for them.
@@ -19,7 +19,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 - **One file, one inline script,** vanilla JS, all CSS inline, Google Fonts (Fredoka, Nunito). Mobile-first, max width 560px, light/dark via CSS variables.
 - **Bottom nav:** Work (`#bJob`), Money (`#bMoney`), Age (`#bAge`), People (`#bRel`), Activities (`#bAct`). Business sits inside a Work/Business toggle with Empire/Market/Founder pills.
 - **Core objects:** `S` (the save: character, stats, money, relationships, jobs, businesses, investments, flags, log; special careers in `S.act`, `S.sp`, `S.mus`, `S.mdl`, `S.inf`; listed companies in `S.tk`), `META` (cross-life: achievements, family tree, hall of fame, settings), `Q` (pending decision queue), `TICK`/`TCAP` (market tickers and sizes).
-- **Year engine:** `ageUp` runs ordered `YEAR_PHASES`: tick, people, stats, prison, school, econ, stockdiv, margin, shorts, advisor, sec, college, work, pension, gig, business, angels, acting, sports, music, modeling, influencer, property, normalise, events, history, decade, death, wrapup.
+- **Year engine:** `ageUp` runs ordered `YEAR_PHASES`: tick, people, stats, prison, school, econ, stockdiv, margin, shorts, advisor, sec, college, work, pension, gig, business, angels, acting, sports, music, modeling, influencer, property, land, normalise, events, history, decade, death, wrapup.
 - **Saves:** `localStorage` per device plus export/import backup codes. New fields are additive defaults in `fillDefaults`, so old saves load without a version bump. Staying client-side, no server.
 - **AI features** (storyteller, obituary, investor pitch, AI Assistant) use `window.claude.use('sample')` and only work inside the claude.ai artifact.
 
@@ -44,6 +44,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 - **Credit line (3.5.27):** draws capped at the limit, 10% within and 18% over the limit, automatic repayment keeping a cash buffer.
 - **Price lever (3.5.30):** for goods types, `p` applies only to non-default lever options (`levP` in `prodMult`); services unchanged.
 - **Card debt limit (3.5.31):** negative cash is card debt at 7%; past `cardLimit()` (larger of $100,000 or 5x yearly income) the lenders force `fileBankruptcy()`, the same routine as the manual button.
+- **Land development (3.5.32):** Money > Market > Land. `S.dev` holds parcels through `land`, `rezone`, `build`, `done`. Buy land (2% closing), rezone non-commercial land (5% of value, decided at year end, `rezoneP()`), build warehouse, retail, office or mixed-use (`DEV_TYPES`, cash or 70% loan, 1 to 3 years, up to 25% overrun, 12% delay chance), lease up over about 3 years (`devTgt` by economy and area), sell (6% land fees, 3% built). Construction firm cuts build cost 12% and overruns 50%; Realty agency adds 4% occupancy and cuts sale fees. Equity is in `netWorth`, bankruptcy, divorce and heirs. Achievements `devbuilt`, `devgain`. Tests do not build anything; checked with ad-hoc jsdom scripts.
 - **Bug-fix pass (3.5.29):** dealership reputation death-spiral fixed (gate on quality, not reputation), dead `SEGS` and `svcStaff` removed.
 
 ---
@@ -121,3 +122,5 @@ Pick with David: backlog item 4 (special-careers scaffold).
 **2026-09-29, 3.5.31 card debt limit.** Added `cardLimit()` and `fileBankruptcy()` (extracted from the manual button). Year-end forced bankruptcy when card debt passes the limit; Money tab text shows the limit. Phoenix start (-$60,000) stays under it. Not covered by tests (no playtest run reaches it).
 
 **2026-09-29, planShort re-test.** Counted prompts across all 17 business types over 15 years each: 9 prompts in 255 business-years. Not a recurring nuisance, so no code change. Issue and pending decision removed.
+
+**2026-09-30, 3.5.32 land development.** Designed and built in one pass (`yrLand` phase, `landList`, `devModal`, `devPlan`, `startBuild`, `sellDev`). Rents and recession swings tuned so a build is worth about 10 to 17% over cost in a normal economy, less after overruns and interest. Not balanced against long play; watch leverage: 70% loans at about 8% roughly cancel the rent while a building is filling. Playtest fingerprint changed (expected).

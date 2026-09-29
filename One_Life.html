@@ -592,6 +592,8 @@ const ACH={
  ipo:['🔔','Ring the bell','Take a company public'],
  bust:['📉','Lessons learned','Have a business go under'],
  landlord:['🏘️','Landlord','Rent out 3 properties at once'],
+ devbuilt:['🏗️','Ribbon cutting','Finish building a commercial property'],
+ devgain:['🌆','Skyline','Sell a development for a $1M profit'],
  debtfree:['🗝️','Keys are mine','Pay off a mortgage'],
  jackpot:['🎟️','Jackpot','Win the lottery jackpot',1],
  memelord:['🐶','Meme lord','Make $1M profit on the meme coin',1],
@@ -711,6 +713,7 @@ function fillDefaults(s){
   s.biz.forEach(ecSeed);
   if(!Array.isArray(s.assets))s.assets=[];
   if(!Array.isArray(s.angels))s.angels=[];
+  if(!Array.isArray(s.dev))s.dev=[];
   if(!Array.isArray(s.exes))s.exes=[];
   if(!s.mem)s.mem={};
   if(!s.seen)s.seen={};
@@ -794,7 +797,7 @@ function addSk(k,v){S.sk=S.sk||{biz:0,tech:0,ppl:0};S.sk[k]=cl(S.sk[k]+v);}
 function addKarma(v){S.karma=cl((S.karma||50)+v);}
 function addEthic(v){S.ethic=cl((S.ethic==null?50:S.ethic)+v);}
 function creditScore(){if(S.age<18)return 0;
-  const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0)+Math.max(0,-S.money)+(S.sloan||0),inc=S.job?S.job.s:Math.max(20000,S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0));
+  const debt=S.assets.reduce((a,x)=>a+(x.mort?x.mort.bal:0),0)+Math.max(0,-S.money)+(S.sloan||0)+devDebt(),inc=S.job?S.job.s:Math.max(20000,S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0));
   let c=640+Math.min(110,(S.age-18)*4)-Math.min(160,debt/Math.max(1,inc)*25)+(netWorth()>500000?40:netWorth()>100000?20:0)+(S.karma-50)*.4;
   if(S.flags.wasBankrupt)c-=60;if(badCredit())c=Math.min(c,520)-40;if(S.money<0)c-=40;
   return cl(c,300,850);}
@@ -803,6 +806,7 @@ function fileBankruptcy(){
   TICK.forEach(t=>{S.money+=(S.hold[t.s]||0)*price(t.s);S.hold[t.s]=0;S.basis[t.s]=0;});
   S.shorts.forEach(sh=>{S.money+=sh.col+Math.round((sh.entryP-price(sh.s))*sh.shares);});S.shorts=[];
   S.margin.bal=0;
+  (S.dev||[]).forEach(d=>S.money+=devEquity(d));S.dev=[];
   S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');}
 // Card debt limit: the larger of $100,000 or 5 times yearly income. Past it, lenders force a bankruptcy.
 const cardLimit=()=>Math.max(100000,5*(S.job?S.job.s:S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0)));
@@ -822,7 +826,7 @@ const shortProfit=()=>(S.shorts||[]).reduce((a,x)=>a+(x.entryP-price(x.s))*x.sha
 const saleVal=a=>Math.round(a.k==='home'?a.v*.94:a.v);
 const propEquity=()=>S.assets.reduce((a,x)=>a+saleVal(x)-(x.mort?x.mort.bal:0),0);
 const angelVal=()=>S.angels.reduce((a,x)=>a+x.amt,0);
-const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+stakeVal()+angelVal()+shortProfit()-(S.margin?S.margin.bal:0));
+const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+landEquity()+stakeVal()+angelVal()+shortProfit()-(S.margin?S.margin.bal:0));
 const canManage=()=>S.alive&&S.age>=18&&!S.jail;
 function initMkt(){const m={};TICK.forEach(t=>m[t.s]={p:t.start,chg:0,h:[]});return m;}
 function energyMax(){if(S.age<6)return 2;if(S.age<12)return 3;let e=5;if(has('athletic'))e++;if(has('lazy'))e--;if(S.age>=75)e--;
@@ -846,7 +850,7 @@ function newLife(o={}){
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
-    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0};
+    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[]};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
   // trait bonuses only apply to a rolled start. If the player set the sliders, their numbers stand.
   if(!o.st){if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);}
@@ -1286,6 +1290,121 @@ function propertyYear(){
     if(S.money<-cardLimit()){line(`My card debt passed ${fmt(cardLimit())}. The lenders called it in and forced me into bankruptcy.`,'bad');fileBankruptcy();}}
 }
 
+/* ================= land development ================= */
+/* Buy land, rezone it, build a commercial property, then lease it out or sell it.
+   S.dev holds every parcel. d.st runs land, rezone, build, done. Equity (sale value minus loan) counts in net worth. */
+const LAND_PSM=380;
+const DEV_TYPES={
+  warehouse:{n:'Warehouse park',ic:'🏭',psm:750,rent:165,yrs:1,cap:.08,risk:.04},
+  retail:{n:'Retail strip',ic:'🏬',psm:1800,rent:300,yrs:1,cap:.075,risk:.08},
+  office:{n:'Office block',ic:'🏢',psm:2600,rent:385,yrs:2,cap:.065,risk:.10},
+  mixed:{n:'Mixed-use tower',ic:'🏙️',psm:3600,rent:480,yrs:3,cap:.06,risk:.14}};
+const DEV_ZONE={commercial:'Commercial',residential:'Residential',farm:'Farmland'};
+const DEV_AREA={city:1.2,suburb:1,out:.85};
+const DEV_NAMES=['Harbour Plot','Junction Lot','Old Mill Site','Ridge Parcel','Market Square Lot','Airport Road Plot','Canal Yard','Station Parcel'];
+const DEV_PH={boom:{r:1.08,c:-.004,t:.96},normal:{r:1,c:0,t:.92},recession:{r:.93,c:.004,t:.85},crash:{r:.82,c:.009,t:.72}};
+const devPh=()=>DEV_PH[localPhase()];
+const devCS=()=>(.4+.6*resC().rent)*(.85+.15*resC().red);
+const devScale=()=>.4+.6*resC().pp;
+const hasBiz=t=>S.biz.some(b=>b.type===t&&!b.ousted);
+const parcelPrice=(area,sqm,zone)=>Math.round(sqm*LAND_PSM*AREA[area].p*S.homeIdx*devCS()*(zone==='commercial'?1:.55)/1000)*1000;
+const devBuildCost=(t,sqm)=>Math.round(DEV_TYPES[t].psm*sqm*devCS()*S.regs.zoning*(hasBiz('construction')?.88:1)/1000)*1000;
+const devPG=(t,area,sqm)=>sqm*DEV_TYPES[t].rent*devScale()*devPh().r*DEV_AREA[area];
+const devTgt=area=>Math.min(.98,devPh().t-(area==='out'?.06:0)+(hasBiz('realty')?.04:0));
+const devNet=(t,area,sqm,occ)=>devPG(t,area,sqm)*(occ-.22);
+function devValue(d){
+  if(d.st==='build')return Math.round(d.v+d.spent*.85);
+  if(d.st!=='done')return d.v;
+  const T=DEV_TYPES[d.type],tg=devTgt(d.area);
+  return Math.max(d.v,Math.round(Math.max(0,devNet(d.type,d.area,d.bsqm,tg))*(.6+.4*Math.min(1,d.occ/tg))/(T.cap+devPh().c)));}
+const devSale=d=>Math.round(devValue(d)*(d.st==='done'?(hasBiz('realty')?.99:.97):.94));
+const devEquity=d=>devSale(d)-(d.loan?d.loan.bal:0);
+const landEquity=()=>(S.dev||[]).reduce((a,d)=>a+devEquity(d),0);
+const devDebt=()=>(S.dev||[]).reduce((a,d)=>a+(d.loan?d.loan.bal:0),0);
+const rezoneP=()=>Math.max(.15,Math.min(.85,.55-(resC().red-1)*.25+(S.fame||0)/500+sk('ppl')/600));
+const rezoneCost=d=>Math.round(d.v*.05*resC().red/100)*100;
+function landList(){
+  if(S.mkLand&&S.mkLand.age===S.age&&S.mkLand.cty===resKey())return S.mkLand.list;
+  const list=Array.from({length:R(4,6)},()=>{const area=pick(['city','suburb','suburb','out']),sqm=R(2,40)*500,zone=pick(['commercial','commercial','residential','farm']),fair=parcelPrice(area,sqm,zone),deal=R(85,115)/100;
+    return {id:uid(),n:pick(DEV_NAMES),area,sqm,zone,fair,price:Math.round(fair*deal/1000)*1000};}).sort((a,b)=>a.price-b.price);
+  S.mkLand={age:S.age,cty:resKey(),list};return list;}
+function devDesc(d){const T=d.type?DEV_TYPES[d.type]:null;
+  if(d.st==='rezone')return `${DEV_ZONE[d.zone]} land, ${AREA[d.area].n}. Rezoning request under review, decided at year end.`;
+  if(d.st==='build')return `Building a ${T.n.toLowerCase()}, ${fmtN(d.bsqm)} sqm. ${d.left} year${d.left>1?'s':''} to go.${d.loan?` Loan ${fmt(d.loan.bal)}.`:''}`;
+  if(d.st==='done')return `${T.n}, ${fmtN(d.bsqm)} sqm, ${Math.round(d.occ*100)}% leased. About ${fmt(Math.round(devNet(d.type,d.area,d.bsqm,d.occ)))} a year after costs.${d.loan?` Loan ${fmt(d.loan.bal)}.`:''}`;
+  return `${DEV_ZONE[d.zone]} land, ${AREA[d.area].n}, room for ${fmtN(d.sqm)} sqm. Worth ${fmt(d.v)}.${d.zone!=='commercial'?' Needs rezoning to build.':''}`;}
+function buyParcel(l){const close=Math.round(l.price*.02);
+  S.money-=l.price+close;S.dev.push({id:l.id,n:l.n,area:l.area,sqm:l.sqm,zone:l.zone,v:l.price,paid:l.price+close,st:'land'});
+  S.mkLand.list=S.mkLand.list.filter(x=>x!==l);mile(`Bought land: ${l.n}`);
+  stay(`I bought ${l.n} for ${fmt(l.price)} plus ${fmt(close)} closing costs.`,'good');}
+function startBuild(d,t,sqm,useLoan){
+  const T=DEV_TYPES[t],cost=devBuildCost(t,sqm),loan=useLoan?Math.round(cost*.7):0;
+  S.money-=cost-loan;Object.assign(d,{st:'build',type:t,bsqm:sqm,spent:cost,left:T.yrs,ov:R(0,26)/100,loan:loan?{bal:loan,rate:+(loanRate()+.02).toFixed(4)}:null});
+  mile(`Started building ${d.n}`);
+  stay(`I started building a ${T.n.toLowerCase()} on ${d.n}: ${fmtN(sqm)} sqm for ${fmt(cost)}${loan?`, with a ${fmt(loan)} construction loan`:''}. It should take ${T.yrs} year${T.yrs>1?'s':''}.`,'good');}
+function devPlan(d){
+  const rows=Object.entries(DEV_TYPES).map(([t,T])=>{const cost=devBuildCost(t,d.sqm),ret=devNet(t,d.area,d.sqm,devTgt(d.area))/cost;
+    return [`${T.ic} ${T.n}: ${T.yrs} yr build, about ${Math.round(ret*100)}% a year on cost when full`,()=>{
+      amountModal({title:`${T.n} on ${d.n}`,sub:`Up to ${fmtN(d.sqm)} sqm fits. About ${fmt(Math.round(cost/d.sqm))} per sqm to build. Costs can run over by up to 25%, and builds can slip a year.`,min:Math.min(500,d.sqm),max:d.sqm,init:d.sqm,step:100,fmtA:fmtN,
+        btn:a=>`Build ${fmtN(a)} sqm`,note:a=>`Build cost about ${fmt(devBuildCost(t,a))}. A loan would cover ${fmt(Math.round(devBuildCost(t,a)*.7))}.`,
+        onOk:a=>{const c=devBuildCost(t,a),ln=Math.round(c*.7);
+          choiceModal('How to pay',`Build cost ${fmt(c)}. I have ${fmt(S.money)}.`,[
+            [`Pay cash (${fmt(c)})`,()=>startBuild(d,t,a,false),()=>S.money<c],
+            [`Construction loan: bank lends ${fmt(ln)} at ${((loanRate()+.02)*100).toFixed(1)}%, I put in ${fmt(c-ln)}`,()=>startBuild(d,t,a,true),()=>badCredit()||S.money<c-ln],
+            ['Cancel',()=>{}]]);}});}];});
+  choiceModal(`What to build on ${d.n}`,'A Construction firm cuts build costs 12%. A Realty agency helps fill the building.',rows.concat([['Cancel',()=>{}]]));}
+function sellDev(d){
+  const p=devSale(d),owed=d.loan?d.loan.bal:0,eq=p-owed,profit=p-(d.paid+(d.spent||0)+(d.extra||0));
+  S.money+=eq;S.dev=S.dev.filter(x=>x!==d);
+  if(d.st==='done'){mile(`Sold ${d.n}`);if(profit>=1e6)unlock('devgain');}
+  stay(`I sold ${d.n} for ${fmt(p)}${owed?`, paid off ${fmt(owed)} of loan`:''} and kept ${fmt(eq)}. That is a ${profit>=0?'profit':'loss'} of ${fmt(Math.abs(profit))} on what I put in.`,profit>=0?'good':'bad');}
+function devModal(d){
+  const T=d.type?DEV_TYPES[d.type]:null,ro=!canManage(),facts=[['Value',fmt(devValue(d))],['Sale proceeds after fees',fmt(devSale(d))]];
+  if(d.loan&&d.loan.bal)facts.push(['Loan',`${fmt(d.loan.bal)} at ${(d.loan.rate*100).toFixed(1)}%, interest paid yearly`]);
+  if(d.st==='done')facts.push(['Leased now',`${Math.round(d.occ*100)}%`],['Leased when settled',`${Math.round(devTgt(d.area)*100)}% in this economy`]);
+  const ch=[];
+  if(d.st==='land'){
+    if(d.zone!=='commercial'){const c=rezoneCost(d);ch.push([`Apply to rezone as commercial (${fmt(c)}, ${Math.round(rezoneP()*100)}% chance)`,()=>{S.money-=c;d.st='rezone';stay(`I applied to rezone ${d.n} as commercial and paid ${fmt(c)}. The council decides at year end.`);},()=>ro||S.money<c]);}
+    ch.push(['Plan a building',()=>devPlan(d),()=>ro||d.zone!=='commercial']);}
+  if(d.st!=='rezone')ch.push([`Sell for ${fmt(devSale(d))}`,()=>sellDev(d),()=>ro]);
+  if(d.loan&&d.loan.bal>0)ch.push(['Pay down the loan',()=>amountModal({title:`Loan on ${d.n}`,sub:`Owed ${fmt(d.loan.bal)}. I have ${fmt(S.money)}.`,max:Math.min(d.loan.bal,S.money),init:Math.min(d.loan.bal,S.money),btn:a=>`Repay ${fmt(a)}`,
+    onOk:a=>{S.money-=a;d.loan.bal-=a;if(d.loan.bal<=0)d.loan=null;stay(`I repaid ${fmt(a)} on the loan for ${d.n}.`,'good');}}),()=>ro||S.money<=0]);
+  ch.push(['Close',()=>{}]);
+  choiceModal(`${T?T.ic:'🌱'} ${d.n}`,devDesc(d),ch,h('dl',{},...facts.flatMap(([a,v])=>[h('dt',{},a),h('dd',{},v)])));}
+function landMarket(s){
+  const list=landList();
+  s.append(h('p',{className:'sub'},'Buy land, get it zoned for commercial use, build on it, then lease it out or sell it. Closing costs 2% to buy and land sells with 6% in fees. Prices follow the property market and the economy. A Construction firm cuts build costs 12%, and a Realty agency fills buildings faster and cuts sale fees.'));
+  if(!list.length)s.append(h('p',{className:'sub'},'Nothing is listed right now. New parcels next year.'));
+  list.forEach(l=>{const tg=dealTag({price:l.price,fair:l.fair});
+    s.append(row(l.n,`${DEV_ZONE[l.zone]}, ${AREA[l.area].ic} ${AREA[l.area].n}, room for ${fmtN(l.sqm)} sqm.${l.zone!=='commercial'?' Needs rezoning before building.':''}${tg?' '+tg[0]+'.':''}`,fmt(l.price),()=>buyParcel(l),S.money<Math.round(l.price*1.02),1));});}
+function yrLand(){
+  const ds=S.dev;if(!ds||!ds.length)return;
+  ds.slice().forEach(d=>{
+    const T=d.type?DEV_TYPES[d.type]:null;
+    d.v=Math.round(d.v*(1+(PHASE[localPhase()].home+gauss()*3+AREA[d.area].g)/100));
+    if(d.loan&&d.loan.bal>0)S.money-=Math.round(d.loan.bal*d.loan.rate);
+    S.money-=Math.round(devValue(d)*(d.st==='done'?.01:.006));
+    if(d.st==='rezone'){
+      if(rnd()<rezoneP()){d.zone='commercial';d.st='land';d.v=Math.max(d.v,parcelPrice(d.area,d.sqm,'commercial'));line(`🏗️ The council approved commercial zoning for ${d.n}. The land is worth ${fmt(d.v)} now.`,'good');}
+      else{d.st='land';line(`🏗️ The council turned down my rezoning request for ${d.n}. I can apply again.`,'bad');}
+    }else if(d.st==='build'){
+      if(rnd()<.12)line(`🏗️ Bad weather and permit delays pushed ${d.n} back a year.`,'bad');else d.left--;
+      if(d.left<=0){
+        const extra=Math.round(d.spent*d.ov*(hasBiz('construction')?.5:1));
+        if(extra>0){d.loan=d.loan||{bal:0,rate:+(loanRate()+.03).toFixed(4)};d.loan.bal+=extra;d.extra=extra;}
+        d.st='done';d.occ=.2;
+        line(`🏗️ ${d.n} is finished: ${fmtN(d.bsqm)} sqm of ${T.n.toLowerCase()}.${extra>0?` Costs ran over by ${fmt(extra)}, added to the loan.`:' It came in on budget.'} Tenants start moving in.`,'good');
+        mile(`Finished building ${d.n}`);unlock('devbuilt');}
+    }else if(d.st==='done'){
+      const tg=devTgt(d.area);
+      d.occ=d.occ<tg?Math.min(tg,d.occ+.3):d.occ+(tg-d.occ)*.5;
+      if(rnd()<T.risk){d.occ=Math.max(.1,d.occ-.25);line(`🏢 A big tenant left ${d.n}.`,'bad');}
+      const net=Math.round(devNet(d.type,d.area,d.bsqm,d.occ));
+      S.money+=net>0?Math.round(net*.8):net;
+      line(`🏢 ${d.n} was ${Math.round(d.occ*100)}% leased and ${net>=0?'earned':'lost'} ${fmt(Math.abs(net))} after costs${net>0?' (20% tax taken)':''}.`,net>=0?'good':'bad');}
+  });
+}
+
 /* ================= work ================= */
 function workYear(){
   const j=S.job;if(!j)return;const C=CAREERS[j.c];
@@ -1362,7 +1481,7 @@ function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash
 function divorce(p){
   const fn=fname(p.name);S.rels=S.rels.filter(x=>x!==p);S.flags.exes++;S.exes.push(p.name);S.st.happy-=12;mile(`Divorced ${fn}`);
   if(p.prenup)return `${fn} and I divorced. The prenup kept my finances intact.`;
-  const settle=Math.round((Math.max(0,propEquity())+stakeVal())*.5);
+  const settle=Math.round((Math.max(0,propEquity()+landEquity())+stakeVal())*.5);
   if(S.money>0)S.money=Math.round(S.money/2);
   TICK.forEach(t=>{if(S.hold[t.s]){S.hold[t.s]/=2;S.basis[t.s]=(S.basis[t.s]||0)/2;}});
   S.ret.bal=Math.round(S.ret.bal/2);S.money-=settle;
@@ -1597,7 +1716,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['advisor',yrAdvisor],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['property',yrProperty],['normalise',yrNormalise],
+  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['property',yrProperty],['land',yrLand],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -1969,6 +2088,7 @@ function tabOverview(s){
     h('dt',{},'Investments'),h('dd',{},fmt(investVal())),h('dt',{},'Retirement account'),h('dd',{},fmt(S.ret.bal)),
     h('dt',{},'Property equity'),h('dd',{},fmt(propEquity())),h('dt',{},'Business stakes'),h('dd',{},fmt(stakeVal())),
     h('dt',{},'Angel investments'),h('dd',{},fmt(angelVal())),
+    ...(S.dev.length?[h('dt',{},'Land and developments'),h('dd',{},fmt(landEquity()))]:[]),
     ...(S.shorts.length?[h('dt',{},'Short positions P/L'),h('dd',{className:shortProfit()>=0?'good':'bad'},`${shortProfit()>=0?'+':''}${fmt(shortProfit())}`)]:[]),
     ...(S.margin.bal>0?[h('dt',{},'Margin loan'),h('dd',{className:'bad'},fmt(S.margin.bal))]:[]),
     h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan))));
@@ -2206,16 +2326,18 @@ function tabProp(s){
   const hs=homes(),cars=S.assets.filter(a=>a.k==='car'),ro=!canManage();
   const back=()=>null;propView=mTab==='assets'?'mine':'market';
   if(propView==='mine'){const val=S.assets.reduce((t,a)=>t+a.v,0),debt=hs.reduce((t,a)=>t+(a.mort?a.mort.bal:0),0);s.append(h('p',{className:'sub'},`${S.assets.length} asset${S.assets.length===1?'':'s'} worth ${fmt(val)}${debt?`, with ${fmt(debt)} of mortgages`:''}.${S.age>=18?` Living costs: ${fmt(livingCost())}/yr${hs.some(a=>!a.rent)?' (I own my home)':' in rent until I own a home'}.`:''}`));
-    if(!S.assets.length)s.append(h('p',{className:'sub'},'I don\'t own anything yet.'));
+    if(!S.assets.length&&!S.dev.length)s.append(h('p',{className:'sub'},'I don\'t own anything yet.'));
     if(hs.length)s.append(h('p',{className:'label'},'Homes'));
     hs.forEach(a=>s.append(row(a.n,`${homeDesc(a)} ${a.rent?`Rented out at ${(hYld(a)*100).toFixed(1)}% a year`:'I live here'}${a.mort?`. Mortgage ${fmt(a.mort.bal)}`:''}`,fmt(a.v),()=>assetModal(a),ro)));
     if(cars.length)s.append(h('p',{className:'label'},'Cars'));
     cars.forEach(a=>s.append(row(a.n,`${a.age?`${a.age} yr${a.age>1?'s':''} old`:'New'}. Running costs ${fmt(carRun(a))}/yr`,fmt(a.v),()=>assetModal(a),ro)));
+    if(S.dev.length){s.append(h('p',{className:'label'},'Land and developments'));S.dev.forEach(d=>s.append(row(`${d.type?DEV_TYPES[d.type].ic:'🌱'} ${d.n}`,devDesc(d),fmt(devEquity(d)),()=>devModal(d),ro)));}
     return;}
   if(propView==='market'){if(ro){s.append(h('p',{className:'sub'},"I can't buy anything right now."));return;}const L=marketList();s.append(
-    h('div',{className:'tabs'},[['home','🏠 Property'],['car','🚗 Cars']].map(([v,l])=>h('button',{'aria-pressed':String(mkKind===v),on:()=>{mkKind=v;drawSheet();}},l))));
+    h('div',{className:'tabs'},[['home','🏠 Property'],['car','🚗 Cars'],['land','🏗️ Land']].map(([v,l])=>h('button',{'aria-pressed':String(mkKind===v),on:()=>{mkKind=v;drawSheet();}},l))));
     if(mkKind==='home'){s.append(h('p',{className:'sub'},`New listings every year. Closing costs 2% to buy, 6% in fees to sell.${S.st.smarts<55?' With smarts 55+ I could tell bargains from overpriced homes.':''}`));
       L.homes.forEach(l=>{const tg=dealTag(l);s.append(row(l.n,`${homeDesc(l)} Rent yield ${l.yld}%.${tg?' '+tg[0]+'.':''}`,fmt(l.price),()=>buyHome(l),S.money<l.price*.22));});}
+    else if(mkKind==='land')landMarket(s);
     else{s.append(h('p',{className:'sub'},'Cars cost money every year for fuel, insurance and servicing. Older cars break down more.'));
       L.cars.forEach(l=>s.append(row(l.n,`${l.age?`Used, ${l.age} yrs old`:'New'}. Running costs about ${fmt(carRun({v:l.price,run:l.run,age:l.age}))}/yr${l.price>=80000?'. Turns heads':''}`,fmt(l.price),()=>buyCar(l),S.money<l.price)));}
     return;}
@@ -2432,7 +2554,7 @@ function continueAs(k){
   const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
   const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
   const gks=S.rels.filter(r=>r.type==='Grandchild'&&r.par===k.id&&r.alive).map(r=>({...r,type:'Child',rel:Math.max(r.rel,75)}));
-  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
+  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,dev:S.dev,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
   if(k.life){const L=k.life;['smarts','looks'].forEach(x=>S.st[x]=L.st[x]);S.edu.degrees=[...L.degrees];if(L.major){S.edu.major=L.major;S.edu.yrs=L.degYrs;}
     if(L.job){S.job={c:L.job.c,s:L.job.s,perf:55,lvl:L.job.lvl,yrs:3,lvlYrs:1,warn:0,style:'normal'};if(!S.careers.includes(L.job.c))S.careers.push(L.job.c);}
     S.money+=L.cash+L.inv+(L.biz?L.biz.v:0);if(L.home)S.assets.push({n:L.home.n,v:L.home.v,k:'home',rent:false,mort:L.home.mort>0?{bal:L.home.mort,rate:loanRate(),pay:Math.round(annuity(L.home.mort,loanRate(),25))}:null});
