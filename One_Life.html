@@ -1810,7 +1810,7 @@ function stay(msg,cls){if(msg){line(msg,cls);flash={t:msg,c:cls||''};}else flash
 function seg(opts,cur,fn){return h('div',{className:'seg'},opts.map(([v,l])=>h('button',{'aria-pressed':String(v===cur),on:()=>fn(v)},l)));}
 function levText(b,o){const parts=[];
   if(o.d!=null&&o.d!==1)parts.push(o.d>1?`${Math.round((o.d-1)*100)}% more customers`:`${Math.round((1-o.d)*100)}% fewer customers`);
-  if(!isGoods(b)&&o.p!=null&&o.p!==1)parts.push(o.p>1?`customers accept prices about ${Math.round((o.p-1)*100)}% higher`:`customers expect prices about ${Math.round((1-o.p)*100)}% lower`);
+  if((!isGoods(b)||b.lever!==Object.keys(Tof(b).lever.o)[0])&&o.p!=null&&o.p!==1)parts.push(o.p>1?`customers accept prices about ${Math.round((o.p-1)*100)}% higher`:`customers expect prices about ${Math.round((1-o.p)*100)}% lower`);
   if(o.c!=null&&o.c!==1)parts.push(o.c>1?`about ${Math.round((o.c-1)*100)}% more expensive for you to make or stock`:`about ${Math.round((1-o.c)*100)}% cheaper for you to make or stock`);
   if(o.e!=null&&o.e!==1)parts.push(o.e>1?'hits harder in a recession, but does better in a boom':'more insulated from the economy either way');
   if(o.v!=null&&o.v!==1)parts.push(o.v>1?'bigger swings year to year, both good and bad':'steadier, more predictable results year to year');
@@ -2856,7 +2856,9 @@ function prodBase(b,pr){const P=pdef(b,pr.id);return Tof(b).base*demScore(b.type
 function commonEst(b){const need=needStaff(b),ratio=need<=0?1:Math.min(1,b.staff/need),econ={boom:.12,normal:0,recession:-.12,crash:-.28}[bizPhase(b)]*Tof(b).econ;
   // reputation, quality, rivals, marketing and awareness now act through next year's projected customer base
   return (1+econ)*(lev(b).d||1)*custProj(b)*starBoost(b)*runFx(b).d*ratio;}
-const prodMult=(b,pr,price)=>(.8+(pr.rating||50)/250)*priceF(price/bp(b,pdef(b,pr.id)))*(1+(pr.boost||0));
+// Lever price effect (goods types): only non-default lever options shift what customers accept, so default options keep their old numbers.
+const levP=b=>isGoods(b)&&b.lever!==Object.keys(Tof(b).lever.o)[0]?(lev(b).p||1):1;
+const prodMult=(b,pr,price)=>(.8+(pr.rating||50)/250)*priceF(price/(bp(b,pdef(b,pr.id))*levP(b)))*(1+(pr.boost||0));
 const estDemand=(b,pr,price)=>Math.round(prodBase(b,pr)*distLocs(b)*commonEst(b)*prodMult(b,pr,price));
 const ptier=b=>{if(!isGoods(b))return b.price;const ps=(b.products||[]).map(p=>p.price/bp(b,pdef(b,p.id)));if(!ps.length)return 'std';const r=ps.reduce((a,x)=>a+x,0)/ps.length;return r>1.15?'premium':r<.88?'budget':'std';};
 function newProduct(b,P){return {id:P.id,name:P.n,price:bp(b,P),qty:0,inv:0,rating:50,sup:null,yrs:0,boost:0,last:null,ws:false,auto:true};}
