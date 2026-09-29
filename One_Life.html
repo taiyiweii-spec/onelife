@@ -594,6 +594,7 @@ const ACH={
  landlord:['🏘️','Landlord','Rent out 3 properties at once'],
  devbuilt:['🏗️','Ribbon cutting','Finish building a commercial property'],
  devgain:['🌆','Skyline','Sell a development for a $1M profit'],
+ highroller:['🎰','High roller','Win $100,000 at the casino in one year'],
  debtfree:['🗝️','Keys are mine','Pay off a mortgage'],
  jackpot:['🎟️','Jackpot','Win the lottery jackpot',1],
  memelord:['🐶','Meme lord','Make $1M profit on the meme coin',1],
@@ -2444,7 +2445,7 @@ function actSheet(){openSheet(s=>{
     ['💘','Find love',16,false,1,findLove,!!partner()],
     ['🏖️','Vacation',18,false,2,()=>{S.money-=3000;S.st.happy+=joy(R(10,20));return 'I took a vacation ($3,000). Much needed.'},S.money<3000],
     ['🎟️','Lottery',18,false,0,lottery,S.money<10],
-    ['🎰','Casino',18,false,1,casino,S.money<100],
+    ['🎰','Casino',18,false,1,()=>{CV={net:0};casinoSheet();},S.money<10],
     ['💉','Plastic surgery',18,false,1,()=>{S.money-=9000;if(rnd()<.7){S.st.looks+=R(8,20);return 'My plastic surgery ($9,000) went great.'}S.st.looks-=R(5,15);return 'My surgery ($9,000) was botched.'},S.money<9000],
     ['🎭','Acting class',14,false,1,()=>{if(S.age>=18)S.money-=500;S.act.cls++;S.st.looks+=R(0,2);const newly=S.act.cls===3&&!(S.st.looks-R(0,2)>=80);return `I took an acting class${S.age>=18?' ($500)':''}.${actUnlocked()&&newly?' I can audition for roles now.':''}`},S.age>=18&&S.money<500],
     ['🔓','Burglary',16,false,1,()=>crime(.45,[1000,15000],'burglary',[2,5])],
@@ -2488,7 +2489,125 @@ function lottery(){S.money-=10;const r=rnd(),m=has('lucky')?5:1;
   if(r<.0004*m){S.money+=2000000;S.st.happy+=40;S.flags.lotto=true;unlock('jackpot');mile('Won the $2,000,000 lottery jackpot');return 'I WON THE LOTTERY JACKPOT: $2,000,000!'}
   if(r<.02*m){S.money+=500;return 'I bought a $10 lottery ticket and won $500!'}return 'I bought a $10 lottery ticket. Nothing.'}
 function casino(){const bet=Math.max(100,Math.round(S.money*.1));
-  if(rnd()<(has('lucky')?.5:.46)){S.money+=bet;S.st.happy+=6;return `I bet ${fmt(bet)} at the casino and doubled it!`}S.money-=bet;S.st.happy-=6;return `I lost ${fmt(bet)} at the casino.`}
+  if(rnd()<(has('lucky')?.5:.46)){S.money+=bet;gambleNet(bet);S.st.happy+=6;return `I bet ${fmt(bet)} at the casino and doubled it!`}S.money-=bet;gambleNet(-bet);S.st.happy-=6;return `I lost ${fmt(bet)} at the casino.`}
+/* ================= casino: blackjack and poker ================= */
+/* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
+let CV={net:0};
+const CSUIT=['♠','♥','♦','♣'];
+const cardTxt=c=>({11:'J',12:'Q',13:'K',14:'A'}[c.r]||c.r)+c.s;
+const drawCard=()=>({r:R(2,14),s:pick(CSUIT)});
+function cardEl(c){return h('span',{style:`display:inline-block;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:2px 6px;margin:0 4px 4px 0;font-weight:800;color:${c.s==='♥'||c.s==='♦'?'var(--bad)':'var(--ink)'}`},cardTxt(c));}
+const cardsEl=a=>h('div',{style:'margin:0 0 6px'},...a.map(cardEl));
+function gambleNet(n){CV.net+=n;S.used.gnet=(S.used.gnet||0)+n;S.flags.gTot=(S.flags.gTot||0)+n;if(S.used.gnet>=1e5)unlock('highroller');}
+function gRefresh(){norm();save();render();if(curSheet)drawSheet();}
+const gSigned=n=>(n>=0?'+':'-')+fmt(Math.abs(n));
+function casinoSheet(){openSheet(s=>{
+  const life=S.flags.gTot||0;
+  s.append(h('h3',{},'🎰 Casino'),h('p',{className:'sub'},`I have ${fmt(S.money)}. This visit ${gSigned(CV.net)}. Lifetime ${gSigned(life)}. The house always has an edge, and it only takes one bad night to lose a lot.`));
+  s.append(row('🃏 Blackjack','Beat the dealer to 21. Blackjack pays 3 to 2. Hit, stand or double down','',()=>blackjack(),S.money<10),
+    row('♠️ Texas Hold\'em','Heads-up poker against one player. The house takes a 5% rake from winning pots','',()=>poker(),S.money<20),
+    row('🎰 Slots','A quick bet of 10% of my cash','',()=>{stay(casino());},S.money<100),
+    row('🚪 Leave the casino','','',casinoLeave));
+});}
+function casinoLeave(){const n=CV.net;S.st.happy+=n>0?3:n<0?-3:0;
+  act(n===0?'I left the casino without playing.':`I left the casino ${n>0?'up':'down'} ${fmt(Math.abs(n))}.`,n>0?'good':n<0?'bad':'');CV={net:0};}
+/* ---- blackjack: dealer stands on 17, blackjack pays 3 to 2, double on the first two cards ---- */
+function bjVal(hd){let t=0,a=0;hd.forEach(c=>{t+=c.r>=14?11:c.r>=11?10:c.r;if(c.r===14)a++;});while(t>21&&a>0){t-=10;a--;}return {t,soft:a>0};}
+function blackjack(prev){
+  const cap=Math.floor(Math.min(S.money,1e9));
+  amountModal({title:'🃏 Blackjack',sub:`Dealer stands on 17. Blackjack pays 3 to 2. I have ${fmt(S.money)}.`,min:10,max:cap,init:prev||Math.min(cap,Math.max(10,Math.round(S.money*.02/10)*10)),step:10,
+    btn:a=>`Bet ${fmt(a)}`,onOk:bet=>bjDeal(bet)});}
+function bjDeal(bet){
+  S.money-=bet;const st={bet,p:[drawCard(),drawCard()],d:[drawCard(),drawCard()],dbl:false};save();render();
+  const pv=bjVal(st.p).t,dv=bjVal(st.d).t;
+  if(pv===21||dv===21)return bjFinish(st,pv===21&&dv===21?'push':pv===21?'bj':'lose');
+  bjTurn(st);}
+function bjTable(st,hide){const pv=bjVal(st.p);
+  return h('div',{},h('p',{className:'label'},`Dealer${hide?'':` (${bjVal(st.d).t})`}`),cardsEl(hide?[st.d[0]]:st.d),hide?h('p',{className:'sub',style:'margin:-2px 0 6px'},'One card face down.'):null,
+    h('p',{className:'label'},`Me (${pv.t}${pv.soft?', soft':''})`),cardsEl(st.p),h('p',{className:'sub'},`Bet ${fmt(st.bet*(st.dbl?2:1))}. Cash ${fmt(S.money)}.`));}
+function bjTurn(st){
+  const first=st.p.length===2&&!st.dbl;
+  choiceModal('🃏 Blackjack','',[
+    ['Hit',()=>{st.p.push(drawCard());const v=bjVal(st.p).t;if(v>21)return bjFinish(st,'bust');if(v===21)return bjDealer(st);bjTurn(st);}],
+    ['Stand',()=>bjDealer(st)],
+    [`Double down (${fmt(st.bet)} more, one card)`,()=>{S.money-=st.bet;st.dbl=true;st.p.push(drawCard());if(bjVal(st.p).t>21)bjFinish(st,'bust');else bjDealer(st);},()=>!first||S.money<st.bet]],bjTable(st,true));}
+function bjDealer(st){
+  while(bjVal(st.d).t<17)st.d.push(drawCard());
+  const pv=bjVal(st.p).t,dv=bjVal(st.d).t;
+  bjFinish(st,dv>21||pv>dv?'win':pv<dv?'lose':'push');}
+function bjFinish(st,res){
+  const stake=st.bet*(st.dbl?2:1),pay={win:stake*2,bj:Math.round(stake*2.5),push:stake,lose:0,bust:0}[res];
+  S.money+=pay;const net=pay-stake;gambleNet(net);gRefresh();
+  const msg={win:'I beat the dealer.',bj:'Blackjack! Paid 3 to 2.',push:'Push. My bet came back.',lose:'The dealer wins.',bust:'Bust. Over 21.'}[res];
+  choiceModal('🃏 '+(net>0?'You win':net<0?'You lose':'Push'),`${msg} ${gSigned(net)}.`,[
+    [`Deal again (${fmt(st.bet)})`,()=>bjDeal(st.bet),()=>S.money<st.bet],['Change bet',()=>blackjack(st.bet)],['Leave the table',()=>{}]],bjTable(st,false));}
+/* ---- Texas Hold'em, heads-up. Each round I can check, bet one unit or fold. Winning pots pay a 5% rake to the house. ---- */
+const HAND_NAMES=['High card','One pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush'];
+const PK_STAGE=['Before the flop','The flop','The turn','The river'];
+const OPP_NAMES=['Big Mike','Lucky Lena','Old Sal','Card Shark Kim','Quiet Raj'];
+function newDeck(){const d=[];for(let r=2;r<=14;r++)CSUIT.forEach(s=>d.push({r,s}));for(let i=d.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
+function ev5(c){
+  const rs=c.map(x=>x.r).sort((a,b)=>b-a),fl=c.every(x=>x.s===c[0].s),cnt={};rs.forEach(r=>cnt[r]=(cnt[r]||0)+1);
+  const g=Object.entries(cnt).map(([r,n])=>[+r,n]).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
+  let st=0;if(g.length===5){if(rs[0]-rs[4]===4)st=rs[0];else if(rs[0]===14&&rs[1]===5)st=5;}
+  let cat,k;
+  if(st&&fl){cat=8;k=[st];}else if(g[0][1]===4){cat=7;k=g.map(x=>x[0]);}else if(g[0][1]===3&&g[1][1]===2){cat=6;k=g.map(x=>x[0]);}
+  else if(fl){cat=5;k=rs;}else if(st){cat=4;k=[st];}else if(g[0][1]===3){cat=3;k=g.map(x=>x[0]);}else if(g[0][1]===2&&g[1][1]===2){cat=2;k=g.map(x=>x[0]);}
+  else if(g[0][1]===2){cat=1;k=g.map(x=>x[0]);}else{cat=0;k=rs;}
+  let v=cat;for(let i=0;i<5;i++)v=v*15+(k[i]||0);return v;}
+function pokerScore(cs){const n=cs.length,skips=[];let best=-1;
+  if(n===5)skips.push([]);else if(n===6)for(let i=0;i<6;i++)skips.push([i]);else for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)skips.push([i,j]);
+  skips.forEach(xs=>{const v=ev5(cs.filter((_,i)=>!xs.includes(i)));if(v>best)best=v;});return best;}
+const pkCat=v=>Math.floor(v/759375);
+function pokerStrength(op,board){
+  if(board.length<3){const [a,b]=op.map(c=>c.r).sort((x,y)=>y-x);if(a===b)return .72+a/60;return (a+b)/28*.55+(op[0].s===op[1].s?.05:0)+(a-b<=2?.04:0);}
+  return [.22,.48,.68,.78,.86,.9,.95,.98,1][pkCat(pokerScore(op.concat(board)))];}
+function poker(prev){
+  const cap=Math.floor(Math.min(S.money,1e9));
+  amountModal({title:'♠️ Texas Hold\'em',sub:`Heads-up against one player. We each ante the bet, then on every round I can check, bet the same amount, or fold. The house takes a 5% rake from winning pots. I have ${fmt(S.money)}.`,min:10,max:cap,init:prev||Math.min(cap,Math.max(10,Math.round(S.money*.02/10)*10)),step:10,
+    btn:a=>`Ante ${fmt(a)}`,onOk:bet=>pkStart(bet)});}
+function pkStart(bet){
+  const deck=newDeck(),st={bet,deck,pl:[deck.pop(),deck.pop()],op:[deck.pop(),deck.pop()],board:[],pot:bet*2,paid:bet,stage:0,opp:pick(OPP_NAMES),s:.5,read:.5};
+  S.money-=bet;save();render();pkRound(st);}
+function pkTable(st,show){
+  const best=st.board.length>=3?HAND_NAMES[pkCat(pokerScore(st.pl.concat(st.board)))]:null,
+    oppBest=show&&st.board.length>=3?HAND_NAMES[pkCat(pokerScore(st.op.concat(st.board)))]:null,
+    read=S.st.smarts>=60&&!show?` My read: ${st.opp} looks ${st.read>.7?'confident':st.read<.35?'shaky':'hard to read'}.`:'';
+  return h('div',{},h('p',{className:'label'},st.opp+(oppBest?`: ${oppBest}`:'')),show?cardsEl(st.op):h('p',{className:'sub',style:'margin:0 0 6px'},'Two cards face down.'),
+    h('p',{className:'label'},'Board'),st.board.length?cardsEl(st.board):h('p',{className:'sub',style:'margin:0 0 6px'},'No community cards yet.'),
+    h('p',{className:'label'},'Me'+(best?`: ${best}`:'')),cardsEl(st.pl),
+    h('p',{className:'sub'},`Pot ${fmt(st.pot)}. I have put in ${fmt(st.paid)}. Cash ${fmt(S.money)}.${read}`));}
+function pkRound(st){
+  st.s=pokerStrength(st.op,st.board)+gauss()*.07;st.read=st.s+gauss()*.1;
+  choiceModal(`♠️ ${PK_STAGE[st.stage]}`,'',[
+    ['Check',()=>pkCheck(st)],
+    [`Bet ${fmt(st.bet)}`,()=>pkBet(st),()=>S.money<st.bet],
+    ['Fold',()=>pkEnd(st,'fold')]],pkTable(st,false));}
+function pkCheck(st){
+  if(st.s>.72||rnd()<.08){
+    choiceModal(`♠️ ${st.opp} bets`,`${st.opp} bets ${fmt(st.bet)}. The pot is ${fmt(st.pot)}.`,[
+      [`Call ${fmt(st.bet)}`,()=>{S.money-=st.bet;st.paid+=st.bet;st.pot+=st.bet*2;pkNext(st);},()=>S.money<st.bet],
+      ['Fold',()=>pkEnd(st,'fold')]],pkTable(st,false));
+  }else pkNext(st);}
+function pkBet(st){
+  S.money-=st.bet;st.paid+=st.bet;st.pot+=st.bet;
+  if(st.s>.12+.5*st.bet/(st.pot+st.bet)){st.pot+=st.bet;pkNext(st);}else pkEnd(st,'oppfold');}
+function pkNext(st){
+  st.stage++;if(st.stage>3)return pkEnd(st,'show');
+  const n=st.stage===1?3:1;for(let i=0;i<n;i++)st.board.push(st.deck.pop());
+  pkRound(st);}
+function pkEnd(st,how){
+  let res,pay=0;const rake=Math.round(st.pot*.05);
+  if(how==='fold')res='I folded.';
+  else if(how==='oppfold'){pay=st.pot-rake;res=`${st.opp} folded.`;}
+  else{const a=pokerScore(st.pl.concat(st.board)),b=pokerScore(st.op.concat(st.board));
+    if(a>b){pay=st.pot-rake;res=`I win with ${HAND_NAMES[pkCat(a)].toLowerCase()} against ${HAND_NAMES[pkCat(b)].toLowerCase()}.`;}
+    else if(a<b)res=`${st.opp} wins with ${HAND_NAMES[pkCat(b)].toLowerCase()} against my ${HAND_NAMES[pkCat(a)].toLowerCase()}.`;
+    else{pay=Math.round(st.pot/2);res='A split pot.';}}
+  S.money+=pay;const net=pay-st.paid;gambleNet(net);gRefresh();
+  choiceModal('♠️ '+(net>0?'You win':net<0?'You lose':'Even'),`${res} ${gSigned(net)}.`,[
+    [`Play again (ante ${fmt(st.bet)})`,()=>pkStart(st.bet),()=>S.money<st.bet],['Change ante',()=>poker(st.bet)],['Leave the table',()=>{}]],pkTable(st,how==='show'));}
+
 function crime(catchP,[lo,hi],what,[jmin,jmax]){
   S.flags.crimes++;if(has('reckless'))catchP-=.1;
   if(rnd()>catchP){const g=R(lo,hi);S.money+=g;if(what==='burglary')remember('burglary');return `I got away with ${what} and pocketed ${fmt(g)}.`}

@@ -7,7 +7,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 ## 1. Current state (2026-09-29)
 
 - **Environment:** moved from a claude.ai project to Claude Code on 2026-09-29. Local folder with git. No `project_read`/`project_write` any more.
-- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.32 (land development).
+- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.33 (casino: blackjack and poker).
 - **Test reference (2026-09-29, `npm test`, 6 lives):** syntax 1 script, 0 failed, 0 em dashes. Playtest 23 runs, 0 failed, FINGERPRINT `1da74e7c2331017d`. Old saves 0 failed. Balance 0 numbers moved more than 10%. The fingerprint changes whenever code changes; that is expected.
 - **Published artifact:** `https://claude.ai/artifact/J81Q77oc1qsPDd44ZeUYLs` (Version 1, has 3.5.31, `sample` capability on, published from Claude Code on 2026-09-30). The older `95FEiEA9QhTYSxeDsSbcWN` (Version 11) is stale and could not be reached from Claude Code. To update the new one, republish with `url` and keep `capabilities:{"sample":{}}`.
 - **Dropped by decision (2026-09-29):** the B1/B2 brand engine and Block W wealth spec mentioned in older chat memory were never in this file. David chose to drop them and start fresh. Do not look for them.
@@ -45,6 +45,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 - **Price lever (3.5.30):** for goods types, `p` applies only to non-default lever options (`levP` in `prodMult`); services unchanged.
 - **Card debt limit (3.5.31):** negative cash is card debt at 7%; past `cardLimit()` (larger of $100,000 or 5x yearly income) the lenders force `fileBankruptcy()`, the same routine as the manual button.
 - **Land development (3.5.32):** Money > Market > Land. `S.dev` holds parcels through `land`, `rezone`, `build`, `done`. Buy land (2% closing), rezone non-commercial land (5% of value, decided at year end, `rezoneP()`), build warehouse, retail, office or mixed-use (`DEV_TYPES`, cash or 70% loan, 1 to 3 years, up to 25% overrun, 12% delay chance), lease up over about 3 years (`devTgt` by economy and area), sell (6% land fees, 3% built). Construction firm cuts build cost 12% and overruns 50%; Realty agency adds 4% occupancy and cuts sale fees. Equity is in `netWorth`, bankruptcy, divorce and heirs. Achievements `devbuilt`, `devgain`. Tests do not build anything; checked with ad-hoc jsdom scripts.
+- **Casino (3.5.33):** Activities > Casino (1 energy a visit) opens `casinoSheet`. Blackjack (`blackjack`, `bjDeal`; infinite deck, dealer stands on 17, 3:2 blackjack, hit, stand, double; no split or insurance). Texas Hold'em heads-up vs one AI (`poker`, `pkStart`, `pkRound`; ante plus check or bet one unit per round, 5% rake on wins, `pokerScore` best 5 of 7, simple strength AI with a read for smarts 60+). Slots is the old quick bet. Results tracked in `CV.net`, `S.used.gnet`, `S.flags.gTot`; achievement `highroller`. Backlog 6 still open: roulette, baccarat, sports betting, horse racing, VIP tier, cheating, problem-gambling arc.
 - **Bug-fix pass (3.5.29):** dealership reputation death-spiral fixed (gate on quality, not reputation), dead `SEGS` and `svcStaff` removed.
 
 ---
@@ -80,7 +81,7 @@ None open. (`planShort` throttle closed 2026-09-29: re-test showed 9 prompts in 
 **Core loop depth**
 4. Special-careers scaffold: extract shared registry, tiers, offers, yearly tick and UI from the five careers.
 5. Storyline and event expansion: more per age bracket (elderly thinnest), multi-stage chains, civic and political flavor.
-6. Casino and gambling: blackjack, poker, roulette, baccarat, slots, sports betting, horse racing, VIP tier, cheating with ban risk, problem-gambling arc.
+6. Casino and gambling, remaining: roulette, baccarat, sports betting, horse racing, VIP tier, cheating with ban risk, problem-gambling arc. (Blackjack, poker and slots done in 3.5.33.)
 6b. Work-hour cap / overstress mechanic. Not yet designed.
 
 **Business depth**
@@ -126,3 +127,5 @@ Pick with David: backlog item 4 (special-careers scaffold).
 **2026-09-30, 3.5.32 land development.** Designed and built in one pass (`yrLand` phase, `landList`, `devModal`, `devPlan`, `startBuild`, `sellDev`). Rents and recession swings tuned so a build is worth about 10 to 17% over cost in a normal economy, less after overruns and interest. Not balanced against long play; watch leverage: 70% loans at about 8% roughly cancel the rent while a building is filling. Playtest fingerprint changed (expected).
 
 **2026-09-30, investment advisor removed.** The Investing dashboard section, `ADVISORS` and the `advisor` year phase are gone. `fillDefaults` clears `s.advisor` so old saves stop paying the fee.
+
+**2026-09-30, 3.5.33 casino.** Added blackjack and Texas Hold'em to a new casino sheet. Checked with ad-hoc jsdom scripts: hand ranking cases, about 1,600 blackjack hands and 1,450 poker hands through the real modals, money reconciles to the visit result. Poker AI is simple and not balanced against strong human play. Fingerprint changed (expected).
