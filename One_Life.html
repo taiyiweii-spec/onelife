@@ -611,6 +611,12 @@ const ACH={
  sstat:['💥','Statement season','Average 25 points a game, score 25 goals in a season or win 70 matches'],
  sviral:['🚀','Gone viral','Have a post explode'],
  clubown:['🏟️','Club owner','Buy a sports club'],
+ medmogul:['🎬','Media mogul','Own a film studio, record label or streaming service'],
+ medbb:['💥','Blockbuster','Release a film that grosses $500 million'],
+ medaward:['🏆','Best Picture','Win Best Picture with my studio'],
+ medhit:['💿','Hit factory','Have one artist reach 3 number one albums'],
+ medsubs:['📺','Ten million strong','Reach 10 million subscribers'],
+ medbig:['💎','Entertainment empire','Own a media company worth $200 million'],
  clubtitle:['🏆','Owner\'s cup','Win a league title as a club owner'],
  clubcl:['⭐','Kings of Europe','Win the Champions League as a club owner'],
  clubprom:['⬆️','Going up','Win promotion with your club'],
@@ -753,6 +759,7 @@ function fillDefaults(s){
   if(s.spt===undefined)s.spt=null;
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
+  if(s.med===undefined)s.med=null;
   if(!s.cm)s.cm={};
   Object.keys(COL_CATS).forEach(k=>{if(s.cm[k]==null)s.cm[k]=1;});
   if(!Array.isArray(s.exes))s.exes=[];
@@ -847,7 +854,7 @@ function fileBankruptcy(){
   TICK.forEach(t=>{S.money+=(S.hold[t.s]||0)*price(t.s);S.hold[t.s]=0;S.basis[t.s]=0;});
   S.shorts.forEach(sh=>{S.money+=sh.col+Math.round((sh.entryP-price(sh.s))*sh.shares);});S.shorts=[];
   S.margin.bal=0;
-  (S.dev||[]).forEach(d=>S.money+=devEquity(d));S.dev=[];S.money+=Math.round(colVal()*.7);S.col=[];if(S.club){const C0=S.club;S.money+=Math.round(C0.own*(clValue(C0)*.7+C0.cash))-C0.loan;S.club=null;}
+  (S.dev||[]).forEach(d=>S.money+=devEquity(d));S.dev=[];S.money+=Math.round(colVal()*.7);S.col=[];if(S.club){const C0=S.club;S.money+=Math.round(C0.own*(clValue(C0)*.7+C0.cash))-C0.loan;S.club=null;}if(S.med){S.money+=Math.round(medValue(S.med)*.7+Math.max(0,S.med.cash));S.med=null;}
   S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');}
 // Card debt limit: the larger of $100,000 or 5 times yearly income. Past it, lenders force a bankruptcy.
 const cardLimit=()=>Math.max(100000,5*(S.job?S.job.s:S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0)));
@@ -867,7 +874,7 @@ const shortProfit=()=>(S.shorts||[]).reduce((a,x)=>a+(x.entryP-price(x.s))*x.sha
 const saleVal=a=>Math.round(a.k==='home'?a.v*.94:a.v);
 const propEquity=()=>S.assets.reduce((a,x)=>a+saleVal(x)-(x.mort?x.mort.bal:0),0);
 const angelVal=()=>S.angels.reduce((a,x)=>a+x.amt,0);
-const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+landEquity()+colEquity()+clEquity()+stakeVal()+angelVal()+shortProfit()-(S.margin?S.margin.bal:0));
+const netWorth=()=>Math.round(S.money-S.sloan+investVal()+S.ret.bal+propEquity()+landEquity()+colEquity()+clEquity()+medEquity()+stakeVal()+angelVal()+shortProfit()-(S.margin?S.margin.bal:0));
 const canManage=()=>S.alive&&S.age>=18&&!S.jail;
 function initMkt(){const m={};TICK.forEach(t=>m[t.s]={p:t.start,chg:0,h:[]});return m;}
 function energyMax(){if(S.age<6)return 2;if(S.age<12)return 3;let e=5;if(has('athletic'))e++;if(has('lazy'))e--;if(S.age>=75)e--;
@@ -1574,7 +1581,7 @@ function divorce(p){
   const fn=fname(p.name);S.rels=S.rels.filter(x=>x!==p);S.flags.exes++;S.exes.push(p.name);S.st.happy-=12;mile(`Divorced ${fn}`);
   if(p.prenup===true)return `${fn} and I divorced. The prenup kept my finances intact.`;
   const pf=p.prenup==='shared'?.5:1;
-  const settle=Math.round((Math.max(0,propEquity()+landEquity()+colEquity()+clEquity())+stakeVal())*.5*pf);
+  const settle=Math.round((Math.max(0,propEquity()+landEquity()+colEquity()+clEquity()+medEquity())+stakeVal())*.5*pf);
   if(S.money>0)S.money=Math.round(S.money*(1-.5*pf));
   TICK.forEach(t=>{if(S.hold[t.s]){S.hold[t.s]*=1-.5*pf;S.basis[t.s]=(S.basis[t.s]||0)*(1-.5*pf);}});
   S.ret.bal=Math.round(S.ret.bal*(1-.5*pf));S.money-=settle;
@@ -1789,7 +1796,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
+  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['media',yrMedia],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -2166,6 +2173,7 @@ function tabOverview(s){
     ...(S.dev.length?[h('dt',{},'Land and developments'),h('dd',{},fmt(landEquity()))]:[]),
     ...(S.col.length?[h('dt',{},'Collectibles'),h('dd',{},fmt(colEquity()))]:[]),
     ...(S.club?[h('dt',{},'Sports club'),h('dd',{},fmt(clEquity()))]:[]),
+    ...(S.med?[h('dt',{},MED[S.med.type].n),h('dd',{},fmt(medEquity()))]:[]),
     ...(S.shorts.length?[h('dt',{},'Short positions P/L'),h('dd',{className:shortProfit()>=0?'good':'bad'},`${shortProfit()>=0?'+':''}${fmt(shortProfit())}`)]:[]),
     ...(S.margin.bal>0?[h('dt',{},'Margin loan'),h('dd',{className:'bad'},fmt(S.margin.bal))]:[]),
     h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan))));
@@ -2557,7 +2565,7 @@ function actSheet(){openSheet(s=>{
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
   s.append(row('🩺 Health and care','Lifestyle, conditions, insurance and check-ups','',healthSheet,!S.alive));
-  s.append(h('h4',{},'Careers'),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
+  s.append(h('h4',{},'Careers'),row('🎬 Media and entertainment',S.med?`${MED[S.med.type].ic} ${S.med.name}`:'Own a film studio, record label or streaming service','',medSheet,S.age<21||S.jail),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
@@ -4093,6 +4101,206 @@ function hlDeathSummary(){
   const cs=H.c.filter(c=>!c.cured).map(c=>HCD[c.id].n.toLowerCase());
   return `${bits.length?'I '+bits.join(' and ')+'. ':''}${cs.length?'I lived with '+cs.join(', ')+'.':''}`;}
 function hlCause(){if(!S.hl||hlDeathP()<.05)return null;let best=null,bv=0;S.hl.c.forEach(c=>{if(c.cured||c.sev<3)return;const v=HCD[c.id].d3;if(v>bv){bv=v;best=c;}});return best?({cancer:'cancer',heart:'heart disease',lung:'lung disease',liver:'liver disease',diabetes:'complications of diabetes',hyper:'a stroke',depress:'depression'}[best.id]||HCD[best.id].n.toLowerCase()):null;}
+/* ================= media and entertainment ownership: film studio, record label, streaming service ================= */
+const MED={film:{n:'Film studio',ic:'🎬',found:3e6,buy:15e6,mult:1.4,blurb:'Greenlight films, pick directors and stars, and chase box office and awards'},
+  music:{n:'Record label',ic:'🎵',found:1.5e6,buy:8e6,mult:3,blurb:'Sign artists, fund albums and tours, and build a catalogue'},
+  stream:{n:'Streaming service',ic:'📺',found:12e6,buy:150e6,mult:4,blurb:'Set prices, commission originals, and grow subscribers against rivals'}};
+const MEDN={film:['Silver Lantern','Northlight','Harbor Gate','Red Kite','Paper Sun','Blue Anchor','Golden Hour','Ironwood'].map(x=>x+' Pictures'),
+  music:['Velvet Room','Night Owl','Sunset Row','Copper Drum','Low Tide','Bright Static','Marble Street','Wild Mint'].map(x=>x+' Records'),
+  stream:['Lumen','Orbit','Kite','Nova','Prism','Tandem','Harbor','Echo'].map(x=>x+'+')};
+const MED_GEN={drama:{n:'Drama',m:1.4,v:.45},comedy:{n:'Comedy',m:1.6,v:.5},horror:{n:'Horror',m:2,v:.75},action:{n:'Action',m:1.7,v:.6},animation:{n:'Animation',m:2,v:.5},scifi:{n:'Science fiction',m:1.6,v:.8}};
+const MED_BUD=[['Indie',1.5e6],['Mid-budget',12e6],['Blockbuster',90e6]];
+const MED_STAR=[['No big names',0,0],['Rising stars',.08,6],['A-list cast',.2,14]];
+const MED_DIR=[['Emerging director',.05,48],['Established director',.12,64],['Acclaimed auteur',.2,78]];
+const MED_MK=[['Light',.1,.85],['Standard',.25,1],['Massive',.45,1.25]];
+const MED_GENRE_NAMES=['Rock','Pop','Hip hop','Indie','Country','Electronic'];
+const MED_ALB=[['Demo sessions',2e5,0],['Studio album',8e5,8],['Superstar production',3e6,18]];
+const medEquity=()=>S.med?Math.round(medValue(S.med)+S.med.cash*.9):0;
+function medValue(m){const K=MED[m.type];
+  const base=m.type==='stream'?m.subs*(35+m.lib*.8)+Math.max(0,m.rev-m.cost)*2:Math.max(m.rev*K.mult*0.5,(m.rev-m.cost)*K.mult*1.2);
+  return Math.max(Math.round(K.found*.15),Math.round(base*(.6+m.brand/100)/1e4)*1e4);}
+function medNew(type,buy){
+  const K=MED[type],price=buy?K.buy:K.found,m={type,name:pick(MEDN[type]),cash:Math.round(price*.2),brand:buy?42:15,since:S.age,hist:[],trophies:0,hits:0,rev:buy?Math.round(K.buy/K.mult/2):0,cost:buy?Math.round(K.buy/K.mult/2*.9):0,auto:false,lastLine:''};
+  if(type==='film'){m.slate=[];m.lib=[];m.trend=pick(Object.keys(MED_GEN));m.bo=0;
+    if(buy)for(let i=0;i<3;i++)m.lib.push({n:filmName(),age:S.age-R(1,4),g:R(40,120)*1e6});}
+  if(type==='music'){m.artists=[];m.pool=medPool(m);m.cat=0;if(buy){m.artists.push(medArtist(R(55,75),R(30,55)),medArtist(R(50,70),R(20,45)));}}
+  if(type==='stream'){m.subs=buy?1.2e6:40e3;m.price=12;m.lib=buy?45:20;m.content=buy?85e6:3e6;m.mkt=buy?15e6:1.5e6;m.rq=55;m.peak=m.subs;}
+  return m;}
+function medArtist(talent,fame){return {id:uid(),n:pick(['Ava','Jax','Mira','Theo','Nina','Leo','Zara','Kai','Iris','Sol'])+' '+pick(['Rowe','Vale','Stone','Moon','Hart','Cruz','Lane','Wilde']),g:pick(MED_GENRE_NAMES),talent,fame,age:R(19,32),yrs:3,cut:.6,plan:'rest',albums:0,tier:1,hit:0};}
+function medPool(m){const sd=Math.max(3,20-m.brand/6);return Array.from({length:4},()=>{const a=medArtist(clamp(R(35,88)),R(0,28));a.seen=clamp(Math.round(a.talent+gauss()*sd));a.adv=Math.round((30000+a.talent*900+a.fame*1200)/1000)*1000;return a;});}
+function medBuy(type,buy){const K=MED[type],price=buy?K.buy:K.found;
+  choiceModal(`${K.ic} ${buy?'Buy an established':'Found a new'} ${K.n.toLowerCase()}`,`${K.blurb}. ${buy?`An established one comes with a name, a track record and staff.`:'Starting from nothing means a small name and a long climb.'} It costs ${fmt(price)}, including ${fmt(Math.round(price*.2))} of working cash for the company.`,[
+    [`Pay ${fmt(price)}`,()=>{S.money-=price;S.med=medNew(type,buy);unlock('medmogul');mile(`${buy?'Bought':'Founded'} ${S.med.name}`);stay(`${K.ic} I ${buy?'bought':'founded'} ${S.med.name}.`,'good');},()=>S.money<price],['Cancel',()=>{}]]);}
+/* ---------- yearly ---------- */
+function yrMedia(){const m=S.med;if(!m||!S.alive)return;
+  const r0=m.rev,res={rev:0,cost:0,ln:[]};
+  if(m.auto)medAuto(m);
+  if(m.type==='film')medYearFilm(m,res);else if(m.type==='music')medYearMusic(m,res);else medYearStream(m,res);
+  const K=MED[m.type],ovh=Math.round((m.type==='film'?500000:m.type==='music'?300000+60000*m.artists.length:2e6+m.subs*2)+res.rev*.02);
+  res.cost+=ovh;
+  if(m.cash<0){const int=Math.round(-m.cash*.12);res.cost+=int;res.ln.push(`interest on overdraft ${fmt(int)}`);}
+  const net=res.rev-res.cost;m.cash+=net+(res.pre||0);m.rev=res.rev;m.cost=res.cost;
+  if(m.cash<0&&S.money>0){const t=Math.min(S.money,-m.cash);S.money-=t;m.cash+=t;line(`${K.ic} I covered ${fmt(t)} of ${m.name}'s overdraft from my own cash.`,'bad');}
+  m.hist.push({age:S.age,rev:res.rev,cost:res.cost,net});if(m.hist.length>12)m.hist.shift();
+  line(`${K.ic} ${m.name}: revenue ${fmt(res.rev)}, costs ${fmt(res.cost)}, ${net>=0?'profit':'loss'} ${fmt(Math.abs(net))}.`,net>=0?'good':'bad');
+  res.ln.forEach(t=>line(`${K.ic} ${t}`));
+  if(medEquity()>=2e8)unlock('medbig');
+  if(m.cash<-K.found*3&&S.money<=0){line(`${K.ic} ${m.name} collapsed under its debts and closed.`,'bad');S.med=null;}
+}
+function medAuto(m){
+  if(m.type==='film'&&!m.slate.length&&m.cash>4e6){const c=medMakeFilm(m,{genre:m.trend,bud:0,star:0,dir:1,mk:1});if(m.cash>2e7)medMakeFilm(m,{genre:pick(Object.keys(MED_GEN)),bud:1,star:1,dir:1,mk:1},1);}
+  if(m.type==='music'){
+    while(m.artists.length<3&&m.pool.length){const a=m.pool.slice().sort((x,y)=>y.seen-x.seen)[0];if(m.cash<a.adv*3)break;m.cash-=a.adv;m.artists.push(a);m.pool=m.pool.filter(x=>x!==a);}
+    m.artists.forEach(a=>{if(a.plan==='rest'&&m.cash>8e5)a.plan=a.fame>=50&&a.albums>0&&a.albums%2===0?'tour':'album';a.tier=1;});}
+  if(m.type==='stream'){const r=Math.max(m.rev,m.subs*m.price*10);if(m.cash>r*.1){m.content=Math.max(1.5e6,Math.round(r*.62/1e5)*1e5);m.mkt=Math.max(5e5,Math.round(r*.12/1e5)*1e5);}}}
+function medMakeFilm(m,o,quiet){const b=MED_BUD[o.bud][1],fees=Math.round(b*(MED_DIR[o.dir][1]+MED_STAR[o.star][1])),cost=b+fees;
+  if(m.cash<cost&&S.money<cost-m.cash)return null;
+  m.cash-=cost;const f={id:uid(),n:filmName(),genre:o.genre,bud:o.bud,star:o.star,dir:o.dir,mk:o.mk,self:!!o.self,cost};m.slate.push(f);return f;}
+function medYearFilm(m,res){
+  const G=MED_GEN,ph=localPhase(),eco=ph==='boom'?1.1:ph==='recession'?.92:ph==='crash'?.8:1;
+  m.slate.forEach(f=>{
+    const b=MED_BUD[f.bud][1],mk=Math.round(b*MED_MK[f.mk][1]);
+    let q=MED_DIR[f.dir][2]+gauss()*10+m.brand*.12+MED_STAR[f.star][2]*.3;
+    if(f.self&&S.act){q+=Math.round(actQuality()/9);}
+    q=clamp(q);const crit=clamp(q+gauss()*6);
+    let gr=b*G[f.genre].m*(.35+q/60*.8)*MED_MK[f.mk][2]*(f.genre===m.trend?1.3:1)*eco*(1+MED_STAR[f.star][2]/100)*Math.exp(gauss()*G[f.genre].v);
+    if(f.self&&S.act)gr*=1+S.act.rep/300;
+    let fest=false;if(f.bud===0&&crit>=78){fest=true;gr*=1.6;}
+    gr=Math.round(gr);const rec=Math.round(gr*.5),profit=rec-f.cost-mk;
+    res.rev+=rec;res.cost+=mk+f.cost;res.pre=(res.pre||0)+f.cost;m.bo+=gr;
+    m.lib.push({n:f.n,age:S.age,g:gr});
+    const tag=profit>b*.5?'a smash hit':profit>0?'a modest success':'a flop';
+    res.ln.push(`"${f.n}" (${G[f.genre].n.toLowerCase()}) was ${tag}: critics ${crit}, box office ${fmt(gr)}, ${profit>=0?'profit':'loss'} ${fmt(Math.abs(profit))} for the studio.`);
+    m.brand=clamp(m.brand+(profit>b*.5?5:profit>0?2:-3)+(crit>=80?2:0));
+    if(profit>b*.5)m.hits++;
+    if(gr>=5e8)unlock('medbb');
+    if(f.self&&S.act&&typeof actUnlocked==='function'&&actUnlocked()){S.act.films.push({n:f.n,k:'film',age:S.age,hit:crit>=70,eligible:true});S.act.rep=clamp(S.act.rep+(crit>=70?6:crit<40?-4:2));S.fame=Math.min(100,(S.fame||0)+(crit>=70?4:1));}
+    if(crit>=75){const win=rnd()<(crit>=88?.55:crit>=82?.35:.18);
+      if(win){m.trophies++;m.brand=clamp(m.brand+8);unlock('medaward');mile(`${m.name} won Best Picture for ${f.n}`);res.ln.push(`🏆 "${f.n}" won Best Picture! ${m.name} is the toast of the industry.`);}
+      else res.ln.push(`🎟️ "${f.n}" earned a Best Picture nomination.`);}
+    if(fest)res.ln.push(`🏅 "${f.n}" won the festival prize and distributors fought over it.`);
+  });
+  m.slate=[];
+  // library and streaming rights income
+  m.lib=m.lib.filter(f=>S.age-f.age<=8);
+  const li=Math.round(m.lib.filter(f=>f.age<S.age).reduce((t,f)=>t+f.g*.035,0));res.rev+=li;if(li)res.ln.push(`Library and streaming rights earned ${fmt(li)}.`);
+  m.trend=rnd()<.4?pick(Object.keys(MED_GEN)):m.trend;
+  res.ln.push(`Audiences are asking for ${G[m.trend].n.toLowerCase()} next year. The industry's biggest film was "${filmName()}" from ${pick(MEDN.film)}.`);
+}
+function medYearMusic(m,res){
+  const ph=localPhase(),eco=ph==='recession'?.9:ph==='boom'?1.1:1;
+  m.artists.forEach(a=>{
+    let inc=0,cost=0;const st=Math.pow(a.fame,1.1)*(0.4+a.talent/100)*(1+a.albums*.06);
+    if(a.plan==='album'){const A=MED_ALB[a.tier],score=a.talent+A[2]+m.brand*.15+gauss()*12,hit=score>78+Math.min(10,a.fame/8);cost+=A[1];a.albums++;
+      if(hit){a.fame=Math.min(100,a.fame+R(8,20));a.hit++;m.hits++;m.brand=clamp(m.brand+4);res.ln.push(`💿 ${a.n}'s album went to number one for ${m.name}.`);if(a.hit>=3)unlock('medhit');inc+=st*20000*R(15,25)/10;}
+      else if(score>55){a.fame=Math.min(100,a.fame+R(1,6));res.ln.push(`💿 ${a.n}'s album charted and sold steadily.`);inc+=st*20000*R(9,14)/10;}
+      else{a.fame=Math.max(0,a.fame-2);m.brand=clamp(m.brand-1);res.ln.push(`💿 ${a.n}'s album was overlooked.`);inc+=st*20000*.5;}}
+    else if(a.plan==='tour'){const t=Math.round(100000+a.fame*20000);cost+=t*.5;inc+=(a.fame*a.fame*60)*(0.6+a.talent/100)*R(8,14)/10*.25*1;a.fame=Math.min(100,a.fame+R(0,3));}
+    else{a.fame=Math.max(0,a.fame-Math.round(a.fame*.05+1));}
+    inc+=st*15000*(a.plan==='rest'?1:1.2)*(1+m.cat*.02);
+    const share=Math.round(inc*eco*a.cut);res.rev+=share;res.cost+=cost;
+    a.age++;a.yrs--;if(a.age>38&&rnd()<.35)a.talent=Math.max(20,a.talent-R(1,3));a.plan='rest';
+  });
+  m.cat=Math.min(60,m.artists.reduce((t,a)=>t+a.albums,0));
+  // contracts
+  m.artists.slice().forEach(a=>{if(a.yrs>0)return;
+    const fee=Math.round(a.fame*1500+20000);
+    if(m.auto){m.cash-=fee;a.yrs=3;a.cut=Math.max(.3,a.cut-.08);return;}
+    Q.push({text:`🎵 ${a.n}'s contract with ${m.name} is up. ${a.fame>=60?'They are a star now and have offers from rivals.':'They would like to stay.'}`,ch:[
+      [`Renew for 3 years, they keep ${Math.round(Math.min(.7,(1-a.cut)+.08)*100)}% (bonus ${fmt(fee)})`,()=>{m.cash-=fee;a.yrs=3;a.cut=Math.max(.3,a.cut-.08);return `${a.n} re-signed with ${m.name}.`;}],
+      ['Let them go',()=>{m.artists=m.artists.filter(x=>x!==a);return `${a.n} left ${m.name}.`;}]]});});
+  m.artists=m.artists.filter(a=>a.yrs>-1||true);
+  if(rnd()<.5)m.pool=medPool(m);
+}
+function medYearStream(m,res){
+  const MARKET=60e6,CAC=45+m.subs/40000,ph=localPhase();
+  // content effect and the library
+  const eff=1-Math.exp(-m.content/(2e6+m.subs*45));
+  m.lib=clamp(m.lib*.8+eff*18);
+  m.rq=clamp(m.rq+R(-3,4));
+  const appeal=m.lib*1.1+m.brand*.2-(m.price-12)*4-m.rq*.6;
+  const churn=Math.max(.08,Math.min(.5,.3-appeal/220+(ph==='recession'?.03:0)));
+  const adds=Math.round(m.mkt/CAC*(1-m.subs/MARKET)*(.6+appeal/120));
+  let subs=Math.round(m.subs*(1-churn)+adds);
+  if(rnd()<.1+m.lib/400){const b=R(115,160)/100;subs=Math.round(subs*b);m.brand=clamp(m.brand+6);res.ln.push(`🔥 One of ${m.name}'s originals became a global hit and subscribers surged.`);m.hits++;}
+  const avg=(m.subs+subs)/2;
+  res.rev=Math.round(avg*m.price*12*.9);res.cost+=Math.round(m.content+m.mkt+avg*12);
+  res.ln.push(`Subscribers ${fmtN(Math.round(m.subs))} to ${fmtN(subs)} (churn ${Math.round(churn*100)}%, ${fmtN(adds)} joined).`);
+  m.subs=Math.max(1000,subs);m.peak=Math.max(m.peak,m.subs);
+  if(m.subs>=1e7)unlock('medsubs');
+  m.brand=clamp(m.brand+(churn<.15?1:churn>.3?-2:0));
+}
+/* ---------- sheet ---------- */
+let medTab='over';
+function medSheet(){openSheet(drawMed);}
+function drawMed(s){
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🎬 Media and entertainment'));
+  const m=S.med,ro=!S.alive||!!S.jail;
+  if(!m){s.append(h('p',{className:'sub'},'Own a piece of the entertainment business. Start from scratch for less, or buy an established name.'));
+    Object.entries(MED).forEach(([k,K])=>{s.append(row(`${K.ic} ${K.n}`,K.blurb,'',null,true));
+      s.append(row('Found a new one',`${fmt(K.found)}. Small name, long climb`,fmt(K.found),()=>medBuy(k,false),ro||S.age<21||S.money<K.found));
+      s.append(row('Buy an established one',`${fmt(K.buy)}. Comes with a name and a track record`,fmt(K.buy),()=>medBuy(k,true),ro||S.age<21||S.money<K.buy));});
+    if(S.age<21)s.append(h('p',{className:'sub'},'I need to be 21 to buy or found a media company.'));return;}
+  const K=MED[m.type];
+  s.append(h('p',{className:'sub'},`${K.ic} ${m.name}. Value ${fmt(medValue(m))}, cash ${fmt(m.cash)}. My share of everything: ${fmt(medEquity())}.`));
+  s.append(...mbar('Brand',m.brand,'smarts'));
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['work',m.type==='film'?'Slate':m.type==='music'?'Roster':'Service'],['fin','Money']].map(([v,l])=>h('button',{'aria-pressed':String(medTab===v),on:()=>{medTab=v;drawSheet();}},l))));
+  if(medTab==='over')medOver(s,m,ro);else if(medTab==='work')(m.type==='film'?medFilmTab:m.type==='music'?medMusicTab:medStreamTab)(s,m,ro);else medFin(s,m,ro);
+}
+function medOver(s,m,ro){
+  const K=MED[m.type];
+  s.append(h('dl',{},h('dt',{},'Founded or bought'),h('dd',{},`Age ${m.since}`),h('dt',{},'Hits'),h('dd',{},String(m.hits)),h('dt',{},'Trophies'),h('dd',{},String(m.trophies)),
+    ...(m.type==='film'?[h('dt',{},'Career box office'),h('dd',{},fmt(m.bo))]:m.type==='stream'?[h('dt',{},'Subscribers'),h('dd',{},fmtN(Math.round(m.subs)))]:[h('dt',{},'Artists'),h('dd',{},String(m.artists.length))])));
+  s.append(tog('🤖 Autopilot','Runs sensible plans each year for me, for a small management cost',m.auto,()=>{m.auto=!m.auto;stay();},ro));
+  s.append(row('💵 Put money in',`I have ${fmt(S.money)}`,'',()=>amountModal({title:'Put money into the company',sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,1e6),btn:'Invest',onOk:v=>{S.money-=v;m.cash+=v;stay(`I put ${fmt(v)} into ${m.name}.`);}}),ro||S.money<1000));
+  s.append(row('🏦 Take money out',`The company has ${fmt(m.cash)}`,'',()=>amountModal({title:'Take money out',sub:`The company has ${fmt(m.cash)}.`,max:Math.max(0,m.cash),init:Math.max(0,m.cash*.5),btn:'Withdraw',onOk:v=>{S.money+=v;m.cash-=v;stay(`I took ${fmt(v)} out of ${m.name}.`);}}),ro||m.cash<1000));
+  const v=Math.round(medValue(m)*.92);
+  s.append(row('🏷️ Sell the company',`About ${fmt(v+Math.max(0,m.cash))} including its cash`,'',()=>choiceModal(`Sell ${m.name}?`,`I would receive about ${fmt(v+Math.max(0,m.cash))}.`,[['Sell it',()=>{S.money+=v+Math.max(0,m.cash);if(m.cash<0)S.money+=m.cash;const nm=m.name;S.med=null;mile(`Sold ${nm}`);stay(`I sold ${nm} for ${fmt(v)}.`,'good');}],['Keep it',()=>{}]]),ro));
+  if(m.hist.length){s.append(h('h4',{},'Recent years'));m.hist.slice().reverse().slice(0,5).forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: revenue ${fmt(x.rev)}, ${x.net>=0?'profit':'loss'} ${fmt(Math.abs(x.net))}`)));}
+}
+function medFin(s,m,ro){
+  const h0=m.hist[m.hist.length-1];
+  s.append(h('dl',{},h('dt',{},'Cash'),h('dd',{className:m.cash<0?'bad':''},fmt(m.cash)),h('dt',{},'Last year revenue'),h('dd',{},fmt(m.rev)),h('dt',{},'Last year costs'),h('dd',{},fmt(m.cost)),h('dt',{},'Company value'),h('dd',{},fmt(medValue(m)))));
+  s.append(h('p',{className:'sub'},m.type==='film'?'Costs: production, fees and marketing for each film, plus overhead. Revenue: about 50% of box office, plus library income.':m.type==='music'?'Costs: albums, tours and overhead. Revenue: the label share of streams, sales and tours.':'Costs: content, marketing, running the platform and overhead. Revenue: subscriptions.'));
+  if(m.cash<0)s.append(h('p',{className:'sub'},'The company is overdrawn and pays 12% interest. Put money in to clear it.'));
+}
+function medFilmTab(s,m,ro){
+  s.append(h('p',{className:'sub'},`Films greenlit now are released at the end of the year. Audiences currently favour ${MED_GEN[m.trend].n.toLowerCase()}.`));
+  m.slate.forEach(f=>s.append(row(`🎞️ ${f.n}`,`${MED_GEN[f.genre].n}, ${MED_BUD[f.bud][0].toLowerCase()}, ${MED_STAR[f.star][0].toLowerCase()}, ${MED_DIR[f.dir][0].toLowerCase()}, ${MED_MK[f.mk][0].toLowerCase()} marketing`,fmt(f.cost),null,true)));
+  if(m.slate.length>=3){s.append(h('p',{className:'sub'},'The slate is full for this year.'));return;}
+  s.append(row('➕ Greenlight a film','Pick genre, budget, cast, director and marketing','',()=>medGreen(m),ro));
+  if(m.lib.length){s.append(h('h4',{},'Library'));m.lib.slice(-5).reverse().forEach(f=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`${f.n}, ${fmt(f.g)} box office (age ${f.age})`)));}
+}
+function medGreen(m){
+  const o={genre:m.trend,bud:1,star:1,dir:1,mk:1,self:false};
+  const canSelf=S.act&&typeof actUnlocked==='function'&&actUnlocked();
+  const draw=()=>{const b=MED_BUD[o.bud][1],fees=Math.round(b*(MED_DIR[o.dir][1]+MED_STAR[o.star][1])),mk=Math.round(b*MED_MK[o.mk][1]);
+    const mo=$('modal');mo.innerHTML='';
+    mo.append(h('h3',{},'Greenlight a film'),h('p',{className:'sub'},`Production and fees ${fmt(b+fees)} now, marketing ${fmt(mk)} at release. The studio has ${fmt(m.cash)} (I can top up from my own cash).`));
+    const grp=(l,arr,key,f)=>{mo.append(h('p',{className:'label'},l),seg(arr.map((x,i)=>[i,f?f(x):x[0]]),o[key],v=>{o[key]=v;draw();}));};
+    mo.append(h('p',{className:'label'},'Genre'),seg(Object.entries(MED_GEN).map(([k,g])=>[k,g.n]),o.genre,v=>{o.genre=v;draw();}));
+    grp('Budget',MED_BUD,'bud',x=>`${x[0]} ${fmt(x[1])}`);grp('Cast',MED_STAR,'star');grp('Director',MED_DIR,'dir');grp('Marketing',MED_MK,'mk');
+    if(canSelf)mo.append(tog('🎭 Cast myself','Boosts the film with my acting reputation and adds a credit to my career',o.self,()=>{o.self=!o.self;draw();}));
+    mo.append(h('button',{className:'choice',on:()=>{const need=b+fees;if(m.cash<need){const top=need-m.cash;if(S.money<top){toast('Not enough money for that film.');return;}S.money-=top;m.cash+=top;}
+      closeModal();const f=medMakeFilm(m,o);if(f)stay(`🎬 I greenlit "${f.n}", a ${MED_GEN[o.genre].n.toLowerCase()} film.`,'good');}},'Greenlight it'),h('button',{className:'choice alt',on:closeModal},'Cancel'));$('modalWrap').classList.add('open');};
+  draw();}
+function medMusicTab(s,m,ro){
+  s.append(h('p',{className:'sub'},'Set each artist\'s plan for the year. Albums cost money up front and can make stars. Tours earn while fame lasts.'));
+  m.artists.forEach(a=>{const pl={rest:'Resting',album:`Album: ${MED_ALB[a.tier][0]}`,tour:'On tour'}[a.plan];
+    s.append(row(`🎤 ${a.n}`,`${a.g}, age ${a.age}. Talent ${a.talent}, fame ${a.fame}. Label keeps ${Math.round(a.cut*100)}%. ${a.yrs} yr left. ${pl}`,'Plan',()=>{
+      choiceModal(a.n,`Talent ${a.talent}, fame ${a.fame}, ${a.albums} album${a.albums===1?'':'s'}.`,[
+        ...MED_ALB.map(([n,c],i)=>[`Record an album: ${n} (${fmt(c)})`,()=>{a.plan='album';a.tier=i;stay(`${a.n} will record an album this year.`);},()=>m.cash+S.money<c]),
+        ['Send on tour',()=>{a.plan='tour';stay(`${a.n} will tour this year.`);}],['Rest this year',()=>{a.plan='rest';stay();}],
+        ['Drop from the label',()=>{m.artists=m.artists.filter(x=>x!==a);stay(`${a.n} left ${m.name}.`);}],['Close',()=>{}]]);},ro));});
+  if(m.artists.length<6){s.append(h('h4',{},'Artists to sign'));
+    m.pool.forEach(a=>s.append(row(`🎤 ${a.n}`,`${a.g}, age ${a.age}. Talent about ${a.seen}, fame ${a.fame}. ${m.brand<40?'Scouting is guesswork with a small name':'Well scouted'}`,fmt(a.adv),()=>choiceModal(`Sign ${a.n}?`,`Advance ${fmt(a.adv)}, 3 year contract, the label keeps 60%. Talent looks like about ${a.seen}.`,[[`Sign for ${fmt(a.adv)}`,()=>{if(m.cash<a.adv){S.money-=a.adv-Math.max(0,m.cash);m.cash=Math.max(0,m.cash);}else m.cash-=a.adv;m.artists.push(a);m.pool=m.pool.filter(x=>x!==a);stay(`${a.n} signed with ${m.name}.`,'good');},()=>S.money+Math.max(0,m.cash)<a.adv],['Cancel',()=>{}]]),ro)));}
+}
+function medStreamTab(s,m,ro){
+  s.append(h('p',{className:'sub'},`Subscribers ${fmtN(Math.round(m.subs))}. Library quality ${Math.round(m.lib)}%. Rivals sit around ${Math.round(m.rq)}%. Price, content and marketing decide who stays and who joins.`));
+  s.append(h('p',{className:'label'},'Monthly price'),seg([[8,'$8'],[12,'$12'],[18,'$18']],m.price,v=>{m.price=v;stay();}));
+  s.append(row('🎬 Content budget',`Now ${fmt(m.content)} a year. Originals and licensing keep the library strong`,fmt(m.content),()=>amountModal({title:'Yearly content budget',sub:`Now ${fmt(m.content)}.`,min:0,max:Math.max(2e8,m.content*2),init:m.content,btn:'Set',step:100000,onOk:v=>{m.content=v;stay();}}),ro));
+  s.append(row('📣 Marketing budget',`Now ${fmt(m.mkt)} a year. Each ${fmt(Math.round(45+m.subs/40000))} buys about one subscriber`,fmt(m.mkt),()=>amountModal({title:'Yearly marketing budget',sub:`Now ${fmt(m.mkt)}.`,min:0,max:Math.max(1e8,m.mkt*2),init:m.mkt,btn:'Set',step:50000,onOk:v=>{m.mkt=v;stay();}}),ro));
+}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
