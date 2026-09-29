@@ -596,6 +596,12 @@ const ACH={
  devgain:['🌆','Skyline','Sell a development for a $1M profit'],
  highroller:['🎰','High roller','Win $100,000 at the casino in one year'],
  gavel:['🔨','Going once','Win an auction lot for $1M or more'],
+ spro:['🏟️','Going pro','Sign a professional sports contract'],
+ sbig:['🏆','Big leagues','Reach the top level of your sport'],
+ schamp:['🥇','Champion','Win a league title or a Grand Slam'],
+ smvp:['⭐','Most valuable','Win a most valuable player or world number one award'],
+ sendo:['🤝','Brand ambassador','Hold three endorsement deals at once'],
+ shof:['🏛️','Hall of fame','Retire into the sports hall of fame'],
  bigday:['💍','Big day','Get married'],
  lovebirds:['💞','Happily ever after','Stay married for 25 years'],
  flip:['💹','Sharp eye','Sell a collectible for 3 times what you paid'],
@@ -722,6 +728,7 @@ function fillDefaults(s){
   if(!Array.isArray(s.angels))s.angels=[];
   if(!Array.isArray(s.dev))s.dev=[];
   if(!Array.isArray(s.col))s.col=[];
+  if(s.spt===undefined)s.spt=null;
   if(!s.cm)s.cm={};
   Object.keys(COL_CATS).forEach(k=>{if(s.cm[k]==null)s.cm[k]=1;});
   if(!Array.isArray(s.exes))s.exes=[];
@@ -860,7 +867,7 @@ function newLife(o={}){
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
-    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false};
+    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false,spt:null};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
   // trait bonuses only apply to a rolled start. If the player set the sliders, their numbers stand.
   if(!o.st){if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);}
@@ -1760,7 +1767,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
+  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -2522,6 +2529,7 @@ function actSheet(){openSheet(s=>{
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
+  s.append(h('h4',{},'Careers'),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
@@ -2924,6 +2932,143 @@ function yrCollect(){
   if(cost>=1000)line(`🖼️ Storage${S.colIns?' and insurance':''} for my collection cost ${fmt(cost)}.`);
 }
 
+/* ================= sports career ================= */
+/* S.spt is the career. Team sports (basketball, soccer) move up through four levels by contract. Tennis is solo: level comes from the world ranking.
+   Levels: 0 youth, 1 semi-pro, 2 professional, 3 the big leagues. Fame is the shared S.fame. */
+const SP={
+  basketball:{n:'Basketball',ic:'🏀',peak:28,stages:['High school and youth teams','Development league','Pro league','The Grand Basketball League'],stat:'points a game',sal:[0,45e3,900e3,7e6],teams:['Hawks','Titans','Stingers','Comets','Wolves','Storm','Kings','Rockets'],blurb:'Fast, physical and team-driven. Big contracts and big stars.'},
+  soccer:{n:'Football (soccer)',ic:'⚽',peak:29,stages:['Youth academy','Lower-league club','Top-flight club','European elite club'],stat:'goals',sal:[0,35e3,700e3,6e6],teams:['United','City','Athletic','Rovers','Wanderers','Albion','Rangers','Sporting'],blurb:'The world game. Climb from an academy to a famous club.'},
+  tennis:{n:'Tennis',ic:'🎾',peak:27,solo:true,stages:['Junior circuit','Challenger tour','The pro tour','World top 20'],stat:'wins',sal:[0,0,0,0],blurb:'A solo tour. Climb the world ranking and chase the four majors.'}};
+const SP_REQ=[0,30,52,72],SP_AGE=[0,15,17,18];
+const SP_BRANDS=['Stride Athletics','Hydra Sport','Aurelian Watches','Nova Mobile','Veltrin Motors','Pulse Energy','Halo Headphones','Summit Apparel'];
+const spSal=(k,st,skill)=>Math.round(SP[k].sal[st]*(.6+skill/100*1.4)*(st>=3&&skill>=92?2:1)/1000)*1000;
+const spStageTennis=r=>r<=20?3:r<=120?2:r<=350?1:0;
+const spTeamName=(k,st)=>SP[k].solo?'Independent':(st>=3?pick(CITIES).split(',')[0]:pick(resC().cities))+' '+pick(SP[k].teams)+(st===0?' Juniors':'');
+function spOffer(st){const T=S.spt;return {team:spTeamName(T.sport,st),st,sal:Math.round(spSal(T.sport,st,T.skill)*R(90,115)/100/1000)*1000,yrs:R(1,4)};}
+function startSport(k){
+  const talent=S.talent&&S.talent.k==='soccer'&&k==='soccer'?S.talent.lvl*3:0;
+  S.spt={sport:k,st:0,skill:clamp(Math.round(S.st.health/5+S.st.smarts/12+R(5,18)+(has('athletic')?8:0)+talent)),reg:'normal',team:'',tq:50,con:null,agent:false,offers:[],endo:[],eo:[],rank:k==='tennis'?600:null,titles:0,champs:0,awards:0,seasons:0,acc:0,retired:false,hof:false,legacy:0,start:S.age,hist:[],tried:false};
+  S.spt.team=SP[k].solo?'Independent':spTeamName(k,0);
+  mile(`Started a ${SP[k].n.toLowerCase()} career`);
+  stay(`I started my ${SP[k].n.toLowerCase()} journey with ${S.spt.team}. My starting skill is ${S.spt.skill}.`,'good');}
+function spAccept(o,quiet){
+  const T=S.spt,up=o.st>T.st;
+  T.st=o.st;T.team=o.team;T.con={sal:o.sal,yrs:o.yrs};T.tq=Math.min(90,R(35,70)+o.st*6);T.offers=[];
+  if(o.st>=1&&S.job&&S.age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
+  if(o.st>=2)unlock('spro');if(o.st>=3)unlock('sbig');
+  if(up)mile(`Signed with ${o.team}`);
+  const msg=`I signed with ${o.team}: ${fmt(o.sal)} a year for ${o.yrs} year${o.yrs>1?'s':''}.`;
+  if(quiet)line(msg,'good');else stay(msg,'good');}
+function spRetire(forced,why){
+  const T=S.spt;if(!T||T.retired)return;
+  T.retired=true;T.con=null;T.offers=[];T.eo=[];
+  const score=T.titles*4+T.champs*4+T.awards*2+T.acc*.5+(S.fame||0)/10;
+  T.hof=score>=22;T.legacy=Math.round((S.fame||0)*6000*(T.hof?2:1));
+  mile(`Retired from ${SP[T.sport].n.toLowerCase()}`);
+  line(`${SP[T.sport].ic} ${forced?why:'I retired from professional sport.'} I played ${T.seasons} season${T.seasons===1?'':'s'}, winning ${T.titles+T.champs} title${T.titles+T.champs===1?'':'s'} and ${T.awards} award${T.awards===1?'':'s'}.${T.legacy?` Media and coaching work will pay about ${fmt(T.legacy)} a year.`:''}`,'good');
+  if(T.hof){unlock('shof');S.fame=Math.min(100,(S.fame||0)+5);line(`🏛️ I was inducted into the ${SP[T.sport].n} hall of fame!`,'good');}}
+function yrSports(){
+  const T=S.spt;if(!T)return;
+  if(T.retired){if(S.age<70&&T.legacy>0)S.money+=T.legacy;return;}
+  if(S.age<14||S.jail)return;
+  const K=SP[T.sport],age=S.age;T.seasons++;T.tried=false;
+  if(T.con&&T.con.exp){const o=T.offers[0]||spOffer(T.st);spAccept(o,true);}
+  // training and ageing
+  let gain=age<20?R(2,5):age<25?R(1,3):age<K.peak?R(0,2):-(R(1,3)+(age>K.peak+4?1:0)+(age>K.peak+8?1:0));
+  const rg={light:.6,normal:1,hard:1.3,elite:1.6}[T.reg]||1;
+  if(gain>0)gain=gain*rg*Math.max(.15,1.15-T.skill/100)+(has('athletic')?1:0)*Math.max(.2,1-T.skill/100)-(has('lazy')?1:0)+(T.extra?1:0)*Math.max(.2,1-T.skill/100);else gain=gain*(T.reg==='light'?1.2:T.reg==='elite'?.7:1);
+  T.skill=clamp(T.skill+Math.round(gain));T.extra=false;
+  let cost=(T.reg==='elite'?Math.round(40e3*(1+T.st*3)):0)+(K.solo?20e3+T.st*60e3:0);
+  cost=Math.min(cost,Math.max(0,Math.floor(S.money)));S.money-=cost;
+  // injuries
+  let hurt=1;
+  const risk=(.06+(T.reg==='hard'?.05:T.reg==='elite'?.02:T.reg==='light'?-.02:0)+(age>31?.05:0))*(has('athletic')?.7:1)*(1+(100-S.st.health)/200);
+  if(rnd()<risk){const r=rnd();
+    if(r<.6){hurt=.85;line(`🩹 A minor injury cost me part of the ${K.n.toLowerCase()} season.`,'bad');}
+    else if(r<.9){hurt=.5;T.skill=clamp(T.skill-R(1,3));line('🩹 A serious injury wrecked half my season and set my training back.','bad');}
+    else{hurt=.3;T.skill=clamp(T.skill-R(3,7));S.st.health-=8;line('🩹 A severe injury ended my season and left lasting damage.','bad');
+      if(age>30&&rnd()<.3){spRetire(true,'The injury ended my career.');return;}}}
+  const perf=clamp((T.skill*(K.solo?.92:.8)+R(-14,14)+(K.solo?0:(T.tq-50)*.15))*(0.5+hurt/2)+(1-hurt)*0);
+  let gainFame=[0,.5,2,4][T.st]+Math.max(0,(perf-70)/15),pay=0,extra=0;
+  if(K.solo){
+    const target=Math.max(1,Math.round(800*Math.pow(Math.max(0,105-perf)/105,3)));
+    T.rank=Math.max(1,Math.round(T.rank*.5+target*.5));const ns=spStageTennis(T.rank);
+    if(ns>T.st){T.st=ns;if(ns>=2)unlock('spro');if(ns>=3)unlock('sbig');mile(`Reached world number ${T.rank}`);}else T.st=ns;
+    if(T.st>=1&&S.job&&age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
+    pay=T.st>=1?Math.round(12e6*Math.exp(-T.rank/25)+15000):0;
+    const sp=T.rank<=1?.22:T.rank<=5?.12:T.rank<=20?.05:T.rank<=50?.012:0;let slams=0;for(let i=0;i<4;i++)if(rnd()<sp)slams++;
+    if(slams){T.titles+=slams;T.acc+=slams*6;extra+=slams*1.8e6;gainFame+=slams*8;unlock('schamp');mile(`Won ${slams===1?'a Grand Slam':slams+' Grand Slams'}`);line(`🏆 I won ${slams===1?'a Grand Slam title':slams+' Grand Slam titles'}!`,'good');}
+    if(T.rank===1&&rnd()<.8){T.awards++;T.acc+=4;unlock('smvp');line('⭐ I finished the year ranked world number one!','good');}
+    const w=Math.max(0,Math.round(perf/100*55+R(-4,4)));
+    T.hist.push({age,t:`World rank ${T.rank}, ${w} wins${slams?`, ${slams} major${slams>1?'s':''}`:''}`});
+    line(`${K.ic} Season ${age}: ranked ${T.rank}, ${w} wins${pay?`, prize money ${fmt(pay)}`:''}.`);
+  }else{
+    const stat=T.sport==='basketball'?Math.max(0,Math.round(perf/100*(5+T.st*6)+R(-2,2))):Math.max(0,Math.round(perf/100*(2+T.st*6)*(.8+rnd()*.5)));
+    const cp=T.st>=1?Math.max(0,Math.min(.35,(T.tq*.5+perf*.5-45)/250)):0;
+    T.hist.push({age,t:`${T.team}, ${stat} ${K.stat}`});
+    line(`${K.ic} Season ${age} with ${T.team}: ${stat} ${K.stat}.`);
+    if(rnd()<cp){T.champs++;T.acc+=5;gainFame+=T.st>=2?5:2;if(T.st>=2)unlock('schamp');extra+=T.con?T.con.sal*.1:0;mile(`Won the title with ${T.team}`);line(`🏆 ${T.team} won the championship!`,'good');}
+    if(T.st>=1&&perf>=82&&rnd()<(perf-78)/60){T.awards++;T.acc+=4;gainFame+=5;if(T.st>=2)unlock('smvp');line('⭐ I won the most valuable player award!','good');}
+    if(T.con){pay=T.con.sal;T.con.yrs--;if(T.con.yrs<=0){T.con.exp=true;T.offers=[spOffer(T.st),spOffer(T.st)];T.offers[0].team=T.team;line(`✍️ My contract with ${T.team} is up. I have new offers to look at.`);}}
+    // scouts
+    {if(T.st<3&&T.skill>=SP_REQ[T.st+1]&&age>=SP_AGE[T.st+1]&&T.offers.length<2&&rnd()<.45+(T.agent?.2:0)+(perf-60)/200){T.offers.push(spOffer(T.st+1));line(`🔭 Scouts noticed me. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}}
+  }
+  // money in
+  const gross=pay+extra,cut=T.agent?gross*.1:0;
+  if(gross>0){S.money+=netPay(Math.round(gross-cut));line(`💰 ${K.solo?'Prize money':'Salary and bonuses'}: ${fmt(gross)}${cut?`, agent's cut ${fmt(cut)}`:''}.`,'good');}
+  // endorsements
+  let endo=0;T.endo.forEach(e=>{endo+=e.pay;e.yrs--;
+    if(rnd()<.02+(has('hothead')||has('reckless')?.02:0)&&(S.fame||0)>=30){e.yrs=0;gainFame-=8;line(`📰 A scandal cost me my ${e.brand} deal.`,'bad');endo-=e.pay;}});
+  T.endo=T.endo.filter(e=>e.yrs>0);
+  if(endo>0){const net=Math.round(endo*(T.agent?.9:1));S.money+=netPay(net);line(`🤝 Endorsements paid ${fmt(net)} after tax and fees.`,'good');}
+  T.eo=[];
+  if(T.st>=1&&(S.fame||0)>=12){const n=rnd()<.35+(S.fame||0)/200?(rnd()<.4?2:1):0;
+    for(let i=0;i<n;i++)T.eo.push({brand:pick(SP_BRANDS.filter(b=>!T.endo.some(e=>e.brand===b))),pay:Math.round((20e3+(S.fame||0)*(S.fame||0)*900)*(1+S.st.looks/300)*(T.agent?1.2:1)*R(80,120)/100/1000)*1000,yrs:R(1,3)});
+    if(T.eo.length)line(`🤝 ${T.eo.length===1?'A brand wants':'Brands want'} me for an endorsement deal.`,'good');}
+  S.fame=Math.max(0,Math.min(100,(S.fame||0)+Math.round(gainFame)));
+  if(T.hist.length>6)T.hist.shift();
+  // the end of a career
+  if(age>=42)spRetire(true,'At my age it was time to hang up my boots.');
+  else if(age>K.peak+3&&T.skill<22)spRetire(true,'My skills faded and nobody offered me another contract.');
+}
+let spTab='play';
+function sportsSheet(){openSheet(drawSports);}
+function drawSports(s){
+  const T=S.spt,ro=!S.alive||!!S.jail;
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🏆 Sports career'));
+  if(!T){
+    s.append(h('p',{className:'sub'},'Pick a sport and start from the youth level. Train, take tryouts, sign contracts, climb to the big leagues, and earn endorsements and fame. It takes years.'));
+    Object.entries(SP).forEach(([k,K])=>s.append(row(`${K.ic} ${K.n}`,K.blurb,'',()=>startSport(k),ro||S.age<14)));
+    if(S.age<14)s.append(h('p',{className:'sub'},'I need to be 14 or older to join a youth team.'));
+    return;}
+  const K=SP[T.sport];
+  if(T.retired){
+    s.append(h('p',{className:'sub'},`${K.ic} ${K.n}, retired.${T.hof?' Hall of fame.':''}`),
+      h('dl',{},h('dt',{},'Seasons'),h('dd',{},String(T.seasons)),h('dt',{},'Titles'),h('dd',{},String(T.titles+T.champs)),h('dt',{},'Awards'),h('dd',{},String(T.awards)),h('dt',{},'Fame'),h('dd',{},`${Math.round(S.fame||0)}%`),h('dt',{},'Media and coaching income'),h('dd',{},T.legacy?`${fmt(T.legacy)} a year until 70`:'None')));
+    s.append(row('Start a new sports career','Only one sport at a time','',()=>{S.spt=null;stay();},ro||S.age>40));return;}
+  const stName=K.stages[T.st],endoSlots=Math.min(5,1+Math.floor((S.fame||0)/25));
+  s.append(h('p',{className:'sub'},`${K.ic} ${K.n}. ${stName}. ${K.solo?`World rank ${T.rank}.`:T.team+'.'}`));
+  s.append(...mbar('Skill',T.skill,'smarts'));
+  s.append(h('dl',{},h('dt',{},'Age'),h('dd',{},String(S.age)),
+    ...(K.solo?[]:[h('dt',{},'Contract'),h('dd',{},T.con?`${fmt(T.con.sal)} a year, ${Math.max(0,T.con.yrs)} year${T.con.yrs===1?'':'s'} left`:'None yet')]),
+    h('dt',{},'Titles'),h('dd',{},String(T.titles+T.champs)),h('dt',{},'Awards'),h('dd',{},String(T.awards)),h('dt',{},'Fame'),h('dd',{},`${Math.round(S.fame||0)}%`),
+    h('dt',{},'Endorsements'),h('dd',{},T.endo.length?`${T.endo.length} deal${T.endo.length>1?'s':''}, ${fmt(T.endo.reduce((a,e)=>a+e.pay,0))} a year`:'None')));
+  if(T.offers.length){s.append(h('h4',{},'Offers'));
+    T.offers.forEach(o=>s.append(row(`${o.st>T.st?'⬆️ ':''}${o.team}`,`${K.stages[o.st]}. ${fmt(o.sal)} a year for ${o.yrs} year${o.yrs>1?'s':''}`,'Sign',()=>spAccept(o),ro||(o.st>=1&&S.age<SP_AGE[o.st]))));}
+  s.append(h('h4',{},'Training'),h('p',{className:'label'},'Training plan for the season'),seg([['light','Light'],['normal','Normal'],['hard','Hard'],['elite','Elite coach']],T.reg,v=>{T.reg=v;stay();}),
+    h('p',{className:'sub',style:'margin:-4px 0 10px'},{light:'Slower gains, fewer injuries.',normal:'Steady progress.',hard:'Faster gains, more injuries.',elite:`Fastest gains and fewer injuries. Costs about ${fmt(Math.round(40e3*(1+T.st*3)))} a year.`}[T.reg]));
+  s.append(row('🏋️ Extra training session','A little more skill this season. Costs 1 energy, once a year','',()=>{S.used.spx=true;T.skill=clamp(T.skill+R(1,3));T.extra=true;stay('I put in an extra block of training.');},ro||!!S.used.spx,1));
+  if(!K.solo&&T.st<3)s.append(row('🎯 Try out for the next level',`${K.stages[T.st+1]}. Needs skill about ${SP_REQ[T.st+1]} and age ${SP_AGE[T.st+1]}+`,'',()=>{
+      T.tried=true;const p=Math.max(.05,Math.min(.85,.15+(T.skill-SP_REQ[T.st+1])/60+(T.agent?.1:0)+(S.fame||0)/400));
+      if(rnd()<p){T.offers.push(spOffer(T.st+1));stay(`The tryout went well. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}else stay('The tryout did not go my way. The coaches said to keep working.','bad');},ro||T.tried||S.age<SP_AGE[T.st+1],1));
+  s.append(tog('🧑‍💼 Agent','Takes 10% of pay and deals, but brings more offers and 20% bigger endorsements',T.agent,()=>{T.agent=!T.agent;stay(T.agent?'I hired an agent.':'I let my agent go.');},ro));
+  if(T.st>=1){s.append(h('h4',{},'Endorsements'));
+    T.endo.forEach(e=>s.append(h('p',{className:'sub',style:'margin:0 0 6px'},`✅ ${e.brand}: ${fmt(e.pay)} a year, ${e.yrs} year${e.yrs>1?'s':''} left.`)));
+    if(!T.eo.length&&!T.endo.length)s.append(h('p',{className:'sub'},`Brands notice players with fame of 12% or more. I have ${Math.round(S.fame||0)}%.`));
+    T.eo.forEach(e=>s.append(row(`🤝 ${e.brand}`,`${fmt(e.pay)} a year for ${e.yrs} year${e.yrs>1?'s':''}. ${T.endo.length>=endoSlots?'No free slot yet (more fame opens slots)':''}`,'Sign',()=>{T.endo.push(e);T.eo=T.eo.filter(x=>x!==e);if(T.endo.length>=3)unlock('sendo');stay(`I signed an endorsement deal with ${e.brand}.`,'good');},ro||T.endo.length>=endoSlots)));}
+  if(T.hist.length){s.append(h('h4',{},'Recent seasons'));T.hist.slice().reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
+  s.append(h('h4',{},'Career'),row('Retire','End my playing career. Great careers can reach the hall of fame','',()=>choiceModal('Retire?','My playing days would be over. Media and coaching work pays a yearly income based on my fame.',[['Retire',()=>{spRetire(false);gRefresh();}],['Keep playing',()=>{}]]),ro));
+}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
