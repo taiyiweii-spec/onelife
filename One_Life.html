@@ -599,6 +599,8 @@ const ACH={
  spro:['🏟️','Going pro','Sign a professional sports contract'],
  sbig:['🏆','Big leagues','Reach the top level of your sport'],
  schamp:['🥇','Champion','Win a league title or a Grand Slam'],
+ smile:['📈','Milestone','Reach a career stats milestone'],
+ sstat:['💥','Statement season','Average 25 points a game, score 25 goals in a season or win 70 matches'],
  sviral:['🚀','Gone viral','Have a post explode'],
  clubown:['🏟️','Club owner','Buy a sports club'],
  clubtitle:['🏆','Owner\'s cup','Win a league title as a club owner'],
@@ -3005,11 +3007,55 @@ function spOffer(st,exclude){
   const sal=college?0:Math.round(spSal(T.sport,st,T.skill)*(.8+str/250)*mkF*R(90,115)/100/1000)*1000;
   const fee=T.sport==='soccer'&&st>=1?Math.min(220e6,Math.round(sal*R(3,7)*(st>=2?1:.2)/1000)*1000):0;
   return {team:t.n,st,sal,yrs:college?Math.max(1,Math.min(4,22-S.age)):R(1,4),lg:t.lg,mk:t.mk||1,str,kind:college?'college':'',fee,bonus:Math.round(fee*.05)};}
-function startSport(k){
+const SP_ATTR={basketball:['Shooting','Defence','Athleticism','Playmaking'],soccer:['Attack','Defence','Passing','Physical'],tennis:['Serve','Return','Groundstrokes','Stamina']};
+const SP_POS={basketball:['PG','SG','SF','PF','C'],soccer:['GK','DEF','MID','FWD']};
+const SP_POSN={PG:'Point guard',SG:'Shooting guard',SF:'Small forward',PF:'Power forward',C:'Centre',GK:'Goalkeeper',DEF:'Defender',MID:'Midfielder',FWD:'Forward'};
+const SP_TOT0=()=>({gp:0,pts:0,reb:0,ast:0,stl:0,blk:0,g:0,a:0,cs:0,w:0,l:0,ac:0,ti:0,mj:0});
+const spWt=T=>T.sport==='tennis'?[.3,.2,.35,.15]:CL_W[T.sport][T.pos];
+const spOvr=T=>Math.round(T.a.reduce((s2,v,i)=>s2+v*spWt(T)[i],0));
+function spEnsure(T){
+  if(!T.pos&&T.sport!=='tennis')T.pos=T.sport==='soccer'?'MID':'SF';
+  if(!T.a||T.a.length!==4||Math.abs(spOvr(T)-T.skill)>2){
+    const w=spWt(T),a=w.map(x=>clamp(T.skill+R(-6,6)+(x>=.35?7:x<=.15?-9:0))),diff=T.skill-Math.round(a.reduce((s2,v,i)=>s2+v*w[i],0));
+    T.a=a.map(v=>clamp(v+diff));T.skill=spOvr(T);}
+  if(!T.rec)T.rec=[];if(!T.tot)T.tot=SP_TOT0();if(T.focus==null)T.focus=-1;if(!T.ms)T.ms=[];}
+function spAdj(T,d,focus){
+  spEnsure(T);const w=spWt(T),phys=T.sport==='basketball'?2:3;
+  const sh=w.map((_,i)=>1+(i===focus&&d>0?1:0)+(d<0&&i===phys?1.5:0)),den=w.reduce((s2,x,i)=>s2+x*sh[i],0)||1;
+  T.a=T.a.map((v,i)=>clamp(Math.round(v+d*sh[i]/den)));T.skill=spOvr(T);}
+function spTeamRec(T,perf,hurt){
+  const k=T.sport,a=T.a,st=T.st,q=perf/100,gp=Math.max(0,Math.round((k==='basketball'?(st?82:30):(st?38:26))*(hurt>=1?1:hurt>=.85?.9:hurt>=.5?.6:.35)*(st===0?.7:1)-R(0,4)));
+  const f=x=>Math.round(x*10)/10;
+  if(k==='basketball'){const P={PG:[.9,.35,1.3,1.3,.3],SG:[1.05,.5,.8,1.1,.4],SF:[1,.8,.6,.9,.6],PF:[.95,1.3,.5,.7,1],C:[.9,1.7,.45,.5,1.9]}[T.pos||'SF'];
+    return {gp,pts:f(Math.max(0,q*(9+st*6)*P[0]*(.6+a[0]/175)+R(-2,2)*.3)),reb:f(q*(3+st*2.6)*P[1]*(.5+a[2]/150+a[1]/300)),ast:f(q*(1.6+st*1.9)*P[2]*(.5+a[3]/120)),stl:f(q*(.4+st*.35)*P[3]*(.6+a[1]/160)),blk:f(q*(.2+st*.3)*P[4]*(.6+a[2]/200))};}
+  const pg={GK:0,DEF:.18,MID:.45,FWD:.85}[T.pos||'MID'],pa={GK:0,DEF:.4,MID:1.1,FWD:.8}[T.pos||'MID'];
+  return {gp,g:Math.max(0,Math.round(pg*q*(5+st*6)*(.8+rnd()*.5)*(a[0]/60)*(gp/38))),a:Math.max(0,Math.round(pa*q*(3+st*3.5)*(a[2]/60)*(gp/38))),cs:(T.pos==='GK'||T.pos==='DEF')?Math.round(gp*(.15+(T.tq||50)/100*.25+a[1]/500)*(T.pos==='GK'?1:.85)):0,rt:f(Math.min(9.6,Math.max(5,6+(q-.5)*2.6+R(-3,3)/10)))};}
+function spBook(T,r){
+  const t=T.tot,k=T.sport;
+  T.rec.push(r);if(T.rec.length>45)T.rec.shift();
+  const before=JSON.stringify(t);
+  if(k==='basketball'){t.gp+=r.gp;t.pts+=Math.round(r.pts*r.gp);t.reb+=Math.round(r.reb*r.gp);t.ast+=Math.round(r.ast*r.gp);t.stl+=Math.round(r.stl*r.gp);t.blk+=Math.round(r.blk*r.gp);}
+  else if(k==='soccer'){t.gp+=r.gp;t.g+=r.g;t.a+=r.a;t.cs+=r.cs;}
+  else{t.w+=r.w;t.l+=r.l;t.ac+=r.ac;t.ti+=r.ti;t.mj+=r.mj;}
+  const M=k==='basketball'?[['pts',[1000,5000,10000,20000],'career points']]:k==='soccer'?[['g',[50,100,200,300],'career goals']]:[['w',[100,300,500],'career match wins']];
+  M.forEach(([key,list,lab])=>list.forEach(v=>{const id=key+v;if(t[key]>=v&&!T.ms.includes(id)){T.ms.push(id);unlock('smile');mile(`Reached ${fmtN(v)} ${lab}`);line(`📈 Milestone: ${fmtN(v)} ${lab}!`,'good');}}));
+  if((k==='basketball'&&r.gp>=50&&r.pts>=25)||(k==='soccer'&&r.g>=25)||(k==='tennis'&&r.w>=70))unlock('sstat');}
+function spRecLine(T,r){
+  if(T.sport==='basketball')return `Age ${r.age} ${r.team}: ${r.gp} games, ${r.pts} pts, ${r.reb} reb, ${r.ast} ast, ${r.stl} stl, ${r.blk} blk${r.res?', '+r.res:''}`;
+  if(T.sport==='soccer')return `Age ${r.age} ${r.team}: ${r.gp} apps, ${r.g} goals, ${r.a} assists${r.cs?', '+r.cs+' clean sheets':''}, rating ${r.rt}${r.res?', '+r.res:''}`;
+  return `Age ${r.age}: rank ${r.rank}, ${r.w}-${r.l}, ${fmtN(r.ac)} aces, ${r.ti} title${r.ti===1?'':'s'}${r.mj?', '+r.mj+' major'+(r.mj>1?'s':''):''}`;}
+function spTotalsDl(T){
+  const t=T.tot,k=T.sport,avg=(x)=>t.gp?(Math.round(x/t.gp*10)/10):0;
+  if(k==='basketball')return h('dl',{},h('dt',{},'Games'),h('dd',{},fmtN(t.gp)),h('dt',{},'Points'),h('dd',{},`${fmtN(t.pts)} (${avg(t.pts)} a game)`),h('dt',{},'Rebounds'),h('dd',{},`${fmtN(t.reb)} (${avg(t.reb)})`),h('dt',{},'Assists'),h('dd',{},`${fmtN(t.ast)} (${avg(t.ast)})`),h('dt',{},'Steals and blocks'),h('dd',{},`${fmtN(t.stl)} and ${fmtN(t.blk)}`));
+  if(k==='soccer')return h('dl',{},h('dt',{},'Appearances'),h('dd',{},fmtN(t.gp)),h('dt',{},'Goals'),h('dd',{},String(t.g)),h('dt',{},'Assists'),h('dd',{},String(t.a)),...(T.pos==='GK'||T.pos==='DEF'?[h('dt',{},'Clean sheets'),h('dd',{},String(t.cs))]:[]));
+  return h('dl',{},h('dt',{},'Match record'),h('dd',{},`${t.w} wins, ${t.l} losses`),h('dt',{},'Aces'),h('dd',{},fmtN(t.ac)),h('dt',{},'Tour titles'),h('dd',{},String(t.ti)),h('dt',{},'Majors'),h('dd',{},String(t.mj)));}
+function startSport(k,pos){
+  if(k!=='tennis'&&!pos)return choiceModal('Which position do I play?',k==='soccer'?'The position decides which attributes matter most.':'The position decides my role and my stats.',SP_POS[k].map(p=>[`${SP_POSN[p]} (${p})`,()=>startSport(k,p)]).concat([['Cancel',()=>{}]]));
   const talent=S.talent&&S.talent.k==='soccer'&&k==='soccer'?S.talent.lvl*3:0;
   if(!S.spl)splInit();
-  S.spt={sport:k,st:0,skill:clamp(Math.round(S.st.health/5+S.st.smarts/12+R(5,18)+(has('athletic')?8:0)+talent)),reg:'normal',team:'',tq:50,mk:1,lg:'',con:null,agent:false,offers:[],endo:[],eo:[],rank:k==='tennis'?600:null,titles:0,champs:0,awards:0,seasons:0,acc:0,retired:false,hof:false,legacy:0,start:S.age,hist:[],tried:false,shop:false,drafted:false};
+  S.spt={sport:k,pos:pos||'',st:0,skill:clamp(Math.round(S.st.health/5+S.st.smarts/12+R(5,18)+(has('athletic')?8:0)+talent)),reg:'normal',team:'',tq:50,mk:1,lg:'',con:null,agent:false,offers:[],endo:[],eo:[],rank:k==='tennis'?600:null,titles:0,champs:0,awards:0,seasons:0,acc:0,retired:false,hof:false,legacy:0,start:S.age,hist:[],tried:false,shop:false,drafted:false};
   S.spt.team=SP[k].solo?'Independent':spTeamName(k,0);
+  spEnsure(S.spt);
   mile(`Started a ${SP[k].n.toLowerCase()} career`);
   stay(`I started my ${SP[k].n.toLowerCase()} journey with ${S.spt.team}. My starting skill is ${S.spt.skill}.`,'good');}
 function spAccept(o,quiet){
@@ -3048,14 +3094,14 @@ function yrSports(){
   const T=S.spt;if(!T)return;
   if(T.retired){if(S.age<70&&T.legacy>0)S.money+=T.legacy;return;}
   if(S.age<14||S.jail)return;
-  const K=SP[T.sport],age=S.age;T.seasons++;T.tried=false;T.shop=false;
+  const K=SP[T.sport],age=S.age;T.seasons++;T.tried=false;T.shop=false;spEnsure(T);
   splYear();
   if(T.con&&T.con.exp){const o=T.offers[0]||spOffer(T.st,'');spAccept(o,true);}
   // training and ageing
   let gain=age<20?R(2,5):age<25?R(1,3):age<K.peak?R(0,2):-(R(1,3)+(age>K.peak+4?1:0)+(age>K.peak+8?1:0));
   const rg={light:.6,normal:1,hard:1.3,elite:1.6}[T.reg]||1;
   if(gain>0)gain=gain*rg*Math.max(.15,1.15-T.skill/100)+(has('athletic')?1:0)*Math.max(.2,1-T.skill/100)-(has('lazy')?1:0)+(T.extra?1:0)*Math.max(.2,1-T.skill/100);else gain=gain*(T.reg==='light'?1.2:T.reg==='elite'?.7:1);
-  T.skill=clamp(T.skill+Math.round(gain));T.extra=false;
+  spAdj(T,Math.round(gain),T.focus);T.extra=false;
   let cost=(T.reg==='elite'?Math.round(40e3*(1+T.st*3)):0)+(K.solo?20e3+T.st*60e3:0);
   cost=Math.min(cost,Math.max(0,Math.floor(S.money)));S.money-=cost;
   // injuries
@@ -3063,8 +3109,8 @@ function yrSports(){
   const risk=(.06+(T.reg==='hard'?.05:T.reg==='elite'?.02:T.reg==='light'?-.02:0)+(age>31?.05:0))*(has('athletic')?.7:1)*(1+(100-S.st.health)/200);
   if(rnd()<risk){const r=rnd();
     if(r<.6){hurt=.85;line(`🩹 A minor injury cost me part of the ${K.n.toLowerCase()} season.`,'bad');}
-    else if(r<.9){hurt=.5;T.skill=clamp(T.skill-R(1,3));line('🩹 A serious injury wrecked half my season and set my training back.','bad');}
-    else{hurt=.3;T.skill=clamp(T.skill-R(3,7));S.st.health-=8;line('🩹 A severe injury ended my season and left lasting damage.','bad');
+    else if(r<.9){hurt=.5;spAdj(T,-R(1,3));line('🩹 A serious injury wrecked half my season and set my training back.','bad');}
+    else{hurt=.3;spAdj(T,-R(3,7));S.st.health-=8;line('🩹 A severe injury ended my season and left lasting damage.','bad');
       if(age>30&&rnd()<.3){spRetire(true,'The injury ended my career.');return;}}}
   const tm=K.solo?null:SP_TEAMS.find(t=>t.n===T.team);
   if(tm){const cur=splStr(tm.n);if(cur!=null)T.tq=cur;}
@@ -3081,10 +3127,11 @@ function yrSports(){
     if(won.length){T.titles+=won.length;T.acc+=won.length*6;extra+=won.length*1.8e6;gainFame+=won.length*8;unlock('schamp');mile(`Won ${won.join(' and ')}`);line(`🏆 I won ${won.join(' and ')}!`,'good');socBoost(.15,'📱 My following exploded after the Grand Slam.');}
     if(T.rank===1&&rnd()<.8){T.awards++;T.acc+=4;unlock('smvp');line('⭐ I finished the year ranked world number one!','good');}
     const w=Math.max(0,Math.round(perf/100*55+R(-4,4)));
+    const lo=Math.max(2,Math.round(w*(1.2-perf/100)*.9)),tr={age,team:'Tour',rank:T.rank,w,l:lo,ac:Math.round((w+lo)*(1.5+T.a[0]/12)),ti:Math.round(w/22*(T.rank<30?1:.3))+won.length,mj:won.length};spBook(T,tr);
     T.hist.push({age,t:`World rank ${T.rank}, ${w} wins${won.length?`, won ${won.join(' and ')}`:''}`});
-    line(`${K.ic} Season ${age}: ranked ${T.rank}, ${w} wins${pay?`, prize money ${fmt(pay)}`:''}.`);
+    line(`${K.ic} Season ${age}: ranked ${T.rank}, ${w}-${lo}, ${fmtN(tr.ac)} aces${pay?`, prize money ${fmt(pay)}`:''}.`);
   }else{
-    const stat=T.sport==='basketball'?Math.max(0,Math.round(perf/100*(5+T.st*6)+R(-2,2))):Math.max(0,Math.round(perf/100*(2+T.st*6)*(.8+rnd()*.5)));
+    const rec=spTeamRec(T,perf,hurt),stat=T.sport==='basketball'?rec.pts:rec.g;
     let result='',won=0;
     if(tm&&tm.comp&&S.spl){
       const bonus={};bonus[tm.n]=(T.skill-60)*(T.sport==='basketball'?.6:.3)*(.5+hurt/2);S.spl.str[tm.n]=Math.min(98,S.spl.str[tm.n]+Math.max(0,T.skill-70)*(T.sport==='basketball'?.08:.04));
@@ -3095,8 +3142,9 @@ function yrSports(){
       if(T.sport==='soccer'&&S.spl.str[tm.n]>=75){const cl=splStand('cl',bonus),cp=cl.findIndex(x=>x.n===tm.n);
         if(cp>=0){S.spl.champ.cl=cl[0].n;if(cp===0){won+=2;line(`🏆 ${T.team} won the Champions League!`,'good');}else if(cp<=1)line(`⚽ ${T.team} reached the Champions League final and lost to ${cl[0].n}.`);}}
     }else{const cp=T.st>=1?Math.max(0,Math.min(.35,(T.tq*.5+perf*.5-45)/250)):0;if(rnd()<cp){won++;line(`🏆 ${T.team} won the championship!`,'good');}}
-    T.hist.push({age,t:`${T.team}, ${stat} ${K.stat}${result?', '+result:''}${won?' (champions)':''}`});
-    line(`${K.ic} Season ${age} with ${T.team}: ${stat} ${K.stat}.`);
+    rec.age=age;rec.team=T.team;rec.res=(result?result.replace('finished ','finished '):'')+(won?' (champions)':'');spBook(T,rec);
+    T.hist.push({age,t:`${T.team}, ${T.sport==='basketball'?`${rec.pts} pts, ${rec.reb} reb, ${rec.ast} ast`:`${rec.g} goals, ${rec.a} assists`}${result?', '+result:''}${won?' (champions)':''}`});
+    line(`${K.ic} Season ${age} with ${T.team}: ${T.sport==='basketball'?`${rec.pts} points, ${rec.reb} rebounds and ${rec.ast} assists a game in ${rec.gp} games`:`${rec.g} goals and ${rec.a} assists in ${rec.gp} games${rec.cs?`, ${rec.cs} clean sheets`:''}`}.`);
     if(won){T.champs++;T.acc+=5+(won>=2?4:0);gainFame+=(T.st>=2?5:2)*(won>=2?1.6:1);if(T.st>=2)unlock('schamp');extra+=T.con?T.con.sal*.1:0;mile(`Won ${won>=2?'the Champions League':'the title'} with ${T.team}`);socBoost(.08,'📱 My following jumped after the title.');}
     if(T.st>=1&&perf>=82&&rnd()<(perf-78)/60){T.awards++;T.acc+=4;gainFame+=5;if(T.st>=2)unlock('smvp');line(T.sport==='soccer'&&T.st>=3?'⭐ I was named player of the year!':'⭐ I won the most valuable player award!','good');socBoost(.05);}
     if(T.con){pay=T.con.kind==='college'?0:T.con.sal;T.con.yrs--;
@@ -3143,8 +3191,10 @@ function drawSports(s){
       h('dl',{},h('dt',{},'Seasons'),h('dd',{},String(T.seasons)),h('dt',{},'Titles'),h('dd',{},String(T.titles+T.champs)),h('dt',{},'Awards'),h('dd',{},String(T.awards)),h('dt',{},'Fame'),h('dd',{},`${Math.round(S.fame||0)}%`),h('dt',{},'Media and coaching income'),h('dd',{},T.legacy?`${fmt(T.legacy)} a year until 70`:'None')));
     s.append(row('Start a new sports career','Only one sport at a time','',()=>{S.spt=null;stay();},ro||S.age>40));return;}
   const stName=K.stages[T.st],endoSlots=Math.min(5,1+Math.floor((S.fame||0)/25)),cur=K.solo?null:splStr(T.team);
-  s.append(h('p',{className:'sub'},`${K.ic} ${K.n}. ${stName}. ${K.solo?`World rank ${T.rank}.`:`${T.team}${T.lg?' ('+T.lg+')':''}${cur!=null?', '+spLabel(cur):''}.`}`));
-  s.append(...mbar('Skill',T.skill,'smarts'));
+  s.append(h('p',{className:'sub'},`${K.ic} ${K.n}${T.pos?' ('+SP_POSN[T.pos]+')':''}. ${stName}. ${K.solo?`World rank ${T.rank}.`:`${T.team}${T.lg?' ('+T.lg+')':''}${cur!=null?', '+spLabel(cur):''}.`}`));
+  spEnsure(T);
+  s.append(...mbar(`Overall${T.pos?' ('+SP_POSN[T.pos]+')':''}`,T.skill,'smarts'));
+  SP_ATTR[T.sport].forEach((n,i)=>s.append(...mbar(n,T.a[i],i===T.focus?'happy':'health')));
   s.append(h('dl',{},h('dt',{},'Age'),h('dd',{},String(S.age)),
     ...(K.solo?[]:[h('dt',{},'Contract'),h('dd',{},T.con?(T.con.kind==='college'?`Scholarship, ${Math.max(0,T.con.yrs)} year${T.con.yrs===1?'':'s'} left`:`${fmt(T.con.sal)} a year, ${Math.max(0,T.con.yrs)} year${T.con.yrs===1?'':'s'} left`):'None yet')]),
     h('dt',{},'Titles'),h('dd',{},String(T.titles+T.champs)),h('dt',{},'Awards'),h('dd',{},String(T.awards)),h('dt',{},'Fame'),h('dd',{},`${Math.round(S.fame||0)}%`),
@@ -3154,8 +3204,9 @@ function drawSports(s){
     if(news.length)s.append(h('p',{className:'sub'},'Last season\'s champions. '+news.join('. ')+'.'));}
   if(T.offers.length){s.append(h('h4',{},'Offers'));T.offers.forEach(o=>offerRow(s,o,K,T,ro));}
   s.append(h('h4',{},'Training'),h('p',{className:'label'},'Training plan for the season'),seg([['light','Light'],['normal','Normal'],['hard','Hard'],['elite','Elite coach']],T.reg,v=>{T.reg=v;stay();}),
+    h('p',{className:'label'},'Training focus (extra gains go here)'),seg([[-1,'Balanced'],...SP_ATTR[T.sport].map((n,i)=>[i,n])],T.focus,v=>{T.focus=v;stay();}),
     h('p',{className:'sub',style:'margin:-4px 0 10px'},{light:'Slower gains, fewer injuries.',normal:'Steady progress.',hard:'Faster gains, more injuries.',elite:`Fastest gains and fewer injuries. Costs about ${fmt(Math.round(40e3*(1+T.st*3)))} a year.`}[T.reg]));
-  s.append(row('🏋️ Extra training session','A little more skill this season. Costs 1 energy, once a year','',()=>{S.used.spx=true;T.skill=clamp(T.skill+R(1,3));T.extra=true;stay('I put in an extra block of training.');},ro||!!S.used.spx,1));
+  s.append(row('🏋️ Extra training session','A little more skill this season. Costs 1 energy, once a year','',()=>{S.used.spx=true;spAdj(T,R(1,3),T.focus);T.extra=true;stay('I put in an extra block of training.');},ro||!!S.used.spx,1));
   if(T.sport==='basketball'&&T.st===1&&!T.drafted)s.append(row('📋 Declare for the NBA draft','Age 19+. Mock drafts show where I might go. I am automatically eligible at 22','',()=>{
       const est=Math.max(1,Math.round(1+59*Math.pow(1-Math.min(1,Math.max(0,(T.skill-38)/57)),1.5)));
       choiceModal('📋 The NBA draft',`Mock drafts project me around pick #${Math.max(1,est-6)} to #${est+6}${T.skill<48?', which means I may go undrafted':''}. Once I declare, the draft happens now.`,[['Declare for the draft',()=>spDraft(false)],['Stay in college',()=>{}]]);},ro||S.age<19));
@@ -3171,7 +3222,7 @@ function drawSports(s){
     T.endo.forEach(e=>s.append(h('p',{className:'sub',style:'margin:0 0 6px'},`✅ ${e.brand}: ${fmt(e.pay)} a year, ${e.yrs} year${e.yrs>1?'s':''} left.`)));
     if(!T.eo.length&&!T.endo.length)s.append(h('p',{className:'sub'},`Brands notice players with fame of 12% or more. I have ${Math.round(S.fame||0)}%.`));
     T.eo.forEach(e=>s.append(row(`🤝 ${e.brand}`,`${fmt(e.pay)} a year for ${e.yrs} year${e.yrs>1?'s':''}. ${T.endo.length>=endoSlots?'No free slot yet (more fame opens slots)':''}`,'Sign',()=>{T.endo.push(e);T.eo=T.eo.filter(x=>x!==e);if(T.endo.length>=3)unlock('sendo');stay(`I signed an endorsement deal with ${e.brand}.`,'good');},ro||T.endo.length>=endoSlots)));}
-  if(T.hist.length){s.append(h('h4',{},'Recent seasons'));T.hist.slice().reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
+  if(T.rec.length){s.append(h('h4',{},'Career totals'),spTotalsDl(T),h('h4',{},'Season by season'));T.rec.slice(-8).reverse().forEach(r=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},spRecLine(T,r))));}
   s.append(h('h4',{},'Career'),row('Retire','End my playing career. Great careers can reach the hall of fame','',()=>choiceModal('Retire?','My playing days would be over. Media and coaching work pays a yearly income based on my fame.',[['Retire',()=>{spRetire(false);gRefresh();}],['Keep playing',()=>{}]]),ro));
 }
 
@@ -3496,7 +3547,15 @@ function clStats(C,res){
   if(sp==='soccer'){const G=Math.round(38*(1.2+(res.str-60)/50)),w=pl.map(p=>({p,w:({GK:0,DEF:.6,MID:2.5,FWD:6}[p.pos])*Math.pow(p.ovr/60,3)}));const tot=w.reduce((a,x)=>a+x.w,0)||1;
     for(let i=0;i<G;i++){let r=rnd()*tot;for(const x of w){r-=x.w;if(r<=0){x.p.g++;break;}}}}
   else{const top=pl.slice().sort((a,b)=>b.ovr-a.ovr).slice(0,9),ppg=105+(res.str-60)/2,tw=top.reduce((a,p)=>a+Math.pow(p.ovr/60,2)*(p.pos==='C'?.9:1),0);
-    top.forEach(p=>{p.g=Math.round(ppg*Math.pow(p.ovr/60,2)/tw*10)/10;});}}
+    top.forEach(p=>{p.g=Math.round(ppg*Math.pow(p.ovr/60,2)/tw*10)/10;});}
+  pl.forEach(p=>{
+    const fake={sport:sp,pos:p.pos,a:p.a,st:sp==='soccer'?2.5:2.5,tq:res.str},perf=clamp(p.ovr*(.7+(p.form||50)/250)),r=spTeamRec(fake,perf,p.inj?.5:1);
+    if(sp==='soccer'){r.gp=p.ap;r.g=p.g;}else{r.gp=p.ap;if(p.g>0)r.pts=p.g;}
+    r.age=S.age;r.team=C.team;
+    if(!p.tot)p.tot=SP_TOT0();if(!p.h)p.h=[];
+    const t=p.tot;t.gp+=r.gp;
+    if(sp==='soccer'){t.g+=r.g;t.a+=r.a;t.cs+=r.cs;}else{t.pts+=Math.round(r.pts*r.gp);t.reb+=Math.round(r.reb*r.gp);t.ast+=Math.round(r.ast*r.gp);t.stl+=Math.round(r.stl*r.gp);t.blk+=Math.round(r.blk*r.gp);}
+    p.h.push(r);if(p.h.length>5)p.h.shift();p.last=r;});}
 function clMoney(C,res){
   const f=clFin(C,res);C.pnl=f;C.lastRev=f.rev;C.cash+=Math.round(f.net);
   const s=(C.n>1?(0.5*(res.n+1)-res.pos)/(0.5*(res.n-1)):0);res.s=s;
@@ -3620,13 +3679,16 @@ function clOver(s,C,ro){
     row('🏷️ Sell the club',`Offers are based on its value, about ${fmt(v)}`,'',()=>choiceModal(`Sell ${C.team}?`,`A buyer would pay about ${fmt(Math.round(v*.92))} to ${fmt(Math.round(v*1.1))}. After the loan I would keep roughly ${fmt(Math.round(C.own*(v+C.cash))-C.loan)}.`,[['Sell it',()=>{const m=clSell(false);gRefresh();}],['Keep it',()=>{}]]),ro));}
 function clPlayerModal(p){
   const C=S.club,ro=!S.alive||!!S.jail,sp=C.sport,val=clPVal(C,p),q=C.staff.scout?C.staff.scout.skill:35;
-  const facts=[['Position',p.pos],['Age',String(p.age)],['Overall',String(p.ovr)],['Potential',String(p.pot)],...CL_ATTR[sp].map((n,i)=>[n,String(p.a[i])]),['Form',`${p.form}%`],['Morale',`${p.mor}%`],['Contract',`${fmt(p.wage)} a year, ${p.exp?'expiring':p.yrs+' year'+(p.yrs>1?'s':'')}`],['Value',fmt(val)],[sp==='soccer'?'Goals last season':'Points a game',String(p.g)]];
+  const facts=[['Position',p.pos],['Age',String(p.age)],['Overall',String(p.ovr)],['Potential',String(p.pot)],...CL_ATTR[sp].map((n,i)=>[n,String(p.a[i])]),['Form',`${p.form}%`],['Morale',`${p.mor}%`],['Contract',`${fmt(p.wage)} a year, ${p.exp?'expiring':p.yrs+' year'+(p.yrs>1?'s':'')}`],['Value',fmt(val)]];
+  if(p.last){const r=p.last;facts.push(...(sp==='soccer'?[['Appearances',String(r.gp)],['Goals',String(r.g)],['Assists',String(r.a)],...(r.cs?[['Clean sheets',String(r.cs)]]:[]),['Average rating',String(r.rt)]]:[['Games',String(r.gp)],['Points a game',String(r.pts)],['Rebounds a game',String(r.reb)],['Assists a game',String(r.ast)],['Steals and blocks a game',`${r.stl} and ${r.blk}`]]));}
   if(p.inj)facts.push(['Fitness','Injured']);
   const ch=[];
   if(typeof clPlayerActions==='function')clPlayerActions(ch,p,ro);
   ch.push([`Release him (pay ${fmt(Math.round(p.wage*Math.max(1,p.yrs)*.4))})`,()=>{const c=Math.round(p.wage*Math.max(1,p.yrs)*.4);C.cash-=c;C.squad=C.squad.filter(x=>x!==p);stay(`${C.team} released ${p.n}, paying ${fmt(c)}.`);},()=>ro||C.squad.length<=(sp==='soccer'?18:11)]);
   ch.push(['Close',()=>{}]);
-  choiceModal(`${p.pos} ${p.n}`,'',ch,h('dl',{},...facts.flatMap(([a,v])=>[h('dt',{},a),h('dd',{},v)])));}
+  const card=[h('dl',{},...facts.flatMap(([a,v])=>[h('dt',{},a),h('dd',{},v)]))];
+  if(p.tot&&p.tot.gp){card.push(h('h4',{},'Career with my club'),spTotalsDl({sport:sp,pos:p.pos,tot:p.tot}));if(p.h.length>1)card.push(h('h4',{},'Recent seasons'),...p.h.slice(0,-1).reverse().map(r=>h('p',{className:'sub',style:'margin:0 0 4px'},spRecLine({sport:sp},r))));}
+  choiceModal(`${p.pos} ${p.n}`,'',ch,h('div',{},...card));}
 function clSquadTab(s,C,ro){
   const ps=CL_POSS[C.sport];
   s.append(h('div',{className:'tabs'},['ALL',...ps].map(k=>h('button',{'aria-pressed':String(clPos===k),on:()=>{clPos=k;drawSheet();}},k))));
