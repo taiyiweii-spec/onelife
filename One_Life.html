@@ -360,7 +360,7 @@ function takeRole(o){
     msg=`${P.n} flopped. Reviews were rough. I still got paid ${fmt(pay)}, but it dented my reputation.`;}
   else if(q>=65&&rnd()<.25){pay=Math.round(pay*1.6);rep=Math.round(rep*1.8);outcome='hit';
     msg=`${P.n} was a hit! Paid ${fmt(pay)} and my reputation jumped.`;
-    S.act.films.push({n:filmName(),k:o.k,age:S.age,hit:true,eligible:o.k!=='ad'});}
+    S.act.films.push({n:filmName(),k:o.k,age:S.age,hit:true,eligible:o.k!=='ad'});socBoost(.06,'📱 The hit film brought me new followers.');}
   else{msg=`Wrapped a ${P.n.toLowerCase()}. Paid ${fmt(pay)}.`;
     S.act.films.push({n:filmName(),k:o.k,age:S.age,hit:false,eligible:o.k!=='ad'});}
   S.money+=pay;S.act.rep=clamp(S.act.rep+rep);S.fame=Math.min(100,(S.fame||0)+Math.round(rep/4));
@@ -599,6 +599,12 @@ const ACH={
  spro:['🏟️','Going pro','Sign a professional sports contract'],
  sbig:['🏆','Big leagues','Reach the top level of your sport'],
  schamp:['🥇','Champion','Win a league title or a Grand Slam'],
+ sviral:['🚀','Gone viral','Have a post explode'],
+ sf100k:['📈','Rising star','Reach 100,000 followers'],
+ sf1m:['💯','Millionaire following','Reach 1 million followers'],
+ sf10m:['🌍','Global reach','Reach 10 million followers'],
+ sver:['✔️','Blue check','Get verified'],
+ scancel:['🛡️','Survived the storm','Get through a cancel storm with your career intact'],
  smvp:['⭐','Most valuable','Win a most valuable player or world number one award'],
  sendo:['🤝','Brand ambassador','Hold three endorsement deals at once'],
  shof:['🏛️','Hall of fame','Retire into the sports hall of fame'],
@@ -729,6 +735,7 @@ function fillDefaults(s){
   if(!Array.isArray(s.dev))s.dev=[];
   if(!Array.isArray(s.col))s.col=[];
   if(s.spt===undefined)s.spt=null;
+  if(s.soc===undefined)s.soc=null;
   if(!s.cm)s.cm={};
   Object.keys(COL_CATS).forEach(k=>{if(s.cm[k]==null)s.cm[k]=1;});
   if(!Array.isArray(s.exes))s.exes=[];
@@ -867,7 +874,7 @@ function newLife(o={}){
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
-    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false,spt:null};
+    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false,spt:null,soc:null};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
   // trait bonuses only apply to a rolled start. If the player set the sliders, their numbers stand.
   if(!o.st){if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);}
@@ -1767,7 +1774,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
+  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -2529,7 +2536,7 @@ function actSheet(){openSheet(s=>{
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
-  s.append(h('h4',{},'Careers'),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
+  s.append(h('h4',{},'Careers'),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
@@ -2701,6 +2708,7 @@ function coupleRows(s,p){
     row('🎁 Surprise gift','Spend any amount. Bigger gifts mean more, with diminishing returns','',()=>amountModal({title:`A gift for ${fn}`,sub:`I have ${fmt(S.money)}.`,min:20,max:Math.min(Math.floor(S.money),1e7),init:200,step:10,btn:a=>`Spend ${fmt(a)}`,
       note:a=>`${fn} would feel about ${Math.round(Math.min(20,Math.round(Math.sqrt(a)/5))*(p.gd?2:1)*lm(p,'gifts'))} points closer to me.`,
       onOk:a=>{S.money-=a;p.rel+=Math.round(Math.min(20,Math.round(Math.sqrt(a)/5))*(p.gd?2:1)*lm(p,'gifts'));sparkUp(p,Math.min(12,Math.round(Math.sqrt(a)/8)));stay(`I surprised ${fn} with a ${fmt(a)} gift.${llTag(p,'gifts')}`,'good');},onCancel:()=>{}}),S.money<20));
+  if(S.soc)s.append(row('📸 Post about us','Share a couple photo. Followers love couples, though not everyone likes being public. Once a year','',()=>{mark('pu');if(rnd()<.75){socScale(.03);p.rel+=4;sparkUp(p,5);stay(`Our photo was a hit, and ${fn} loved it.`,'good');}else{socScale(.01);p.rel-=6;stay(`${fn} did not like being posted online. We had a talk.`,'bad');}},!!k('pu')));
   if(p.type==='Partner')s.append(row('👪 Meet their family','Dinner with their parents. It only happens once','',()=>metFamily(p),!!p.metFam||p.rel<50||energyLeft()<1));}
 function getaway(p,cost,spk,rel){
   const fn=fname(p.name);S.used[p.id+'gw']=true;spend(1);S.money-=cost;p.rel+=Math.round(relGain(rel)*lm(p,'time'));sparkUp(p,spk);S.st.happy+=joy(8);
@@ -2997,7 +3005,7 @@ function yrSports(){
     if(T.st>=1&&S.job&&age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
     pay=T.st>=1?Math.round(12e6*Math.exp(-T.rank/25)+15000):0;
     const sp=T.rank<=1?.22:T.rank<=5?.12:T.rank<=20?.05:T.rank<=50?.012:0;let slams=0;for(let i=0;i<4;i++)if(rnd()<sp)slams++;
-    if(slams){T.titles+=slams;T.acc+=slams*6;extra+=slams*1.8e6;gainFame+=slams*8;unlock('schamp');mile(`Won ${slams===1?'a Grand Slam':slams+' Grand Slams'}`);line(`🏆 I won ${slams===1?'a Grand Slam title':slams+' Grand Slam titles'}!`,'good');}
+    if(slams){T.titles+=slams;T.acc+=slams*6;extra+=slams*1.8e6;gainFame+=slams*8;unlock('schamp');mile(`Won ${slams===1?'a Grand Slam':slams+' Grand Slams'}`);line(`🏆 I won ${slams===1?'a Grand Slam title':slams+' Grand Slam titles'}!`,'good');socBoost(.15,'📱 My following exploded after the Grand Slam.');}
     if(T.rank===1&&rnd()<.8){T.awards++;T.acc+=4;unlock('smvp');line('⭐ I finished the year ranked world number one!','good');}
     const w=Math.max(0,Math.round(perf/100*55+R(-4,4)));
     T.hist.push({age,t:`World rank ${T.rank}, ${w} wins${slams?`, ${slams} major${slams>1?'s':''}`:''}`});
@@ -3007,8 +3015,8 @@ function yrSports(){
     const cp=T.st>=1?Math.max(0,Math.min(.35,(T.tq*.5+perf*.5-45)/250)):0;
     T.hist.push({age,t:`${T.team}, ${stat} ${K.stat}`});
     line(`${K.ic} Season ${age} with ${T.team}: ${stat} ${K.stat}.`);
-    if(rnd()<cp){T.champs++;T.acc+=5;gainFame+=T.st>=2?5:2;if(T.st>=2)unlock('schamp');extra+=T.con?T.con.sal*.1:0;mile(`Won the title with ${T.team}`);line(`🏆 ${T.team} won the championship!`,'good');}
-    if(T.st>=1&&perf>=82&&rnd()<(perf-78)/60){T.awards++;T.acc+=4;gainFame+=5;if(T.st>=2)unlock('smvp');line('⭐ I won the most valuable player award!','good');}
+    if(rnd()<cp){T.champs++;T.acc+=5;gainFame+=T.st>=2?5:2;if(T.st>=2)unlock('schamp');extra+=T.con?T.con.sal*.1:0;mile(`Won the title with ${T.team}`);line(`🏆 ${T.team} won the championship!`,'good');socBoost(.08,'📱 My following jumped after the title.');}
+    if(T.st>=1&&perf>=82&&rnd()<(perf-78)/60){T.awards++;T.acc+=4;gainFame+=5;if(T.st>=2)unlock('smvp');line('⭐ I won the most valuable player award!','good');socBoost(.05);}
     if(T.con){pay=T.con.sal;T.con.yrs--;if(T.con.yrs<=0){T.con.exp=true;T.offers=[spOffer(T.st),spOffer(T.st)];T.offers[0].team=T.team;line(`✍️ My contract with ${T.team} is up. I have new offers to look at.`);}}
     // scouts
     {if(T.st<3&&T.skill>=SP_REQ[T.st+1]&&age>=SP_AGE[T.st+1]&&T.offers.length<2&&rnd()<.45+(T.agent?.2:0)+(perf-60)/200){T.offers.push(spOffer(T.st+1));line(`🔭 Scouts noticed me. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}}
@@ -3069,6 +3077,182 @@ function drawSports(s){
   if(T.hist.length){s.append(h('h4',{},'Recent seasons'));T.hist.slice().reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
   s.append(h('h4',{},'Career'),row('Retire','End my playing career. Great careers can reach the hall of fame','',()=>choiceModal('Retire?','My playing days would be over. Media and coaching work pays a yearly income based on my fame.',[['Retire',()=>{spRetire(false);gRefresh();}],['Keep playing',()=>{}]]),ro));
 }
+/* ================= social media ================= */
+/* S.soc is my online presence. pl holds followers (f) and engagement (e) for three platforms. Posts (quick ones are free, up to 6 a year;
+   produced ones cost 1 energy) grow followers; ad revenue, subscriptions and brand deals pay; cancel drama, rivals, burnout and fake followers push back. */
+const SOC_PLATS={
+  snap:{n:'Snapshot',ic:'📸',rate:1,fit:['selfie','travel','workout']},
+  clip:{n:'ClipTok',ic:'🎬',rate:1.1,fit:['funny','workout','behind']},
+  chirp:{n:'Chirp',ic:'💬',rate:.5,fit:['biz','hot','review']}};
+const SOC_CONT={
+  selfie:{n:'Selfie',ic:'🤳',q:()=>S.st.looks/100,d:'Works when my looks are strong'},
+  workout:{n:'Workout',ic:'💪',q:()=>Math.min(1,S.st.health/100+(has('athletic')?.2:0)),d:'Health and athletic traits help'},
+  travel:{n:'Travel',ic:'✈️',q:()=>.6+rnd()*.3,cost:800,d:'Always looks good, but costs $800'},
+  biz:{n:'Business tips',ic:'💼',q:()=>S.st.smarts/100,d:'Smarts help'},
+  funny:{n:'Funny skit',ic:'😂',q:()=>.3+rnd()*.5+(has('charming')||has('creative')?.2:0),d:'Hit or miss. Charm and creativity help'},
+  behind:{n:'Behind the scenes',ic:'🎥',q:()=>Math.min(1,.3+(S.fame||0)/100),d:'The more famous I am, the more people want a peek'},
+  hot:{n:'Hot take',ic:'🔥',q:()=>.2+rnd()*.7+(has('hothead')?.15:0),d:'Big swings, and it can come back to bite me'},
+  review:{n:'Product review',ic:'🛍️',q:()=>.45+rnd()*.25,d:'Steady, and sponsors like it'}};
+const SOC_TIERS=[[1e8,'Global icon'],[1e7,'Mega star'],[1e6,'Macro influencer'],[1e5,'Mid-tier creator'],[1e4,'Micro influencer'],[0,'Nano creator']];
+const SOC_BRANDS=SP_BRANDS.concat(['Glow Beauty','Bento Foods','Roam Travel','Pixel Games']);
+const RIVAL_NAMES=['@VelvetVince','@QueenOfClips','@TheRealMaddox','@LunaLoud','@Hustle.Hank'];
+const socTotal=()=>S.soc?Object.values(S.soc.pl).reduce((a,p)=>a+p.f,0):0;
+const socTier=()=>SOC_TIERS.find(t=>socTotal()>=t[0])[1];
+const fmtF=n=>n>=1e6?(n/1e6).toFixed(n>=1e7?0:1)+'M':n>=1e3?(n/1e3).toFixed(n>=1e5?0:1)+'K':String(Math.round(n));
+const socTrend=()=>({k:pick(Object.keys(SOC_CONT)),yrs:R(1,2)});
+const socScale=p=>{Object.values(S.soc.pl).forEach(x=>{x.f=Math.max(0,Math.round(x.f*(1+p)));});};
+const socMgrWage=()=>Math.max(36000,Math.round(socTotal()*.01));
+const socDealMax=()=>Math.min(4,1+Math.floor(Math.max(0,Math.log10(Math.max(1,socTotal()))-3)));
+function socBoost(p,msg){if(!S.soc)return;socScale(p);if(msg)line(msg,'good');}
+function socRev(){
+  const O=S.soc;let ads=0;
+  Object.entries(SOC_PLATS).forEach(([k,P])=>{const pl=O.pl[k];if(pl.f>=10000)ads+=pl.f*.09*(pl.e/.04)*P.rate*(O.ver?1.15:1);});
+  const fakeShare=O.fake?Math.min(.8,O.fake/Math.max(1,socTotal())):0;
+  ads*=1-fakeShare*.6;
+  const subs=O.sub&&socTotal()>=50000?Math.round(socTotal()*.004*(.6+(S.fame||0)/100)):0;
+  return {ads:Math.round(ads),subs,subRev:subs*72};}
+function startSocial(){
+  const f0=()=>Math.round(R(60,260)+(S.fame||0)*80);
+  S.soc={pl:{snap:{f:f0(),e:.04},clip:{f:f0(),e:.045},chirp:{f:f0(),e:.03}},ver:false,mgr:null,deals:[],offers:[],sub:false,trend:socTrend(),posts:0,quick:0,spicy:0,fake:0,burn:0,rival:null,viral:0,hist:[],brk:false};
+  mile('Started posting online');
+  stay('I set up accounts on Snapshot, ClipTok and Chirp. Time to build an audience.','good');}
+/* ---- posting ---- */
+function socPostCore(plat,ck,produced,auto){
+  const O=S.soc,P=SOC_PLATS[plat],C=SOC_CONT[ck],pl=O.pl[plat];
+  const quality=auto?(O.mgr.skill*.4+R(0,20)):C.q()*40;
+  const score=Math.round(quality+(P.fit.includes(ck)?10:0)+(O.trend&&O.trend.k===ck?16:0)+(produced?8:0)+(O.mgr&&!auto?8:0)-(O.burn>70?10:0)+(S.fame||0)/12+(O.ver?4:0)+R(-14,14));
+  const sat=Math.max(.25,1-Math.log10(Math.max(10,pl.f))/9),base=500+(S.fame||0)*60,tier=score>=70?'viral':score>=50?'hit':score>=28?'ok':'flop';
+  let gain=tier==='viral'?Math.round(base*R(20,50)/10+pl.f*R(15,60)/100*sat):tier==='hit'?Math.round(base*R(10,20)/10+pl.f*R(4,10)/100*sat):tier==='ok'?Math.round(base+pl.f*.015*sat):-Math.round(pl.f*.004);
+  pl.f=Math.max(0,pl.f+gain);
+  pl.e=Math.max(.01,Math.min(.12,pl.e+(tier==='viral'||tier==='hit'?.002:tier==='flop'?-.002:0)));
+  O.posts++;if(ck==='hot')O.spicy++;
+  if(!auto)O.burn=Math.min(100,O.burn+(produced?5:3));
+  if(tier==='viral'){O.viral++;S.fame=Math.min(100,(S.fame||0)+1.5);unlock('sviral');}
+  O.hist.push({age:S.age,t:`${C.ic} ${C.n} on ${P.n}: ${tier==='viral'?'went viral':tier==='hit'?'a hit':tier==='ok'?'okay':'flopped'} (${gain>=0?'+':'-'}${fmtF(Math.abs(gain))})`});
+  if(O.hist.length>8)O.hist.shift();
+  socMilestones();
+  return {score,gain,tier};}
+function socMilestones(){const t=socTotal();if(t>=1e5)unlock('sf100k');if(t>=1e6)unlock('sf1m');if(t>=1e7)unlock('sf10m');if(S.soc.ver)unlock('sver');}
+function postFlow(plat){
+  const O=S.soc,P=SOC_PLATS[plat],tr=O.trend;
+  choiceModal(`${P.ic} Post on ${P.n}`,`Trend this year: ${SOC_CONT[tr.k].ic} ${SOC_CONT[tr.k].n}. Quick posts left: ${6-O.quick}. Pick what to post.`,
+    Object.entries(SOC_CONT).map(([k,C])=>[`${C.ic} ${C.n}${P.fit.includes(k)?' (fits here)':''}${tr.k===k?' 🔥 trending':''}: ${C.d}`,()=>postHow(plat,k),()=>false]).concat([['Cancel',()=>{}]]));}
+function postHow(plat,ck){
+  const O=S.soc,C=SOC_CONT[ck];
+  choiceModal(`${SOC_CONT[ck].ic} ${SOC_CONT[ck].n}`,'How much effort do I put in?',[
+    [`Quick post (free, ${6-O.quick} left this year)`,()=>postDone(plat,ck,false),()=>O.quick>=6||(!!C.cost&&S.money<C.cost)],
+    [`Produced post (1 energy, better quality${C.cost?`, $${C.cost}`:''})`,()=>postDone(plat,ck,true),()=>energyLeft()<1||(!!C.cost&&S.money<C.cost)],
+    ['Back',()=>postFlow(plat)]]);}
+function postDone(plat,ck,produced){
+  const C=SOC_CONT[ck],P=SOC_PLATS[plat],O=S.soc;
+  if(C.cost)S.money-=C.cost;if(produced)spend(1);else O.quick++;
+  const r=socPostCore(plat,ck,produced,false);
+  gRefresh();
+  const txt={viral:`It exploded! ${fmtF(Math.abs(r.gain))} new followers overnight.`,hit:`It did well: ${fmtF(Math.abs(r.gain))} new followers.`,ok:`A steady post: ${fmtF(Math.abs(r.gain))} new followers.`,flop:`It flopped and I lost ${fmtF(Math.abs(r.gain))} followers.`}[r.tier];
+  choiceModal(`${C.ic} ${r.tier==='viral'?'GONE VIRAL':r.tier==='hit'?'A hit':r.tier==='ok'?'Posted':'It flopped'}`,`${txt} I have ${fmtF(O.pl[plat].f)} followers on ${P.n}.`,[
+    ['Post again',()=>postFlow(plat)],['Done',()=>{}]]);}
+/* ---- the year ---- */
+function yrSocial(){
+  const O=S.soc;if(!O)return;
+  const keys=Object.keys(SOC_PLATS),before=socTotal();
+  if(O.mgr){const wage=socMgrWage(),pay=Math.min(wage,Math.max(0,Math.floor(S.money)));S.money-=pay;
+    if(pay<wage){line(`📱 I could not pay ${O.mgr.name}, so they left.`,'bad');O.mgr=null;}
+    else{for(let i=0;i<4;i++)socPostCore(pick(keys),pick(Object.keys(SOC_CONT).filter(x=>x!=='hot')),false,true);}}
+  if(O.posts===0){socScale(-.07);line('📱 I did not post this year, so the algorithm buried me and I lost followers.','bad');}
+  keys.forEach(k=>{const pl=O.pl[k];pl.f+=Math.round((S.fame||0)*15+pl.f*.01);pl.e=Math.max(.015,Math.min(.1,pl.e+(.04-pl.e)*.15));});
+  if(O.fake>0&&rnd()<.06+O.fake/Math.max(1,socTotal())*.4){
+    const share=Math.min(.9,O.fake/Math.max(1,socTotal()));socScale(-share);O.fake=0;O.deals=[];S.fame=Math.max(0,(S.fame||0)-3);
+    line('🕵️ A journalist exposed my fake followers. I lost them, my brand deals, and some of my reputation.','bad');}
+  // income
+  const rev=socRev();
+  if(rev.subs>0&&O.posts<3){O.sub=false;line('📱 My subscribers left because I posted too little, so subscriptions are off.','bad');}
+  else if(rev.subRev>0){const n=Math.round(rev.subRev*(O.mgr?.9:1));S.money+=netPay(n);line(`💎 ${fmtF(rev.subs)} paying subscribers brought in ${fmt(n)}.`,'good');}
+  if(rev.ads>0){const n=Math.round(rev.ads*(O.mgr?.9:1));S.money+=netPay(n);line(`📺 Ad revenue paid ${fmt(n)}.`,'good');}
+  let dealPay=0;
+  O.deals.forEach(e=>{if(O.posts>=2){dealPay+=e.pay;e.yrs--;}else{e.yrs=0;S.fame=Math.max(0,(S.fame||0)-2);line(`📱 ${e.brand} dropped me because I posted too little for the deal.`,'bad');}});
+  O.deals=O.deals.filter(e=>e.yrs>0);
+  if(dealPay>0){const n=Math.round(dealPay*(O.mgr?.9:1));S.money+=netPay(n);line(`🤝 Brand deals paid ${fmt(n)}.`,'good');}
+  // new offers
+  O.offers=[];const tot=socTotal();
+  if(tot>=5000&&O.deals.length<socDealMax()&&rnd()<.4+Math.min(.4,tot/5e6)){
+    const n=rnd()<.35?2:1;for(let i=0;i<n;i++)O.offers.push({brand:pick(SOC_BRANDS.filter(b=>!O.deals.some(e=>e.brand===b))),pay:Math.round(tot*.08*R(80,120)/100*(1+(S.fame||0)/100)*(O.ver?1.2:1)/100)*100,yrs:R(1,3)});
+    line(`🤝 ${n===1?'A brand wants':'Brands want'} to work with me.`,'good');}
+  // trends, burnout, trolls
+  O.trend.yrs--;if(O.trend.yrs<=0){O.trend=socTrend();line(`🔥 A new trend is taking over: ${SOC_CONT[O.trend.k].n.toLowerCase()}.`);}
+  O.burn=Math.max(0,O.burn-30+(O.posts>10?10:0));
+  if(O.burn>70){S.st.happy-=3;S.st.health-=2;line('😮‍💨 I am burned out from constant posting. It is hurting my mood and health.','bad');}
+  if(((S.fame||0)>=15||tot>=50000)&&!O.mgr&&rnd()<.5){const d=R(1,3);S.st.happy-=d;line('😡 Trolls flooded my comments this year. It got to me.','bad');}
+  // fame floor from my following
+  S.fame=Math.min(100,Math.max(S.fame||0,Math.round(Math.max(0,Math.log10(Math.max(1,tot))*12-30)*.85)));
+  // dramas
+  if(tot>=20000&&rnd()<(.03+O.spicy*.02+(has('hothead')?.02:0)+(tot>1e6?.03:0))*(O.mgr?.6:1))socCancel();
+  else if(tot>=100000&&rnd()<.10)socRival();
+  else if(tot>=200000&&rnd()<.08)socMeetup();
+  else if(O.deals.length&&rnd()<.06)socBrandCrisis();
+  else if(rnd()<.08){const k=pick(keys),up=rnd()<.5;O.pl[k].e=Math.max(.015,Math.min(.1,O.pl[k].e*(up?1.25:.75)));line(`⚙️ ${SOC_PLATS[k].n} changed its algorithm. ${up?'My posts reach more people now.':'My posts reach fewer people now.'}`,up?'good':'bad');}
+  const grew=socTotal()-before;
+  if(grew!==0)line(`📱 My following ${grew>=0?'grew by':'shrank by'} ${fmtF(Math.abs(grew))} this year to ${fmtF(socTotal())} (${socTier()}).`);
+  socMilestones();
+  O.posts=0;O.quick=0;
+}
+function socCancel(){
+  const O=S.soc,old=O.spicy>0;
+  Q.push({own:true,text:`📱 ${old?'An old post of mine resurfaced':'A clip of me, taken out of context,'} and people are furious. I am trending for the wrong reasons.`,ch:[
+    ['Apologise sincerely',()=>{socScale(-.06);S.st.happy-=2;unlock('scancel');return 'I posted an honest apology. I lost some followers but people respected it.'}],
+    ['Double down',()=>{if(rnd()<.5){socScale(.15);S.fame=Math.min(100,(S.fame||0)+2);unlock('scancel');return 'My fans rallied behind me. The controversy made me bigger.';}socScale(-.3);S.soc.deals=[];return 'It backfired badly. I lost a third of my audience and every brand deal.';}],
+    [`Hire a crisis PR firm ($40,000)`,()=>{S.money-=40000;socScale(-.03);unlock('scancel');return 'The PR team steered the story. I barely lost anything.';},()=>S.money<40000],
+    ['Ignore it and log off',()=>{socScale(-.14);S.soc.deals=S.soc.deals.filter(()=>rnd()>.4);return 'I ignored it. The storm passed, but it cost me followers and some sponsors.';}]]});}
+function socRival(){
+  const O=S.soc,nm=O.rival||pick(RIVAL_NAMES);O.rival=nm;
+  Q.push({own:true,text:`📱 ${nm}, another creator, called me out in a video and it is spreading fast.`,ch:[
+    ['Reply with a savage roast',()=>{if(rnd()<.5){socScale(.2);S.fame=Math.min(100,(S.fame||0)+1);return `My reply went huge. Everyone is talking about how I won the feud with ${nm}.`;}socScale(-.12);return `My roast fell flat and ${nm} made me look petty.`;}],
+    ['Ignore them',()=>{socScale(-.02);return 'I stayed above it. The feud died down.';}],
+    ['Propose a collab',()=>{socScale(.1);O.rival=null;return `${nm} agreed to a collab. We both gained followers.`;}]]});}
+function socMeetup(){
+  Q.push({own:true,text:'📱 My fans are asking for a meet-up in real life.',ch:[
+    ['Host a fan meet-up ($20,000)',()=>{S.money-=20000;socScale(.03);S.fame=Math.min(100,(S.fame||0)+2);S.st.happy+=5;return 'Hundreds of fans showed up. It was unforgettable.';},()=>S.money<20000],
+    ['Keep things online',()=>'I thanked everyone online and kept my distance.']]});}
+function socBrandCrisis(){
+  const O=S.soc,e=pick(O.deals);
+  Q.push({own:true,text:`📱 ${e.brand}, one of my sponsors, is caught in a scandal. Followers are asking why I still work with them.`,ch:[
+    [`Drop ${e.brand}`,()=>{O.deals=O.deals.filter(x=>x!==e);socScale(.02);return `I dropped ${e.brand}. People respected the stand.`;}],
+    ['Stay with them',()=>{socScale(-.05);return 'I stayed for the money. Some followers left.';}]]});}
+/* ---- screens ---- */
+function socialSheet(){openSheet(drawSocial);}
+function drawSocial(s){
+  const O=S.soc,ro=!S.alive||!!S.jail;
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'📱 Social media'));
+  if(!O){
+    s.append(h('p',{className:'sub'},'Build an audience on three platforms: Snapshot for photos, ClipTok for short videos and Chirp for text. Post, ride trends, go viral, sign brand deals, and manage the drama that comes with being seen.'),
+      row('Create my accounts','Free. Starts small, and fame gives me a head start','',startSocial,ro||S.age<12));return;}
+  const rev=socRev(),tr=O.trend,tot=socTotal();
+  s.append(h('p',{className:'sub'},`${socTier()}${O.ver?' ✔ verified':''}. ${fmtF(tot)} followers. Trend: ${SOC_CONT[tr.k].ic} ${SOC_CONT[tr.k].n}.`));
+  s.append(...mbar('Burnout',O.burn,O.burn>70?'bad':'health'));
+  s.append(h('dl',{},h('dt',{},'Posts this year'),h('dd',{},`${O.posts} (quick ${O.quick} of 6)`),h('dt',{},'Ad income (per year)'),h('dd',{},rev.ads?fmt(rev.ads):'Needs 10K on a platform'),
+    h('dt',{},'Subscriptions'),h('dd',{},O.sub?`${fmtF(rev.subs)} subscribers, ${fmt(rev.subRev)}`:'Off'),h('dt',{},'Brand deals'),h('dd',{},O.deals.length?`${O.deals.length}, ${fmt(O.deals.reduce((a,e)=>a+e.pay,0))} a year`:'None'),
+    h('dt',{},'Manager'),h('dd',{},O.mgr?`${O.mgr.name}, ${fmt(socMgrWage())} a year`:'None')));
+  s.append(h('h4',{},'Platforms'));
+  Object.entries(SOC_PLATS).forEach(([k,P])=>{const pl=O.pl[k];s.append(row(`${P.ic} ${P.n}`,`${fmtF(pl.f)} followers. Engagement ${(pl.e*100).toFixed(1)}%. Fits: ${P.fit.map(c=>SOC_CONT[c].ic).join(' ')}`,'Post',()=>postFlow(k),ro));});
+  if(O.offers.length){s.append(h('h4',{},'Brand offers'));
+    O.offers.forEach(e=>s.append(row(`🤝 ${e.brand}`,`${fmt(e.pay)} a year for ${e.yrs} year${e.yrs>1?'s':''}. I must post at least twice a year. ${O.deals.length>=socDealMax()?'No free slot yet':''}`,'Sign',()=>{O.deals.push(e);O.offers=O.offers.filter(x=>x!==e);stay(`I signed a deal with ${e.brand}.`,'good');},ro||O.deals.length>=socDealMax())));}
+  if(O.deals.length){O.deals.forEach(e=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`✅ ${e.brand}: ${fmt(e.pay)} a year, ${e.yrs} year${e.yrs>1?'s':''} left`)));}
+  s.append(h('h4',{},'Grow'));
+  s.append(row('🤝 Collab with a creator','Both audiences grow. Costs 1 energy, once a year','',()=>{S.used.scol=true;const g=R(6,14)/100;socScale(g);if(rnd()<.15){S.st.happy-=3;return stay('The collab was awkward and we argued on camera. Some viewers loved the drama.');}stay(`My collab brought in ${Math.round(g*100)}% more followers.`,'good');},ro||!!S.used.scol||tot<1000,1),
+    row('✔️ Apply for verification',O.ver?'Already verified':'Needs 250K followers and some fame. Verified accounts earn more','',()=>{if(rnd()<.3+(S.fame||0)/200){O.ver=true;S.fame=Math.min(100,(S.fame||0)+2);socMilestones();stay('My account was verified!','good');}else stay('My verification request was declined. I can try again next year.','bad');S.used.sver=true;},ro||O.ver||tot<250000||!!S.used.sver),
+    row('🛑 Take a break','Rest offline. Burnout drops sharply, but the algorithm forgets me a little','',()=>{O.burn=Math.max(0,O.burn-50);socScale(-.03);S.st.happy+=3;S.used.sbrk=true;stay('I logged off for a while. I feel refreshed.');},ro||!!S.used.sbrk||O.burn<20,1));
+  s.append(tog('💎 Fan subscriptions','$6 a month from fans once I have 50K followers. Needs at least 3 posts a year',O.sub,()=>{O.sub=!O.sub;stay(O.sub?'I opened fan subscriptions.':'I closed fan subscriptions.');},ro||tot<50000));
+  s.append(h('h4',{},'People and money'));
+  if(O.mgr)s.append(row(`📱 ${O.mgr.name}`,`Social media manager, skill ${O.mgr.skill}. Posts 4 times a year, halves troll and cancel risk, and lifts my posts. ${fmt(socMgrWage())} a year (takes 10% of income)`,'Let go',()=>{const n=O.mgr.name;O.mgr=null;stay(`I let ${n} go.`);},ro));
+  else s.append(row('📱 Hire a social media manager',`Posts for me, guards against drama, and lifts my posts. About ${fmt(socMgrWage())} a year`,'',()=>{const c=makeCand({type:'label',cty:resKey()},40,90,'Specialist');O.mgr={name:c.name,skill:c.skill};stay(`I hired ${c.name} (skill ${c.skill}) to run my socials.`,'good');},ro||tot<3000));
+  s.append(row('💸 Buy followers','Cheap and fast, but fake. If a journalist finds out I lose them, my deals and my reputation','',()=>choiceModal('Buy followers','Pick a bundle. It goes on my biggest platform. The larger the share of fakes, the likelier I get exposed.',[
+      ['10,000 followers ($400)',()=>{socBuy(10000,400);},()=>S.money<400],['100,000 followers ($3,500)',()=>{socBuy(100000,3500);},()=>S.money<3500],['1,000,000 followers ($30,000)',()=>{socBuy(1000000,30000);},()=>S.money<30000],['Never mind',()=>{}]]),ro));
+  if(S.biz.length)S.biz.forEach(b=>s.append(row(`📣 Promote ${b.name}`,'Shout out my business to my audience. Costs 1 energy, once a year each','',()=>{S.used['sp'+b.id]=true;b.followers=Math.round((b.followers||0)+tot*.03);b.aware=Math.min(100,(b.aware||50)+3);b.rep=clamp(b.rep+1);stay(`I promoted ${b.name} to my ${fmtF(tot)} followers.`,'good');},ro||!!S.used['sp'+b.id]||tot<1000,1)));
+  if(O.hist.length){s.append(h('h4',{},'Recent posts'));O.hist.slice().reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
+}
+function socBuy(n,cost){
+  const O=S.soc,k=Object.keys(O.pl).sort((a,b)=>O.pl[b].f-O.pl[a].f)[0];
+  S.money-=cost;O.pl[k].f+=n;O.fake+=n;socMilestones();
+  stay(`I bought ${fmtF(n)} followers on ${SOC_PLATS[k].n}. My number jumped, but I hope nobody looks too closely.`);}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
