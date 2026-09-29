@@ -9,7 +9,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 - **Environment:** moved from a claude.ai project to Claude Code on 2026-09-29. Local folder with git. No `project_read`/`project_write` any more.
 - **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.31 (card debt limit).
 - **Test reference (2026-09-29, `npm test`, 6 lives):** syntax 1 script, 0 failed, 0 em dashes. Playtest 23 runs, 0 failed, FINGERPRINT `1da74e7c2331017d`. Old saves 0 failed. Balance 0 numbers moved more than 10%. The fingerprint changes whenever code changes; that is expected.
-- **Published artifact:** `https://claude.ai/artifact/95FEiEA9QhTYSxeDsSbcWN` (Version 11, `sample` capability on). Publishing happens in claude.ai only, see `CLAUDE.md`.
+- **Published artifact:** `https://claude.ai/artifact/J81Q77oc1qsPDd44ZeUYLs` (Version 1, has 3.5.31, `sample` capability on, published from Claude Code on 2026-09-30). The older `95FEiEA9QhTYSxeDsSbcWN` (Version 11) is stale and could not be reached from Claude Code. To update the new one, republish with `url` and keep `capabilities:{"sample":{}}`.
 - **Dropped by decision (2026-09-29):** the B1/B2 brand engine and Block W wealth spec mentioned in older chat memory were never in this file. David chose to drop them and start fresh. Do not look for them.
 
 ---
