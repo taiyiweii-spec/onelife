@@ -2941,32 +2941,93 @@ function yrCollect(){
 }
 
 /* ================= sports career ================= */
-/* S.spt is the career. Team sports (basketball, soccer) move up through four levels by contract. Tennis is solo: level comes from the world ranking.
-   Levels: 0 youth, 1 semi-pro, 2 professional, 3 the big leagues. Fame is the shared S.fame. */
+/* S.spt is the career. Team sports move up four levels by contract: 0 youth, 1 semi-pro (college for basketball), 2 professional, 3 the big leagues
+   (the NBA, elite football clubs). Tennis is solo: level comes from the world ranking. Fame is the shared S.fame.
+   Teams are real-world team names (no players, no logos). S.spl holds every team's current strength, which drifts each year, plus the latest champions. */
 const SP={
-  basketball:{n:'Basketball',ic:'🏀',peak:28,stages:['High school and youth teams','Development league','Pro league','The Grand Basketball League'],stat:'points a game',sal:[0,45e3,900e3,7e6],teams:['Hawks','Titans','Stingers','Comets','Wolves','Storm','Kings','Rockets'],blurb:'Fast, physical and team-driven. Big contracts and big stars.'},
-  soccer:{n:'Football (soccer)',ic:'⚽',peak:29,stages:['Youth academy','Lower-league club','Top-flight club','European elite club'],stat:'goals',sal:[0,35e3,700e3,6e6],teams:['United','City','Athletic','Rovers','Wanderers','Albion','Rangers','Sporting'],blurb:'The world game. Climb from an academy to a famous club.'},
+  basketball:{n:'Basketball',ic:'🏀',peak:28,stages:['High school and youth teams','College basketball','Pro leagues (G League and overseas)','The NBA'],stat:'points a game',sal:[0,45e3,900e3,7e6],teams:['Hawks','Titans','Stingers','Comets','Wolves','Storm','Kings','Rockets'],blurb:'Fast, physical and team-driven. College, the NBA draft, trades and huge contracts.'},
+  soccer:{n:'Football (soccer)',ic:'⚽',peak:29,stages:['Youth academy','Lower-league club','Top-flight club','Elite club'],stat:'goals',sal:[0,35e3,700e3,6e6],teams:['United','City','Athletic','Rovers','Wanderers','Albion','Rangers','Sporting'],blurb:'The world game. Climb from an academy to the Premier League and Europe\'s giants, with transfers and the Champions League.'},
   tennis:{n:'Tennis',ic:'🎾',peak:27,solo:true,stages:['Junior circuit','Challenger tour','The pro tour','World top 20'],stat:'wins',sal:[0,0,0,0],blurb:'A solo tour. Climb the world ranking and chase the four majors.'}};
 const SP_REQ=[0,30,52,72],SP_AGE=[0,15,17,18];
 const SP_BRANDS=['Stride Athletics','Hydra Sport','Aurelian Watches','Nova Mobile','Veltrin Motors','Pulse Energy','Halo Headphones','Summit Apparel'];
+const COMP={nba:'NBA',eu:'EuroLeague',pl:'Premier League',liga:'La Liga',sa:'Serie A',bl:'Bundesliga',l1:'Ligue 1',cl:'Champions League'};
+const SLAMS=['the Australian Open','the French Open','Wimbledon','the US Open'];
+// [name, strength 0 to 100, market size 1 to 3]
+const NBA_T=[['Atlanta Hawks',64,1],['Boston Celtics',88,2],['Brooklyn Nets',50,3],['Charlotte Hornets',45,1],['Chicago Bulls',58,3],['Cleveland Cavaliers',82,1],['Dallas Mavericks',78,2],['Denver Nuggets',84,1],['Detroit Pistons',55,1],['Golden State Warriors',72,3],['Houston Rockets',72,2],['Indiana Pacers',76,1],['Los Angeles Clippers',68,2],['Los Angeles Lakers',76,3],['Memphis Grizzlies',68,1],['Miami Heat',72,2],['Milwaukee Bucks',78,1],['Minnesota Timberwolves',80,1],['New Orleans Pelicans',56,1],['New York Knicks',82,3],['Oklahoma City Thunder',87,1],['Orlando Magic',72,1],['Philadelphia 76ers',70,2],['Phoenix Suns',74,2],['Portland Trail Blazers',44,1],['Sacramento Kings',66,1],['San Antonio Spurs',60,1],['Toronto Raptors',52,2],['Utah Jazz',46,1],['Washington Wizards',38,1]];
+const GL_T=[['Austin Spurs (G League)',52,1],['Santa Cruz Warriors (G League)',50,1],['Salt Lake City Stars (G League)',48,1],['Delaware Blue Coats (G League)',48,1],['Wisconsin Herd (G League)',46,1],['Rio Grande Valley Vipers (G League)',50,1]];
+const EU_T=[['Real Madrid Baloncesto',80,3],['FC Barcelona Basket',78,3],['Fenerbahce',74,3],['Olympiacos',72,2],['Panathinaikos',72,2],['Anadolu Efes',72,2],['Maccabi Tel Aviv',66,2],['AS Monaco Basket',66,1],['Bayern Munich Basketball',64,2],['Partizan',60,1]];
+const COL_T=[['Duke Blue Devils',84,3],['Kentucky Wildcats',84,3],['Kansas Jayhawks',82,2],['North Carolina Tar Heels',82,3],['UConn Huskies',84,2],['Gonzaga Bulldogs',80,2],['Houston Cougars',80,2],['Arizona Wildcats',78,2],['Purdue Boilermakers',78,2],['UCLA Bruins',76,3],['Michigan State Spartans',76,2],['Alabama Crimson Tide',76,2],['Tennessee Volunteers',74,1],['Villanova Wildcats',74,2],['Baylor Bears',74,1],['Texas Longhorns',72,2]];
+const SOC_T=[
+ ['Manchester City','pl',92,3],['Arsenal','pl',90,3],['Liverpool','pl',90,3],['Chelsea','pl',82,3],['Manchester United','pl',80,3],['Tottenham Hotspur','pl',80,3],['Newcastle United','pl',78,2],['Aston Villa','pl',78,2],['West Ham United','pl',68,2],['Brighton & Hove Albion','pl',68,1],['Crystal Palace','pl',64,1],['Fulham','pl',62,1],['Bournemouth','pl',62,1],['Brentford','pl',62,1],['Everton','pl',62,2],['Wolverhampton Wanderers','pl',60,1],['Nottingham Forest','pl',60,1],['Leicester City','pl',56,1],['Southampton','pl',54,1],['Ipswich Town','pl',50,1],
+ ['Real Madrid','liga',94,3],['FC Barcelona','liga',90,3],['Atletico Madrid','liga',82,2],['Athletic Bilbao','liga',70,1],['Real Sociedad','liga',68,1],['Villarreal','liga',66,1],['Sevilla','liga',66,2],['Real Betis','liga',64,1],['Valencia','liga',62,1],
+ ['Inter Milan','sa',86,3],['Juventus','sa',82,3],['AC Milan','sa',80,3],['Napoli','sa',78,2],['Atalanta','sa',76,1],['AS Roma','sa',74,2],['Lazio','sa',70,2],['Fiorentina','sa',66,1],
+ ['Bayern Munich','bl',92,3],['Bayer Leverkusen','bl',86,2],['Borussia Dortmund','bl',82,3],['RB Leipzig','bl',78,2],['Eintracht Frankfurt','bl',68,1],['VfB Stuttgart','bl',68,1],
+ ['Paris Saint-Germain','l1',88,3],['Olympique Lyonnais','l1',68,2],['Olympique de Marseille','l1',70,2],['AS Monaco','l1',70,1],['Lille','l1',66,1],
+ ['Benfica',null,74,2],['FC Porto',null,74,2],['Sporting CP',null,72,2],['Ajax',null,68,2],['Galatasaray',null,68,2],['Celtic',null,62,2],['Al Hilal',null,66,2],['Al Nassr',null,66,2],['Inter Miami',null,58,3],['LA Galaxy',null,52,2]];
+const SP_TEAMS=[];
+NBA_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:3,lg:'NBA',comp:'nba',base:b,mk:m}));
+GL_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:2,lg:'G League',comp:null,base:b,mk:m}));
+EU_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:2,lg:'EuroLeague',comp:'eu',base:b,mk:m}));
+COL_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:1,lg:'College basketball',comp:null,base:b,mk:m,kind:'college'}));
+SOC_T.forEach(([n,c,b,m])=>SP_TEAMS.push({n,sport:'soccer',lv:b>=78?3:2,lg:c?COMP[c]:'Other leagues',comp:c,base:b,mk:m}));
 const spSal=(k,st,skill)=>Math.round(SP[k].sal[st]*(.6+skill/100*1.4)*(st>=3&&skill>=92?2:1)/1000)*1000;
 const spStageTennis=r=>r<=20?3:r<=120?2:r<=350?1:0;
 const spTeamName=(k,st)=>SP[k].solo?'Independent':(st>=3?pick(CITIES).split(',')[0]:pick(resC().cities))+' '+pick(SP[k].teams)+(st===0?' Juniors':'');
-function spOffer(st){const T=S.spt;return {team:spTeamName(T.sport,st),st,sal:Math.round(spSal(T.sport,st,T.skill)*R(90,115)/100/1000)*1000,yrs:R(1,4)};}
+const spNeed=t=>30+t.base*.55;
+const spLabel=v=>v>=82?'title contender':v>=68?'playoff-level side':v>=54?'mid-table':v>=42?'rebuilding':'near the bottom';
+const ord=n=>n+((n%100>10&&n%100<14)?'th':['th','st','nd','rd'][n%10<4?n%10:0]);
+function splInit(){const str={};SP_TEAMS.forEach(t=>str[t.n]=t.base);S.spl={str,champ:{},yr:-1};}
+const splStr=n=>S.spl&&S.spl.str[n]!=null?S.spl.str[n]:null;
+function splYear(){
+  if(!S.spl)splInit();if(S.spl.yr===S.age)return;S.spl.yr=S.age;
+  SP_TEAMS.forEach(t=>{const v=S.spl.str[t.n]==null?t.base:S.spl.str[t.n];S.spl.str[t.n]=Math.max(25,Math.min(98,v+R(-4,4)+(t.base-v)*.15));});}
+function splStand(comp,bonus){
+  const list=comp==='cl'?SP_TEAMS.filter(t=>t.sport==='soccer'&&['pl','liga','sa','bl','l1'].includes(t.comp)&&S.spl.str[t.n]>=75):SP_TEAMS.filter(t=>t.comp===comp);
+  return list.map(t=>({n:t.n,p:S.spl.str[t.n]+((bonus&&bonus[t.n])||0)+gauss()*(comp==='nba'||comp==='eu'?9:8)})).sort((a,b)=>b.p-a.p);}
+function spRecord(st,exclude){
+  const T=S.spt,k=T.sport;if(!S.spl)splInit();
+  const pool=SP_TEAMS.filter(t=>t.sport===k&&t.lv===st&&t.n!==exclude);
+  if(pool.length){const ok=pool.filter(t=>T.skill>=spNeed(t)-(st===1?10:0));
+    if(!ok.length&&st===1)return {n:pick(resC().cities)+' Community College',lg:'College basketball',base:R(30,50),mk:1,comp:null,kind:'college'};
+    const c=ok.length?ok:pool.slice().sort((a,b)=>spNeed(a)-spNeed(b)).slice(0,3);
+    return wpick(c,x=>1/(1+Math.abs(spNeed(x)-T.skill)/10));}
+  return {n:spTeamName(k,st),lg:st===0?'Youth teams':'Lower leagues',base:R(30,53),mk:1,comp:null};}
+function spOffer(st,exclude){
+  const T=S.spt,t=spRecord(st,exclude===undefined?T.team:exclude),college=t.kind==='college',mkF=[1,1,1.12,1.3][t.mk||1],cur=splStr(t.n),str=cur==null?t.base:cur;
+  const sal=college?0:Math.round(spSal(T.sport,st,T.skill)*(.8+str/250)*mkF*R(90,115)/100/1000)*1000;
+  const fee=T.sport==='soccer'&&st>=1?Math.min(220e6,Math.round(sal*R(3,7)*(st>=2?1:.2)/1000)*1000):0;
+  return {team:t.n,st,sal,yrs:college?Math.max(1,Math.min(4,22-S.age)):R(1,4),lg:t.lg,mk:t.mk||1,str,kind:college?'college':'',fee,bonus:Math.round(fee*.05)};}
 function startSport(k){
   const talent=S.talent&&S.talent.k==='soccer'&&k==='soccer'?S.talent.lvl*3:0;
-  S.spt={sport:k,st:0,skill:clamp(Math.round(S.st.health/5+S.st.smarts/12+R(5,18)+(has('athletic')?8:0)+talent)),reg:'normal',team:'',tq:50,con:null,agent:false,offers:[],endo:[],eo:[],rank:k==='tennis'?600:null,titles:0,champs:0,awards:0,seasons:0,acc:0,retired:false,hof:false,legacy:0,start:S.age,hist:[],tried:false};
+  if(!S.spl)splInit();
+  S.spt={sport:k,st:0,skill:clamp(Math.round(S.st.health/5+S.st.smarts/12+R(5,18)+(has('athletic')?8:0)+talent)),reg:'normal',team:'',tq:50,mk:1,lg:'',con:null,agent:false,offers:[],endo:[],eo:[],rank:k==='tennis'?600:null,titles:0,champs:0,awards:0,seasons:0,acc:0,retired:false,hof:false,legacy:0,start:S.age,hist:[],tried:false,shop:false,drafted:false};
   S.spt.team=SP[k].solo?'Independent':spTeamName(k,0);
   mile(`Started a ${SP[k].n.toLowerCase()} career`);
   stay(`I started my ${SP[k].n.toLowerCase()} journey with ${S.spt.team}. My starting skill is ${S.spt.skill}.`,'good');}
 function spAccept(o,quiet){
   const T=S.spt,up=o.st>T.st;
-  T.st=o.st;T.team=o.team;T.con={sal:o.sal,yrs:o.yrs};T.tq=Math.min(90,R(35,70)+o.st*6);T.offers=[];
-  if(o.st>=1&&S.job&&S.age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
+  T.st=o.st;T.team=o.team;T.con={sal:o.sal,yrs:o.yrs,kind:o.kind||''};T.tq=o.str||Math.min(90,R(35,70)+o.st*6);T.mk=o.mk||1;T.lg=o.lg||'';T.offers=[];
+  if(o.bonus>0){S.money+=netPay(o.bonus);}
+  if(o.st>=1&&o.kind!=='college'&&S.job&&S.age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
   if(o.st>=2)unlock('spro');if(o.st>=3)unlock('sbig');
   if(up)mile(`Signed with ${o.team}`);
-  const msg=`I signed with ${o.team}: ${fmt(o.sal)} a year for ${o.yrs} year${o.yrs>1?'s':''}.`;
+  const msg=o.kind==='college'?`I accepted a scholarship to ${o.team}.`:`I signed with ${o.team}${o.lg?` (${o.lg})`:''}: ${fmt(o.sal)} a year for ${o.yrs} year${o.yrs>1?'s':''}.${o.fee?` The transfer fee was ${fmt(o.fee)} and my signing bonus was ${fmt(o.bonus)}.`:''}`;
   if(quiet)line(msg,'good');else stay(msg,'good');}
+function spDraft(auto){
+  const T=S.spt;splYear();T.drafted=true;if(T.con&&T.con.kind==='college')T.con=null;
+  const sk=T.skill;let pick_=Math.max(1,Math.round(1+59*Math.pow(1-Math.min(1,Math.max(0,(sk-38)/57)),1.5)+R(-4,4)-Math.max(0,22-S.age)));
+  if(sk<48||pick_>60){
+    T.offers=[spOffer(2,''),spOffer(2,'')];if(sk>=60)T.offers.push(spOffer(3,''));
+    line('📋 I went undrafted in the NBA draft, but teams in the G League and overseas are interested.','bad');mile('Went undrafted');
+    if(!auto)gRefresh();
+    return choiceModal('📋 Undrafted','Draft night passed without my name being called. Some teams have offered me a chance, and I can find them on my Sports screen.',[['I will prove them wrong',()=>{}]]);}
+  const order=SP_TEAMS.filter(t=>t.lv===3&&t.sport==='basketball').map(t=>({t,s:S.spl.str[t.n]+R(-12,12)})).sort((a,b)=>a.s-b.s),team=order[(pick_-1)%30].t;
+  const sal=pick_<=30?Math.round(13e6*Math.pow(.955,pick_-1)/1000)*1000:1.2e6;
+  spAccept({team:team.n,st:3,sal,yrs:pick_<=30?4:2,lg:'NBA',mk:team.mk,str:S.spl.str[team.n],kind:'',fee:0,bonus:0},true);
+  mile(`Drafted #${pick_} by ${team.n}`);S.fame=Math.min(100,(S.fame||0)+Math.max(1,Math.round((60-pick_)/8)));
+  line(`📋 ${team.n} picked me with pick #${pick_} in the NBA draft!`,'good');
+  if(!auto)gRefresh();
+  choiceModal('📋 Draft night',`With pick #${pick_} in the ${pick_<=30?'first':'second'} round, the ${team.n} selected me. ${pick_<=30?`My rookie contract is ${fmt(sal)} a year for 4 years.`:`I signed a modest two-year deal for ${fmt(sal)} a year.`}`,[['Welcome to the NBA',()=>{}]]);}
 function spRetire(forced,why){
   const T=S.spt;if(!T||T.retired)return;
   T.retired=true;T.con=null;T.offers=[];T.eo=[];
@@ -2979,8 +3040,9 @@ function yrSports(){
   const T=S.spt;if(!T)return;
   if(T.retired){if(S.age<70&&T.legacy>0)S.money+=T.legacy;return;}
   if(S.age<14||S.jail)return;
-  const K=SP[T.sport],age=S.age;T.seasons++;T.tried=false;
-  if(T.con&&T.con.exp){const o=T.offers[0]||spOffer(T.st);spAccept(o,true);}
+  const K=SP[T.sport],age=S.age;T.seasons++;T.tried=false;T.shop=false;
+  splYear();
+  if(T.con&&T.con.exp){const o=T.offers[0]||spOffer(T.st,'');spAccept(o,true);}
   // training and ageing
   let gain=age<20?R(2,5):age<25?R(1,3):age<K.peak?R(0,2):-(R(1,3)+(age>K.peak+4?1:0)+(age>K.peak+8?1:0));
   const rg={light:.6,normal:1,hard:1.3,elite:1.6}[T.reg]||1;
@@ -2996,30 +3058,47 @@ function yrSports(){
     else if(r<.9){hurt=.5;T.skill=clamp(T.skill-R(1,3));line('🩹 A serious injury wrecked half my season and set my training back.','bad');}
     else{hurt=.3;T.skill=clamp(T.skill-R(3,7));S.st.health-=8;line('🩹 A severe injury ended my season and left lasting damage.','bad');
       if(age>30&&rnd()<.3){spRetire(true,'The injury ended my career.');return;}}}
-  const perf=clamp((T.skill*(K.solo?.92:.8)+R(-14,14)+(K.solo?0:(T.tq-50)*.15))*(0.5+hurt/2)+(1-hurt)*0);
-  let gainFame=[0,.5,2,4][T.st]+Math.max(0,(perf-70)/15),pay=0,extra=0;
+  const tm=K.solo?null:SP_TEAMS.find(t=>t.n===T.team);
+  if(tm){const cur=splStr(tm.n);if(cur!=null)T.tq=cur;}
+  const perf=clamp((T.skill*(K.solo?.92:.8)+R(-14,14)+(K.solo?0:(T.tq-50)*.15))*(0.5+hurt/2));
+  const mkF=[1,1,1.1,1.25][T.mk||1];
+  let gainFame=([0,.5,2,4][T.st]+Math.max(0,(perf-70)/15))*mkF,pay=0,extra=0;
   if(K.solo){
     const target=Math.max(1,Math.round(800*Math.pow(Math.max(0,105-perf)/105,3)));
     T.rank=Math.max(1,Math.round(T.rank*.5+target*.5));const ns=spStageTennis(T.rank);
     if(ns>T.st){T.st=ns;if(ns>=2)unlock('spro');if(ns>=3)unlock('sbig');mile(`Reached world number ${T.rank}`);}else T.st=ns;
     if(T.st>=1&&S.job&&age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
     pay=T.st>=1?Math.round(12e6*Math.exp(-T.rank/25)+15000):0;
-    const sp=T.rank<=1?.22:T.rank<=5?.12:T.rank<=20?.05:T.rank<=50?.012:0;let slams=0;for(let i=0;i<4;i++)if(rnd()<sp)slams++;
-    if(slams){T.titles+=slams;T.acc+=slams*6;extra+=slams*1.8e6;gainFame+=slams*8;unlock('schamp');mile(`Won ${slams===1?'a Grand Slam':slams+' Grand Slams'}`);line(`🏆 I won ${slams===1?'a Grand Slam title':slams+' Grand Slam titles'}!`,'good');socBoost(.15,'📱 My following exploded after the Grand Slam.');}
+    const sp=T.rank<=1?.22:T.rank<=5?.12:T.rank<=20?.05:T.rank<=50?.012:0;const won=[];for(let i=0;i<4;i++)if(rnd()<sp)won.push(SLAMS[i]);
+    if(won.length){T.titles+=won.length;T.acc+=won.length*6;extra+=won.length*1.8e6;gainFame+=won.length*8;unlock('schamp');mile(`Won ${won.join(' and ')}`);line(`🏆 I won ${won.join(' and ')}!`,'good');socBoost(.15,'📱 My following exploded after the Grand Slam.');}
     if(T.rank===1&&rnd()<.8){T.awards++;T.acc+=4;unlock('smvp');line('⭐ I finished the year ranked world number one!','good');}
     const w=Math.max(0,Math.round(perf/100*55+R(-4,4)));
-    T.hist.push({age,t:`World rank ${T.rank}, ${w} wins${slams?`, ${slams} major${slams>1?'s':''}`:''}`});
+    T.hist.push({age,t:`World rank ${T.rank}, ${w} wins${won.length?`, won ${won.join(' and ')}`:''}`});
     line(`${K.ic} Season ${age}: ranked ${T.rank}, ${w} wins${pay?`, prize money ${fmt(pay)}`:''}.`);
   }else{
     const stat=T.sport==='basketball'?Math.max(0,Math.round(perf/100*(5+T.st*6)+R(-2,2))):Math.max(0,Math.round(perf/100*(2+T.st*6)*(.8+rnd()*.5)));
-    const cp=T.st>=1?Math.max(0,Math.min(.35,(T.tq*.5+perf*.5-45)/250)):0;
-    T.hist.push({age,t:`${T.team}, ${stat} ${K.stat}`});
+    let result='',won=0;
+    if(tm&&tm.comp&&S.spl){
+      const bonus={};bonus[tm.n]=(T.skill-60)*(T.sport==='basketball'?.6:.3)*(.5+hurt/2);S.spl.str[tm.n]=Math.min(98,S.spl.str[tm.n]+Math.max(0,T.skill-70)*(T.sport==='basketball'?.08:.04));
+      const std=splStand(tm.comp,bonus),pos=std.findIndex(x=>x.n===tm.n);
+      if(pos>=0){result=`finished ${ord(pos+1)} in the ${COMP[tm.comp]}`;S.spl.champ[tm.comp]=std[0].n;
+        line(`📊 ${T.team} ${result}. ${std[0].n} won the ${COMP[tm.comp]}.`);
+        if(pos===0){won++;line(`🏆 ${T.team} won the ${COMP[tm.comp]}!`,'good');}}
+      if(T.sport==='soccer'&&S.spl.str[tm.n]>=75){const cl=splStand('cl',bonus),cp=cl.findIndex(x=>x.n===tm.n);
+        if(cp>=0){S.spl.champ.cl=cl[0].n;if(cp===0){won+=2;line(`🏆 ${T.team} won the Champions League!`,'good');}else if(cp<=1)line(`⚽ ${T.team} reached the Champions League final and lost to ${cl[0].n}.`);}}
+    }else{const cp=T.st>=1?Math.max(0,Math.min(.35,(T.tq*.5+perf*.5-45)/250)):0;if(rnd()<cp){won++;line(`🏆 ${T.team} won the championship!`,'good');}}
+    T.hist.push({age,t:`${T.team}, ${stat} ${K.stat}${result?', '+result:''}${won?' (champions)':''}`});
     line(`${K.ic} Season ${age} with ${T.team}: ${stat} ${K.stat}.`);
-    if(rnd()<cp){T.champs++;T.acc+=5;gainFame+=T.st>=2?5:2;if(T.st>=2)unlock('schamp');extra+=T.con?T.con.sal*.1:0;mile(`Won the title with ${T.team}`);line(`🏆 ${T.team} won the championship!`,'good');socBoost(.08,'📱 My following jumped after the title.');}
-    if(T.st>=1&&perf>=82&&rnd()<(perf-78)/60){T.awards++;T.acc+=4;gainFame+=5;if(T.st>=2)unlock('smvp');line('⭐ I won the most valuable player award!','good');socBoost(.05);}
-    if(T.con){pay=T.con.sal;T.con.yrs--;if(T.con.yrs<=0){T.con.exp=true;T.offers=[spOffer(T.st),spOffer(T.st)];T.offers[0].team=T.team;line(`✍️ My contract with ${T.team} is up. I have new offers to look at.`);}}
+    if(won){T.champs++;T.acc+=5+(won>=2?4:0);gainFame+=(T.st>=2?5:2)*(won>=2?1.6:1);if(T.st>=2)unlock('schamp');extra+=T.con?T.con.sal*.1:0;mile(`Won ${won>=2?'the Champions League':'the title'} with ${T.team}`);socBoost(.08,'📱 My following jumped after the title.');}
+    if(T.st>=1&&perf>=82&&rnd()<(perf-78)/60){T.awards++;T.acc+=4;gainFame+=5;if(T.st>=2)unlock('smvp');line(T.sport==='soccer'&&T.st>=3?'⭐ I was named player of the year!':'⭐ I won the most valuable player award!','good');socBoost(.05);}
+    if(T.con){pay=T.con.kind==='college'?0:T.con.sal;T.con.yrs--;
+      if(T.con.yrs<=0&&T.con.kind!=='college'){T.con.exp=true;T.offers=[spOffer(T.st,''),spOffer(T.st,'')];if(tm){T.offers[0].team=T.team;T.offers[0].lg=T.lg;T.offers[0].mk=T.mk;}line(`✍️ My contract with ${T.team} is up. Teams are calling with offers.`);}}
     // scouts
-    {if(T.st<3&&T.skill>=SP_REQ[T.st+1]&&age>=SP_AGE[T.st+1]&&T.offers.length<2&&rnd()<.45+(T.agent?.2:0)+(perf-60)/200){T.offers.push(spOffer(T.st+1));line(`🔭 Scouts noticed me. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}}
+    if(T.st<3&&T.skill>=SP_REQ[T.st+1]&&age>=SP_AGE[T.st+1]&&T.offers.length<3&&rnd()<.45+(T.agent?.2:0)+(perf-60)/200&&!(T.sport==='basketball'&&T.st===1&&T.con&&T.con.kind==='college')){T.offers.push(spOffer(T.st+1));line(`🔭 Scouts noticed me. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}
+    // draft and trades
+    if(T.sport==='basketball'&&T.st===1&&T.con&&T.con.kind==='college'&&age>=22&&!T.drafted)spDraft(true);
+    if(T.sport==='basketball'&&T.st===3&&T.con&&!T.con.exp&&rnd()<.06){const o=spOffer(3);o.sal=T.con.sal;o.yrs=T.con.yrs;o.bonus=0;o.fee=0;
+      Q.push({own:true,text:`📰 The ${T.team} want to trade me to the ${o.team}.`,ch:[['Accept the trade',()=>{spAccept(o,true);return `I was traded to the ${o.team}.`}],['Refuse and stay',()=>{S.st.happy-=3;return `I dug in and stayed with the ${T.team}. The mood in the locker room is cooler.`}]]});}
   }
   // money in
   const gross=pay+extra,cut=T.agent?gross*.1:0;
@@ -3031,16 +3110,17 @@ function yrSports(){
   if(endo>0){const net=Math.round(endo*(T.agent?.9:1));S.money+=netPay(net);line(`🤝 Endorsements paid ${fmt(net)} after tax and fees.`,'good');}
   T.eo=[];
   if(T.st>=1&&(S.fame||0)>=12){const n=rnd()<.35+(S.fame||0)/200?(rnd()<.4?2:1):0;
-    for(let i=0;i<n;i++)T.eo.push({brand:pick(SP_BRANDS.filter(b=>!T.endo.some(e=>e.brand===b))),pay:Math.round((20e3+(S.fame||0)*(S.fame||0)*900)*(1+S.st.looks/300)*(T.agent?1.2:1)*R(80,120)/100/1000)*1000,yrs:R(1,3)});
+    for(let i=0;i<n;i++)T.eo.push({brand:pick(SP_BRANDS.filter(b=>!T.endo.some(e=>e.brand===b))),pay:Math.round((20e3+(S.fame||0)*(S.fame||0)*900)*(1+S.st.looks/300)*(T.agent?1.2:1)*mkF*R(80,120)/100/1000)*1000,yrs:R(1,3)});
     if(T.eo.length)line(`🤝 ${T.eo.length===1?'A brand wants':'Brands want'} me for an endorsement deal.`,'good');}
   S.fame=Math.max(0,Math.min(100,(S.fame||0)+Math.round(gainFame)));
   if(T.hist.length>6)T.hist.shift();
-  // the end of a career
   if(age>=42)spRetire(true,'At my age it was time to hang up my boots.');
   else if(age>K.peak+3&&T.skill<22)spRetire(true,'My skills faded and nobody offered me another contract.');
 }
 let spTab='play';
 function sportsSheet(){openSheet(drawSports);}
+function offerRow(s,o,K,T,ro){
+  s.append(row(`${o.st>T.st?'⬆️ ':''}${o.team}`,`${o.lg?o.lg+'. ':''}${o.str!=null?spLabel(o.str)+(o.mk===3?', big market':'')+'. ':''}${K.stages[o.st]}. ${o.kind==='college'?'Scholarship for '+o.yrs+' year'+(o.yrs>1?'s':''):fmt(o.sal)+' a year for '+o.yrs+' year'+(o.yrs>1?'s':'')}${o.fee?`, transfer fee ${fmt(o.fee)}, signing bonus ${fmt(o.bonus)}`:''}`,'Sign',()=>spAccept(o),ro||(o.st>=1&&S.age<SP_AGE[o.st])));}
 function drawSports(s){
   const T=S.spt,ro=!S.alive||!!S.jail;
   s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🏆 Sports career'));
@@ -3054,21 +3134,30 @@ function drawSports(s){
     s.append(h('p',{className:'sub'},`${K.ic} ${K.n}, retired.${T.hof?' Hall of fame.':''}`),
       h('dl',{},h('dt',{},'Seasons'),h('dd',{},String(T.seasons)),h('dt',{},'Titles'),h('dd',{},String(T.titles+T.champs)),h('dt',{},'Awards'),h('dd',{},String(T.awards)),h('dt',{},'Fame'),h('dd',{},`${Math.round(S.fame||0)}%`),h('dt',{},'Media and coaching income'),h('dd',{},T.legacy?`${fmt(T.legacy)} a year until 70`:'None')));
     s.append(row('Start a new sports career','Only one sport at a time','',()=>{S.spt=null;stay();},ro||S.age>40));return;}
-  const stName=K.stages[T.st],endoSlots=Math.min(5,1+Math.floor((S.fame||0)/25));
-  s.append(h('p',{className:'sub'},`${K.ic} ${K.n}. ${stName}. ${K.solo?`World rank ${T.rank}.`:T.team+'.'}`));
+  const stName=K.stages[T.st],endoSlots=Math.min(5,1+Math.floor((S.fame||0)/25)),cur=K.solo?null:splStr(T.team);
+  s.append(h('p',{className:'sub'},`${K.ic} ${K.n}. ${stName}. ${K.solo?`World rank ${T.rank}.`:`${T.team}${T.lg?' ('+T.lg+')':''}${cur!=null?', '+spLabel(cur):''}.`}`));
   s.append(...mbar('Skill',T.skill,'smarts'));
   s.append(h('dl',{},h('dt',{},'Age'),h('dd',{},String(S.age)),
-    ...(K.solo?[]:[h('dt',{},'Contract'),h('dd',{},T.con?`${fmt(T.con.sal)} a year, ${Math.max(0,T.con.yrs)} year${T.con.yrs===1?'':'s'} left`:'None yet')]),
+    ...(K.solo?[]:[h('dt',{},'Contract'),h('dd',{},T.con?(T.con.kind==='college'?`Scholarship, ${Math.max(0,T.con.yrs)} year${T.con.yrs===1?'':'s'} left`:`${fmt(T.con.sal)} a year, ${Math.max(0,T.con.yrs)} year${T.con.yrs===1?'':'s'} left`):'None yet')]),
     h('dt',{},'Titles'),h('dd',{},String(T.titles+T.champs)),h('dt',{},'Awards'),h('dd',{},String(T.awards)),h('dt',{},'Fame'),h('dd',{},`${Math.round(S.fame||0)}%`),
     h('dt',{},'Endorsements'),h('dd',{},T.endo.length?`${T.endo.length} deal${T.endo.length>1?'s':''}, ${fmt(T.endo.reduce((a,e)=>a+e.pay,0))} a year`:'None')));
-  if(T.offers.length){s.append(h('h4',{},'Offers'));
-    T.offers.forEach(o=>s.append(row(`${o.st>T.st?'⬆️ ':''}${o.team}`,`${K.stages[o.st]}. ${fmt(o.sal)} a year for ${o.yrs} year${o.yrs>1?'s':''}`,'Sign',()=>spAccept(o),ro||(o.st>=1&&S.age<SP_AGE[o.st]))));}
+  if(S.spl&&!K.solo){const ch=T.sport==='basketball'?[['nba','NBA champions'],['eu','EuroLeague champions']]:[['pl','Premier League'],['liga','La Liga'],['sa','Serie A'],['bl','Bundesliga'],['l1','Ligue 1'],['cl','Champions League']];
+    const news=ch.filter(([c])=>S.spl.champ[c]).map(([c,l])=>`${l}: ${S.spl.champ[c]}`);
+    if(news.length)s.append(h('p',{className:'sub'},'Last season\'s champions. '+news.join('. ')+'.'));}
+  if(T.offers.length){s.append(h('h4',{},'Offers'));T.offers.forEach(o=>offerRow(s,o,K,T,ro));}
   s.append(h('h4',{},'Training'),h('p',{className:'label'},'Training plan for the season'),seg([['light','Light'],['normal','Normal'],['hard','Hard'],['elite','Elite coach']],T.reg,v=>{T.reg=v;stay();}),
     h('p',{className:'sub',style:'margin:-4px 0 10px'},{light:'Slower gains, fewer injuries.',normal:'Steady progress.',hard:'Faster gains, more injuries.',elite:`Fastest gains and fewer injuries. Costs about ${fmt(Math.round(40e3*(1+T.st*3)))} a year.`}[T.reg]));
   s.append(row('🏋️ Extra training session','A little more skill this season. Costs 1 energy, once a year','',()=>{S.used.spx=true;T.skill=clamp(T.skill+R(1,3));T.extra=true;stay('I put in an extra block of training.');},ro||!!S.used.spx,1));
+  if(T.sport==='basketball'&&T.st===1&&!T.drafted)s.append(row('📋 Declare for the NBA draft','Age 19+. Mock drafts show where I might go. I am automatically eligible at 22','',()=>{
+      const est=Math.max(1,Math.round(1+59*Math.pow(1-Math.min(1,Math.max(0,(T.skill-38)/57)),1.5)));
+      choiceModal('📋 The NBA draft',`Mock drafts project me around pick #${Math.max(1,est-6)} to #${est+6}${T.skill<48?', which means I may go undrafted':''}. Once I declare, the draft happens now.`,[['Declare for the draft',()=>spDraft(false)],['Stay in college',()=>{}]]);},ro||S.age<19));
   if(!K.solo&&T.st<3)s.append(row('🎯 Try out for the next level',`${K.stages[T.st+1]}. Needs skill about ${SP_REQ[T.st+1]} and age ${SP_AGE[T.st+1]}+`,'',()=>{
       T.tried=true;const p=Math.max(.05,Math.min(.85,.15+(T.skill-SP_REQ[T.st+1])/60+(T.agent?.1:0)+(S.fame||0)/400));
-      if(rnd()<p){T.offers.push(spOffer(T.st+1));stay(`The tryout went well. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}else stay('The tryout did not go my way. The coaches said to keep working.','bad');},ro||T.tried||S.age<SP_AGE[T.st+1],1));
+      if(rnd()<p){T.offers.push(spOffer(T.st+1));stay(`The tryout went well. I have an offer from ${T.offers[T.offers.length-1].team}.`,'good');}else stay('The tryout did not go my way. The coaches said to keep working.','bad');},ro||T.tried||S.age<SP_AGE[T.st+1]||(T.sport==='basketball'&&T.st===1),1));
+  if(!K.solo&&T.st>=1&&!(T.con&&T.con.kind==='college'))s.append(row(T.sport==='soccer'?'✈️ Explore a transfer':'🔁 Shop around for a new team','Ask my agent or the league to line up a move. Costs 1 energy, once a year','',()=>{
+      T.shop=true;const o1=spOffer(T.st),o2=spOffer(T.st);if(o2.team===o1.team)o2.team=spOffer(T.st).team;T.offers.push(o1,o2);
+      if(T.st<3&&T.skill>=SP_REQ[T.st+1]+4&&S.age>=SP_AGE[T.st+1])T.offers.push(spOffer(T.st+1));
+      stay('Teams responded. I have new offers to look at.','good');},ro||T.shop,1));
   s.append(tog('🧑‍💼 Agent','Takes 10% of pay and deals, but brings more offers and 20% bigger endorsements',T.agent,()=>{T.agent=!T.agent;stay(T.agent?'I hired an agent.':'I let my agent go.');},ro));
   if(T.st>=1){s.append(h('h4',{},'Endorsements'));
     T.endo.forEach(e=>s.append(h('p',{className:'sub',style:'margin:0 0 6px'},`✅ ${e.brand}: ${fmt(e.pay)} a year, ${e.yrs} year${e.yrs>1?'s':''} left.`)));
@@ -3077,6 +3166,7 @@ function drawSports(s){
   if(T.hist.length){s.append(h('h4',{},'Recent seasons'));T.hist.slice().reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
   s.append(h('h4',{},'Career'),row('Retire','End my playing career. Great careers can reach the hall of fame','',()=>choiceModal('Retire?','My playing days would be over. Media and coaching work pays a yearly income based on my fame.',[['Retire',()=>{spRetire(false);gRefresh();}],['Keep playing',()=>{}]]),ro));
 }
+
 /* ================= social media ================= */
 /* S.soc is my online presence. pl holds followers (f) and engagement (e) for three platforms. Posts (quick ones are free, up to 6 a year;
    produced ones cost 1 energy) grow followers; ad revenue, subscriptions and brand deals pay; cancel drama, rivals, burnout and fake followers push back. */
