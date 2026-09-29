@@ -594,6 +594,9 @@ const ACH={
  exit:['🤝','Big exit','Sell a business for $1M or more'],
  ipo:['🔔','Ring the bell','Take a company public'],
  bust:['📉','Lessons learned','Have a business go under'],
+ survivor:['🎗️','Survivor','Beat a serious illness'],
+ fit:['🥗','In peak shape','Keep a healthy diet and serious training after 30'],
+ ironman:['🧬','Ironclad','Reach 90 with the longevity clinic'],
  landlord:['🏘️','Landlord','Rent out 3 properties at once'],
  portfolio:['🏢','Property portfolio','Rent out 5 properties at once'],
  flip:['🔨','House flipper','Sell a property for 25% more than I paid, within 3 years'],
@@ -1784,7 +1787,7 @@ function yrDecade(){ if(S.age%10===0&&S.age>=20)Q.push(decadeReview()); }
 function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
-  ['tick',yrTick],['people',yrPeople],['stats',yrStats],['prison',yrPrison],['school',yrSchool],
+  ['tick',yrTick],['people',yrPeople],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
@@ -1806,11 +1809,11 @@ function decadeReview(){
 }
 
 function checkDeath(){
-  let p=.0008;if(S.age>55)p+=Math.pow((S.age-55)/48,3);if(S.st.health<15)p+=(15-S.st.health)/55;if(S.st.health<=0||S.age>=115)p=1;
+  let p=.0008;if(S.age>55)p+=Math.pow((S.age-55)/48,3)*(S.hl&&S.hl.clinic?.75:1);p+=hlDeathP();if(S.st.health<15)p+=(15-S.st.health)/55;if(S.st.health<=0||S.age>=115)p=1;
   if(rnd()<p){
     const rare=rnd()<.04;
-    S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&rnd()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
-    S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');
+    S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):hlCause()?hlCause():S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&rnd()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
+    S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');if(hlDeathSummary())line(hlDeathSummary());
     if(S.age<18)unlock('speedrun');if(S.age>=100)unlock('century');
     const ob=obituary();S.obit=ob;
     META.tree.push({dyn:S.dyn,gen:S.gen,name:S.name,age:S.age,cause:S.cause,nw:netWorth(),ribbon:ribbon(),obit:ob,traits:S.traits,id:S.id});if(META.tree.length>200)META.tree.shift();saveMeta();
@@ -2553,6 +2556,7 @@ function actSheet(){openSheet(s=>{
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
+  s.append(row('🩺 Health and care','Lifestyle, conditions, insurance and check-ups','',healthSheet,!S.alive));
   s.append(h('h4',{},'Careers'),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
@@ -3923,7 +3927,7 @@ function rentYear(a){
   rentEnsure(a);const K=RK[a.kind]||{vac:.07,tq:0},ph=localPhase(),nm=a.n.toLowerCase();
   a.wear=Math.min(100,a.wear+R(1,3));
   if(a.stay===S.age)return 0;
-  const vp=cl((K.vac)+(a.rentM-1)*.45+(ph==='recession'?.07:ph==='crash'?.14:ph==='boom'?-.03:0)-(a.agent?.04:0)+(a.wear>50?.05:0),.01,.6);
+  const vp=Math.max(.01,Math.min(.6,(K.vac)+(a.rentM-1)*.45+(ph==='recession'?.07:ph==='crash'?.14:ph==='boom'?-.03:0)-(a.agent?.04:0)+(a.wear>50?.05:0)));
   let gross=rentGross(a),got=gross;
   if(rnd()<vp){const f=R(15,55)/100;got=Math.round(gross*(1-f));line(`My ${nm} sat empty for ${Math.max(1,Math.round(f*12))} months.`,'bad');a.t=newTenant((a.agent?15:0)+K.tq);}
   else{
@@ -3958,6 +3962,137 @@ function rentEquityLoan(a,ch){
   [.4,.55].forEach(ltv=>{const room=Math.round(a.v*ltv-(a.mort?a.mort.bal:0));
     if(room>=10000)ch.push([`Borrow against it (${fmt(room)}, up to ${Math.round(ltv*100)}% of value)`,()=>{const r=(a.mort?a.mort.rate:loanRate())+.004,bal=(a.mort?a.mort.bal:0)+room;S.money+=room;a.mort={bal,rate:r,pay:Math.round(annuity(bal,r,25))};stay(`I borrowed ${fmt(room)} against my ${a.n.toLowerCase()}.`);}]);});
 }
+/* ================= health and mortality: conditions, lifestyle, care, insurance, longevity ================= */
+const HC_PUB={uk:.85,ca:.85,au:.85,nz:.85,ie:.8,de:.9,ch:.7,jp:.8,sg:.6,my:.6,ae:.4,us:.1,ng:.05,za:.2,in:.15,ph:.15};
+const HC_INS=[['none','No insurance',0,0],['basic','Basic cover (pays 60%)',1800,.6],['premium','Premium cover (pays 90%)',6000,.9]];
+const HC_LIFE={
+  diet:['Poor diet','Balanced diet','Healthy diet, cooked fresh'],
+  ex:['No exercise','Regular exercise','Serious training'],
+  sleep:['Poor sleep','Enough sleep','Great sleep routine'],
+  smoke:['Non-smoker','Smoker'],
+  alc:['No alcohol','Social drinker','Heavy drinker']};
+const HCD={
+  diabetes:{n:'Type 2 diabetes',ic:'🩸',chr:1,b:.00315,a0:30,ar:.05,cost:4500,sp:.8,d3:.025,pain:2.2},
+  hyper:{n:'High blood pressure',ic:'💢',chr:1,b:.0084,a0:30,ar:.045,cost:1800,sp:.85,d3:.015,pain:1.5},
+  heart:{n:'Heart disease',ic:'🫀',chr:1,b:.00154,a0:35,ar:.07,cost:22000,sp:.7,d3:.15,pain:3},
+  cancer:{n:'Cancer',ic:'🎗️',chr:0,b:.00133,a0:30,ar:.07,cost:65000,sp:.55,d3:.22,pain:4},
+  lung:{n:'Lung disease',ic:'🫁',chr:1,b:.00175,a0:35,ar:.06,cost:6000,sp:.65,d3:.08,pain:3},
+  liver:{n:'Liver disease',ic:'🍷',chr:1,b:.00112,a0:35,ar:.06,cost:9000,sp:.65,d3:.09,pain:3},
+  back:{n:'Chronic back pain',ic:'🦴',chr:1,b:.0084,a0:25,ar:.02,cost:2500,sp:.8,d3:0,pain:1.2},
+  arthritis:{n:'Arthritis',ic:'🦵',chr:1,b:.0035,a0:40,ar:.06,cost:3000,sp:.8,d3:0,pain:1.5},
+  depress:{n:'Depression',ic:'🌧️',chr:1,b:.021,a0:12,ar:0,cost:2500,sp:.75,d3:.01,pain:2}
+};
+const HC_TIERS=[['Public system',.25,0,'public'],['Standard care',1,.1,'std'],['Private specialist',2.4,.2,'priv']];
+const hcScale=()=>.4+.6*resC().pp;
+function hlEnsure(){if(!S.hl)S.hl={c:[],diet:1,ex:1,sleep:1,smoke:(typeof mem==='function'&&mem('smoker'))?1:0,alc:0,ins:'none',check:false,clinic:false,smokeYrs:0,drinkYrs:0,last:0,hist:[]};return S.hl;}
+function hlHas(id){return S.hl&&S.hl.c.find(x=>x.id===id&&!x.cured);}
+function hlCover(tier){const H=hlEnsure(),ins=HC_INS.find(x=>x[0]===H.ins)[3],pub=HC_PUB[resKey()]||.2;return tier==='public'?pub:Math.max(ins,tier==='std'?0:ins);}
+function hlCost(c,tier){const T=HC_TIERS.find(x=>x[3]===tier),d=HCD[c.id],price=d.cost*T[1]*hcScale()*(1+.25*(c.sev-1));return {price:Math.round(price),oop:Math.round(price*(1-hlCover(tier)))};}
+function hlOdds(c,tier){const T=HC_TIERS.find(x=>x[3]===tier),d=HCD[c.id];return Math.max(.2,Math.min(.97,d.sp+T[2]-.09*(c.sev-1)+(S.st.health-50)/450+(S.hl.clinic?.05:0)));}
+function hlRisk(id){const H=hlEnsure(),m=(id==='diabetes')?[1.8,1,.6][H.diet]*[1.7,1,.6][H.ex]:
+  id==='hyper'?[1.5,1,.8][H.diet]*[1.5,1,.7][H.ex]*[1.3,1,.9][H.sleep]*(1+H.smoke*.3)*[1,1.2,1.8][H.alc]:
+  id==='heart'?[1.5,1,.8][H.diet]*[1.7,1,.6][H.ex]*(1+H.smoke*1.2)*[1,1.1,1.6][H.alc]*[1.2,1,.9][H.sleep]:
+  id==='cancer'?(1+H.smoke*1.3)*[1,1.05,1.4][H.alc]*[1.2,1,.85][H.diet]*[1.1,1,.9][H.ex]:
+  id==='lung'?(H.smoke?7:.12):id==='liver'?[.1,1,4.5][H.alc]:
+  id==='back'?[1.4,1,1.3][H.ex]*(S.spt&&S.spt.seasons>8?1.8:1):id==='arthritis'?(S.spt&&S.spt.seasons>8?1.7:1)*[1.1,1,1.15][H.ex]:
+  id==='depress'?(S.st.happy<30?4:S.st.happy<50?1.6:.7)*[1.4,1,.8][H.sleep]:1;
+  return m*(H.clinic?.55:1);}
+function hlOnset(id,age){const d=HCD[id];return Math.min(.25,d.b*Math.exp(d.ar*Math.max(0,age-d.a0)));}
+function hlDeathP(){if(!S.hl)return 0;return S.hl.c.reduce((t,c)=>{if(c.cured||c.sev<3)return t;const d=HCD[c.id];return t+d.d3*(c.tx==='managed'?.25:c.tx==='active'?.5:1);},0);}
+function hlSick(){return S.hl?S.hl.c.filter(c=>!c.cured&&c.dx):[];}
+function hlDiagnose(c){
+  if(c.dx)return;c.dx=true;const d=HCD[c.id],nm=d.n.toLowerCase();
+  S.hl.hist.push({age:S.age,t:`Diagnosed with ${nm}`});mile(`Diagnosed with ${nm}`);
+  line(`${d.ic} My doctor diagnosed ${nm}${c.sev>=2?' and it is already serious':', caught early'}.`,c.sev>=2?'bad':'');
+  Q.push({text:`${d.ic} Diagnosis: ${d.n}. ${d.chr?'It is a long-term condition, so treatment means managing it every year.':'It needs treatment now, and the sooner the better.'} How do I want to be treated?`,ch:hlTreatChoices(c)});
+}
+function hlTreatChoices(c){const d=HCD[c.id];
+  const ch=HC_TIERS.map(([n,,,t])=>{const k=hlCost(c,t),o=Math.round(hlOdds(c,t)*100);
+    return [`${n}: ${fmt(k.oop)}${d.chr?' a year':''}, ${o}% works well`,()=>hlTreat(c,t),()=>S.money<k.oop&&t!=='public'];});
+  ch.push(['Do nothing for now',()=>{c.tx='none';return `I decided not to treat my ${d.n.toLowerCase()} yet. That is risky.`;}]);
+  return ch;}
+function hlTreat(c,tier){
+  const d=HCD[c.id],k=hlCost(c,tier),ok=rnd()<hlOdds(c,tier);S.money-=k.oop;
+  if(d.chr){c.tx='managed';c.tier=tier;c.tcost=k.oop;
+    if(ok){c.sev=Math.max(1,c.sev-1);S.st.health=clamp(S.st.health+3);return `${d.ic} My ${d.n.toLowerCase()} is under control. Treatment costs ${fmt(k.oop)} a year.`;}
+    c.sev=Math.min(3,c.sev+(rnd()<.5?1:0));S.st.health=clamp(S.st.health-1);return `${d.ic} The treatment for my ${d.n.toLowerCase()} was only partly effective. It costs ${fmt(k.oop)} a year.`;}
+  if(ok){c.cured=true;c.tx='none';S.st.health=clamp(S.st.health-4);S.hl.hist.push({age:S.age,t:`Beat ${d.n.toLowerCase()}`});unlock('survivor');mile(`Beat ${d.n.toLowerCase()}`);S.st.happy=clamp(S.st.happy+joy(8));return `${d.ic} The treatment worked. I beat ${d.n.toLowerCase()}. It cost ${fmt(k.oop)}.`;}
+  c.tx='active';c.sev=Math.min(3,c.sev+1);S.st.health=clamp(S.st.health-12);return `${d.ic} The treatment did not work this time and it left me weak. It cost ${fmt(k.oop)}. We can try again.`;}
+function yrHealth(){
+  const H=hlEnsure(),age=S.age;
+  if(age<12)return;
+  const adult=age>=18,sc=hcScale();
+  // lifestyle costs and effects
+  if(adult){let c=0;c+=[0,0,3000][H.diet]*sc;c+=[0,600,3500][H.ex]*sc;c+=H.smoke?2200*sc:0;c+=[0,900,3200][H.alc]*sc;
+    const ins=HC_INS.find(x=>x[0]===H.ins)[2]*sc;c+=ins;
+    if(H.clinic)c+=40000*Math.max(.5,resC().pp);
+    if(H.check)c+=350*sc;
+    if(c>0)S.money-=Math.round(c);
+    S.st.health=clamp(S.st.health+hlDrift(H));
+    if(H.smoke)H.smokeYrs++;if(H.alc===2)H.drinkYrs++;
+    if(H.ex===2)S.st.looks=clamp(S.st.looks+1);
+    if(H.diet===2&&H.ex===2&&age>=30)unlock('fit');
+    if(H.clinic&&age>=90)unlock('ironman');}
+  // new conditions
+  Object.keys(HCD).forEach(id=>{
+    if(id==='depress'&&age<12)return;
+    const has=H.c.find(x=>x.id===id&&!x.cured);if(has)return;
+    const prior=H.c.find(x=>x.id===id&&x.cured);
+    if(rnd()<hlOnset(id,age)*hlRisk(id)*(prior?.5:1)*(adult?1:.4)){
+      H.c=H.c.filter(x=>!(x.id===id));H.c.push({id,since:age,sev:1,dx:false,tx:'none'});}});
+  // progression, symptoms and diagnosis
+  H.c.forEach(c=>{
+    if(c.cured)return;const d=HCD[c.id];
+    if(c.tx==='managed'){S.money-=c.tcost||0;if(rnd()<.06)c.sev=Math.min(3,c.sev+1);if(S.st.health>60&&rnd()<.1)c.sev=Math.max(1,c.sev-1);S.st.health=clamp(S.st.health-.12*c.sev);}
+    else{if(rnd()<(c.tx==='active'?.35:.3)+c.sev*.05)c.sev=Math.min(3,c.sev+1);S.st.health=clamp(S.st.health-d.pain*c.sev*(c.dx?1:.8)*.2);if(c.id==='depress')S.st.happy=clamp(S.st.happy-c.sev*3);}
+    if(!c.dx&&((H.check&&rnd()<.9)||c.sev>=2||rnd()<.18)){hlDiagnose(c);}
+    else if(c.dx&&c.tx==='none'&&c.sev>=2&&rnd()<.5)Q.push({text:`${d.ic} My ${d.n.toLowerCase()} has got worse. Treatment would help.`,ch:hlTreatChoices(c)});
+    else if(c.dx&&c.tx==='active'&&!d.chr)Q.push({text:`${d.ic} My ${d.n.toLowerCase()} is still there. Do I try another round of treatment?`,ch:hlTreatChoices(c)});
+  });
+  // falls in old age
+  if(age>=75&&rnd()<.06+(age-75)*.006){const sur=Math.round(45000*sc*(1-hlCover('std')));
+    Q.push({text:'🩹 I fell at home and broke my hip.',ch:[[`Have surgery (${fmt(sur)})`,()=>{S.money-=sur;S.st.health=clamp(S.st.health-8);return 'The surgery went well and I am walking again with a frame.';},()=>S.money<sur],['Rest and manage it',()=>{S.st.health=clamp(S.st.health-22);return 'It healed badly. I am much weaker now.';}]]});}
+  if(H.check&&adult&&H.last!==age){H.last=age;if(!H.c.some(c=>!c.cured&&!c.dx)&&rnd()<.5)S.st.health=clamp(S.st.health+1);}
+}
+function hlDrift(H){return [-.6,0,.7][H.diet]+[-.7,0,.9][H.ex]+[-.4,0,.5][H.sleep]-H.smoke*.9-[0,-.1,.9][H.alc]*(H.alc?1:0)+(H.clinic?2.5:0);}
+function hlLifeExp(){
+  let surv=1,tot=0,h=S.st.health;const H=hlEnsure();
+  const drift=hlDrift(H);
+  for(let a=S.age;a<116&&surv>.003;a++){
+    let p=.0008;if(a>55)p+=Math.pow((a-55)/48,3)*(H.clinic?.75:1);if(h<15)p+=(15-h)/55;p+=hlDeathP();
+    if(a>=115)p=1;p=Math.min(1,p);tot+=surv*(1-p*.5);surv*=1-p;
+    h=cl(h+(a>45?-a/28:0)+drift*.6,0,100);}
+  return Math.round(S.age+tot);}
+function healthSheet(){openSheet(drawHealth);}
+function drawHealth(s){
+  const H=hlEnsure(),ro=!S.alive||!!S.jail||S.age<12;
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🩺 Health'));
+  s.append(...mbar('Health',S.st.health,'health'));
+  s.append(h('p',{className:'sub'},`A rough guess is that I live to about ${hlLifeExp()} if nothing changes.${HC_PUB[resKey()]>=.6?' My country has a strong public health system.':HC_PUB[resKey()]<=.2?' Healthcare here is mostly paid for privately, so insurance matters.':''}`));
+  const sick=hlSick();
+  s.append(h('h4',{},'Conditions'));
+  if(!sick.length&&!H.c.some(c=>!c.cured))s.append(h('p',{className:'sub'},'No known conditions. A yearly check-up finds problems early.'));
+  H.c.filter(c=>!c.cured&&c.dx).forEach(c=>{const d=HCD[c.id];
+    s.append(row(`${d.ic} ${d.n}`,`${['Mild','Moderate','Severe'][c.sev-1]}, since age ${c.since}. ${c.tx==='managed'?`Managed, ${fmt(c.tcost||0)} a year`:c.tx==='active'?'Under treatment':'Not treated'}`,c.tx==='managed'?'':'Treat',()=>{choiceModal(`${d.ic} ${d.n}`,'Choose how to be treated.',hlTreatChoices(c).map(([l,f,dis])=>[l,()=>stay(f()),dis]));},ro));});
+  s.append(h('h4',{},'Lifestyle'));
+  if(S.age<18)s.append(h('p',{className:'sub'},'My parents choose most of this until I am 18.'));
+  [['diet','Diet'],['ex','Exercise'],['sleep','Sleep']].forEach(([k,l])=>{s.append(h('p',{className:'label'},l),seg(HC_LIFE[k].map((t,i)=>[i,t.split(',')[0]]),H[k],v=>{H[k]=v;stay();}));});
+  s.append(tog('🚬 Smoking',H.smoke?'Costs money and raises the risk of lung disease, heart disease and cancer':'I do not smoke',H.smoke,()=>{H.smoke=H.smoke?0:1;stay(H.smoke?'I started smoking.':'I quit smoking. My lungs will thank me.',H.smoke?'bad':'good');},S.age<16));
+  s.append(h('p',{className:'label'},'Alcohol'),seg(HC_LIFE.alc.map((t,i)=>[i,t]),H.alc,v=>{H.alc=v;stay();}));
+  s.append(h('h4',{},'Care'));
+  s.append(h('p',{className:'label'},'Health insurance'),seg(HC_INS.map(([k,l])=>[k,l.split(' (')[0]]),H.ins,v=>{H.ins=v;stay();}));
+  s.append(h('p',{className:'sub'},HC_INS.map(x=>x[2]?`${x[1]}: ${fmt(Math.round(x[2]*hcScale()))} a year`:null).filter(Boolean).join('. ')+'.'));
+  s.append(tog('🩺 Yearly check-up',`About ${fmt(Math.round(350*hcScale()))} a year. Finds problems while they are still mild`,H.check,()=>{H.check=!H.check;stay();},S.age<18));
+  s.append(tog('🧬 Longevity clinic',`About ${fmt(Math.round(40000*Math.max(.5,resC().pp)))} a year. Lowers illness risk, adds health each year and slows ageing`,H.clinic,()=>{H.clinic=!H.clinic;stay(H.clinic?'I joined a longevity clinic.':'I left the longevity clinic.');},S.age<30||(S.money<40000&&!H.clinic)));
+  if(H.hist.length){s.append(h('h4',{},'My medical history'));H.hist.slice(-6).reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
+}
+function hlDeathSummary(){
+  if(!S.hl)return '';const H=S.hl,bits=[];
+  if(H.smokeYrs>=5)bits.push(`smoked for ${H.smokeYrs} years`);if(H.drinkYrs>=5)bits.push(`drank heavily for ${H.drinkYrs} years`);
+  if(H.ex===2)bits.push('kept training to the end');else if(H.ex===0)bits.push('rarely exercised');
+  const cs=H.c.filter(c=>!c.cured).map(c=>HCD[c.id].n.toLowerCase());
+  return `${bits.length?'I '+bits.join(' and ')+'. ':''}${cs.length?'I lived with '+cs.join(', ')+'.':''}`;}
+function hlCause(){if(!S.hl||hlDeathP()<.05)return null;let best=null,bv=0;S.hl.c.forEach(c=>{if(c.cured||c.sev<3)return;const v=HCD[c.id].d3;if(v>bv){bv=v;best=c;}});return best?({cancer:'cancer',heart:'heart disease',lung:'lung disease',liver:'liver disease',diabetes:'complications of diabetes',hyper:'a stroke',depress:'depression'}[best.id]||HCD[best.id].n.toLowerCase()):null;}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
