@@ -798,6 +798,14 @@ function creditScore(){if(S.age<18)return 0;
   let c=640+Math.min(110,(S.age-18)*4)-Math.min(160,debt/Math.max(1,inc)*25)+(netWorth()>500000?40:netWorth()>100000?20:0)+(S.karma-50)*.4;
   if(S.flags.wasBankrupt)c-=60;if(badCredit())c=Math.min(c,520)-40;if(S.money<0)c-=40;
   return cl(c,300,850);}
+// Personal bankruptcy: sell everything, wipe the card debt, credit ruined for 7 years. Used by the manual button and the forced case below.
+function fileBankruptcy(){
+  TICK.forEach(t=>{S.money+=(S.hold[t.s]||0)*price(t.s);S.hold[t.s]=0;S.basis[t.s]=0;});
+  S.shorts.forEach(sh=>{S.money+=sh.col+Math.round((sh.entryP-price(sh.s))*sh.shares);});S.shorts=[];
+  S.margin.bal=0;
+  S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');}
+// Card debt limit: the larger of $100,000 or 5 times yearly income. Past it, lenders force a bankruptcy.
+const cardLimit=()=>Math.max(100000,5*(S.job?S.job.s:S.biz.reduce((a,b)=>a+Math.max(0,b.lastPre)*b.own,0)));
 const creditLabel=c=>c>=760?'Excellent':c>=690?'Good':c>=620?'Fair':c>=560?'Poor':'Bad';
 const creditF=()=>S.age<18?1:Math.max(.3,Math.min(1.25,(creditScore()-450)/250));
 function yearSkills(){
@@ -1274,7 +1282,8 @@ function propertyYear(){
   if(S.flags.talentPay&&!S.jail&&S.age<70){S.money+=S.flags.talentPay;}
   // trustee protects minors
   if(S.age<18&&S.money<0){homes().sort((a,b)=>a.v-b.v).forEach(a=>{if(S.money<0){S.money+=saleVal(a)-(a.mort?a.mort.bal:0);S.assets=S.assets.filter(x=>x!==a);line(`My trustee sold the ${a.n.toLowerCase()} to cover costs.`,'bad');}});if(S.money<0)S.money=0;}
-  if(S.money<0&&S.age>=18){S.money=Math.round(S.money*1.07);S.st.happy-=3;}
+  if(S.money<0&&S.age>=18){S.money=Math.round(S.money*1.07);S.st.happy-=3;
+    if(S.money<-cardLimit()){line(`My card debt passed ${fmt(cardLimit())}. The lenders called it in and forced me into bankruptcy.`,'bad');fileBankruptcy();}}
 }
 
 /* ================= work ================= */
@@ -1965,13 +1974,9 @@ function tabOverview(s){
     h('dt',{},'Mortgage debt'),h('dd',{},fmt(debt)),h('dt',{},'Student loans'),h('dd',{},fmt(S.sloan))));
   s.append(expenseTable());
   const c=chartEl(S.nwHist);if(c){s.append(h('p',{className:'label'},'Net worth over my life'),c);}
-  if(S.money<0)s.append(h('p',{className:'sub'},'Negative cash is credit card debt and grows 7% a year.'));
+  if(S.money<0)s.append(h('p',{className:'sub'},`Negative cash is credit card debt and grows 7% a year. Past ${fmt(cardLimit())} the lenders force a bankruptcy.`));
   if(badCredit())s.append(h('p',{className:'sub bad'},`My credit is damaged until age ${S.flags.badCreditUntil}. No loans or mortgages.`));
-  if(S.money<-20000&&canManage())s.append(row('Declare bankruptcy','Sell investments and property, wipe card debt, ruin credit for 7 years','',()=>{
-    TICK.forEach(t=>{S.money+=(S.hold[t.s]||0)*price(t.s);S.hold[t.s]=0;S.basis[t.s]=0;});
-    S.shorts.forEach(sh=>{S.money+=sh.col+Math.round((sh.entryP-price(sh.s))*sh.shares);});S.shorts=[];
-    S.margin.bal=0;
-    S.assets.forEach(a=>S.money+=saleVal(a)-(a.mort?a.mort.bal:0));S.assets=[];if(S.money<0)S.money=0;S.flags.badCreditUntil=S.age+7;S.flags.wasBankrupt=true;S.st.happy-=20;unlock('bankrupt');mile('Declared bankruptcy');stay('I declared bankruptcy.','bad')}));
+  if(S.money<-20000&&canManage())s.append(row('Declare bankruptcy','Sell investments and property, wipe card debt, ruin credit for 7 years','',()=>{fileBankruptcy();stay('I declared bankruptcy.','bad')}));
 }
 let iTab='dashboard';
 const ITABS={dashboard:'Dashboard',stocks:'Stocks',crypto:'Crypto',funds:'Funds & Bonds',myco:'My Companies',angels:'Angels'};

@@ -7,7 +7,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 ## 1. Current state (2026-09-29)
 
 - **Environment:** moved from a claude.ai project to Claude Code on 2026-09-29. Local folder with git. No `project_read`/`project_write` any more.
-- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.30 (price lever fix).
+- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.31 (card debt limit).
 - **Test reference (2026-09-29, `npm test`, 6 lives):** syntax 1 script, 0 failed, 0 em dashes. Playtest 23 runs, 0 failed, FINGERPRINT `1da74e7c2331017d`. Old saves 0 failed. Balance 0 numbers moved more than 10%. The fingerprint changes whenever code changes; that is expected.
 - **Published artifact:** `https://claude.ai/artifact/95FEiEA9QhTYSxeDsSbcWN` (Version 11, `sample` capability on). Publishing happens in claude.ai only, see `CLAUDE.md`.
 - **Dropped by decision (2026-09-29):** the B1/B2 brand engine and Block W wealth spec mentioned in older chat memory were never in this file. David chose to drop them and start fresh. Do not look for them.
@@ -43,6 +43,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 - **Buildings buy/sell slider (3.5.25).**
 - **Credit line (3.5.27):** draws capped at the limit, 10% within and 18% over the limit, automatic repayment keeping a cash buffer.
 - **Price lever (3.5.30):** for goods types, `p` applies only to non-default lever options (`levP` in `prodMult`); services unchanged.
+- **Card debt limit (3.5.31):** negative cash is card debt at 7%; past `cardLimit()` (larger of $100,000 or 5x yearly income) the lenders force `fileBankruptcy()`, the same routine as the manual button.
 - **Bug-fix pass (3.5.29):** dealership reputation death-spiral fixed (gate on quality, not reputation), dead `SEGS` and `svcStaff` removed.
 
 ---
@@ -52,7 +53,6 @@ Lean current-state note, read at the start of every session. Working rules are i
 | Issue | Note |
 |---|---|
 | `planShort` "can't afford next year's plan" prompt recurs | `autoQty`/`optPriceQty` ignore affordability. Re-test severity first. |
-| Personal debt has no floor | Cash can go to minus millions. Needs a design decision. |
 | Understaffing hits twice | Hard capacity cap plus the soft demand `ratio` in `simBiz`. Deliberate; flag if it plays badly. |
 | Angel-startup IPO path is dead code | Always pays out as an acquisition. |
 | Saves hold a full copy of last year (undo) | Saves about twice the needed size. |
@@ -72,7 +72,6 @@ Lean current-state note, read at the start of every session. Working rules are i
 ## 5. Pending decisions
 
 1. **`planShort` throttle.** Re-test how often it fires now, then decide whether to cap auto-production at what the business can afford.
-2. **Personal debt floor.** Worth a design pass now that businesses have one?
 
 ---
 
@@ -110,7 +109,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 
 ## 7. Next step
 
-Pick with David: one of the two pending decisions (section 5), or backlog item 4 (special-careers scaffold).
+Pick with David: the pending decision (section 5), or backlog item 4 (special-careers scaffold).
 
 ---
 
@@ -119,3 +118,5 @@ Pick with David: one of the two pending decisions (section 5), or backlog item 4
 **2026-09-29, migration to Claude Code.** Split the master note into this lean note plus `docs/ARCHIVE.md`. Added `CLAUDE.md`, `package.json`, git. Tests moved to `tests/` and `tests/fixtures/`. Fixed `run-all.sh`: failures inside a pipe were not stopping the run; it now reports PASS/FAIL per test and prints full output only on failure. Dropped B1/B2 and Block W by decision. Full suite clean, new fingerprint `1da74e7c2331017d`.
 
 **2026-09-29, 3.5.30 price lever.** Goods types (restaurant, bar, farm, dealership) now honour lever `p` for non-default options via `levP`; `levText` shows the price line for them. Default options and the 4 service types unchanged. Balance 0 moved, so no re-baseline. Fingerprint unchanged (1da74e7c2331017d): the playtest never picks a non-default lever.
+
+**2026-09-29, 3.5.31 card debt limit.** Added `cardLimit()` and `fileBankruptcy()` (extracted from the manual button). Year-end forced bankruptcy when card debt passes the limit; Money tab text shows the limit. Phoenix start (-$60,000) stays under it. Not covered by tests (no playtest run reaches it).
