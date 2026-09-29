@@ -2505,7 +2505,7 @@ function casinoSheet(){openSheet(s=>{
   const life=S.flags.gTot||0;
   s.append(h('h3',{},'🎰 Casino'),h('p',{className:'sub'},`I have ${fmt(S.money)}. This visit ${gSigned(CV.net)}. Lifetime ${gSigned(life)}. The house always has an edge, and it only takes one bad night to lose a lot.`));
   s.append(row('🃏 Blackjack','Beat the dealer to 21. Blackjack pays 3 to 2. Hit, stand or double down','',()=>blackjack(),S.money<10),
-    row('♠️ Texas Hold\'em','Heads-up poker against one player. The house takes a 5% rake from winning pots','',()=>poker(),S.money<20),
+    row('♠️ Texas Hold\'em','Play 1, 3 or 5 opponents. Choose the blinds, then bet, raise, call or fold. The house takes a rake','',()=>poker(),S.money<20),
     row('🎰 Slots','A quick bet of 10% of my cash','',()=>{stay(casino());},S.money<100),
     row('🚪 Leave the casino','','',casinoLeave));
 });}
@@ -2544,7 +2544,7 @@ function bjFinish(st,res){
 /* ---- Texas Hold'em, heads-up. Each round I can check, bet one unit or fold. Winning pots pay a 5% rake to the house. ---- */
 const HAND_NAMES=['High card','One pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush'];
 const PK_STAGE=['Before the flop','The flop','The turn','The river'];
-const OPP_NAMES=['Big Mike','Lucky Lena','Old Sal','Card Shark Kim','Quiet Raj'];
+const OPP_NAMES=['Big Mike','Lucky Lena','Old Sal','Card Shark Kim','Quiet Raj','Sly Vera','Doc Hollis','Mama Jo'];
 function newDeck(){const d=[];for(let r=2;r<=14;r++)CSUIT.forEach(s=>d.push({r,s}));for(let i=d.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
 function ev5(c){
   const rs=c.map(x=>x.r).sort((a,b)=>b-a),fl=c.every(x=>x.s===c[0].s),cnt={};rs.forEach(r=>cnt[r]=(cnt[r]||0)+1);
@@ -2559,54 +2559,116 @@ function pokerScore(cs){const n=cs.length,skips=[];let best=-1;
   if(n===5)skips.push([]);else if(n===6)for(let i=0;i<6;i++)skips.push([i]);else for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)skips.push([i,j]);
   skips.forEach(xs=>{const v=ev5(cs.filter((_,i)=>!xs.includes(i)));if(v>best)best=v;});return best;}
 const pkCat=v=>Math.floor(v/759375);
-function pokerStrength(op,board){
-  if(board.length<3){const [a,b]=op.map(c=>c.r).sort((x,y)=>y-x);if(a===b)return .72+a/60;return (a+b)/28*.55+(op[0].s===op[1].s?.05:0)+(a-b<=2?.04:0);}
-  return [.22,.48,.68,.78,.86,.9,.95,.98,1][pkCat(pokerScore(op.concat(board)))];}
-function poker(prev){
-  const cap=Math.floor(Math.min(S.money,1e9));
-  amountModal({title:'♠️ Texas Hold\'em',sub:`Heads-up against one player. We each ante the bet, then on every round I can check, bet the same amount, or fold. The house takes a 5% rake from winning pots. I have ${fmt(S.money)}.`,min:10,max:cap,init:prev||Math.min(cap,Math.max(10,Math.round(S.money*.02/10)*10)),step:10,
-    btn:a=>`Ante ${fmt(a)}`,onOk:bet=>pkStart(bet)});}
-function pkStart(bet){
-  const deck=newDeck(),st={bet,deck,pl:[deck.pop(),deck.pop()],op:[deck.pop(),deck.pop()],board:[],pot:bet*2,paid:bet,stage:0,opp:pick(OPP_NAMES),s:.5,read:.5};
-  S.money-=bet;save();render();pkRound(st);}
-function pkTable(st,show){
-  const best=st.board.length>=3?HAND_NAMES[pkCat(pokerScore(st.pl.concat(st.board)))]:null,
-    oppBest=show&&st.board.length>=3?HAND_NAMES[pkCat(pokerScore(st.op.concat(st.board)))]:null,
-    read=S.st.smarts>=60&&!show?` My read: ${st.opp} looks ${st.read>.7?'confident':st.read<.35?'shaky':'hard to read'}.`:'';
-  return h('div',{},h('p',{className:'label'},st.opp+(oppBest?`: ${oppBest}`:'')),show?cardsEl(st.op):h('p',{className:'sub',style:'margin:0 0 6px'},'Two cards face down.'),
-    h('p',{className:'label'},'Board'),st.board.length?cardsEl(st.board):h('p',{className:'sub',style:'margin:0 0 6px'},'No community cards yet.'),
-    h('p',{className:'label'},'Me'+(best?`: ${best}`:'')),cardsEl(st.pl),
-    h('p',{className:'sub'},`Pot ${fmt(st.pot)}. I have put in ${fmt(st.paid)}. Cash ${fmt(S.money)}.${read}`));}
-function pkRound(st){
-  st.s=pokerStrength(st.op,st.board)+gauss()*.07;st.read=st.s+gauss()*.1;
-  choiceModal(`♠️ ${PK_STAGE[st.stage]}`,'',[
-    ['Check',()=>pkCheck(st)],
-    [`Bet ${fmt(st.bet)}`,()=>pkBet(st),()=>S.money<st.bet],
-    ['Fold',()=>pkEnd(st,'fold')]],pkTable(st,false));}
-function pkCheck(st){
-  if(st.s>.72||rnd()<.08){
-    choiceModal(`♠️ ${st.opp} bets`,`${st.opp} bets ${fmt(st.bet)}. The pot is ${fmt(st.pot)}.`,[
-      [`Call ${fmt(st.bet)}`,()=>{S.money-=st.bet;st.paid+=st.bet;st.pot+=st.bet*2;pkNext(st);},()=>S.money<st.bet],
-      ['Fold',()=>pkEnd(st,'fold')]],pkTable(st,false));
-  }else pkNext(st);}
-function pkBet(st){
-  S.money-=st.bet;st.paid+=st.bet;st.pot+=st.bet;
-  if(st.s>.12+.5*st.bet/(st.pot+st.bet)){st.pot+=st.bet;pkNext(st);}else pkEnd(st,'oppfold');}
-function pkNext(st){
-  st.stage++;if(st.stage>3)return pkEnd(st,'show');
+/* ---- Texas Hold'em, no limit, 1, 3 or 5 opponents. Everyone starts each hand with my chips (my cash), so nobody can be short-stacked
+   and there are no side pots. Winning pots pay a rake once the flop is dealt (5%, up to 10 big blinds). ---- */
+let PK=null;
+function boardCat(b){
+  if(b.length>=5)return pkCat(pokerScore(b));
+  const cnt={};b.forEach(c=>cnt[c.r]=(cnt[c.r]||0)+1);const v=Object.values(cnt).sort((x,y)=>y-x);
+  return v[0]>=4?7:v[0]===3?3:v[0]===2&&v[1]===2?2:v[0]===2?1:0;}
+function pokerStrengthN(hole,board){
+  const [a,b]=hole.map(c=>c.r).sort((x,y)=>y-x);
+  if(board.length<3){if(a===b)return .72+a/60;return (a+b)/28*.55+(hole[0].s===hole[1].s?.05:0)+(a-b<=2?.04:0);}
+  const sc=pokerScore(hole.concat(board)),cat=pkCat(sc),k0=Math.floor(sc/50625)%15;
+  if(cat<=3&&cat<=boardCat(board))return .16+a/14*.08;
+  let v=[.16,.4,.64,.76,.85,.9,.95,.98,1][cat];
+  if(cat===0)v+=a/14*.1;else if(cat===1)v+=k0/14*.14;else if(cat===2)v+=k0/14*.05;else if(cat===3)v+=k0/14*.04;
+  return v;}
+const pkActive=p=>!p.folded&&!p.allin;
+const pkRing=(st,from)=>st.seats.map((_,k)=>(from+k)%st.seats.length);
+function poker(){
+  choiceModal('♠️ Texas Hold\'em','How many opponents? Everyone starts each hand with the same chips as me. Bet, raise, call or fold, up to all in. The house takes a 5% rake once the flop is dealt, up to 10 big blinds.',[
+    ['1 opponent (heads-up)',()=>pkBlinds(1)],['3 opponents (4 at the table)',()=>pkBlinds(3)],['5 opponents (6 at the table)',()=>pkBlinds(5)],['Cancel',()=>{}]]);}
+function pkBlinds(n){
+  const cap=Math.floor(S.money/10);
+  amountModal({title:'♠️ Set the blinds',sub:`The big blind is the smallest bet and the small blind is half of it. My chips are my cash, ${fmt(S.money)}, so the biggest blind I can sit at is ${fmt(cap)}.`,min:2,max:cap,init:Math.min(cap,Math.max(2,Math.round(S.money/200))),step:1,
+    btn:a=>`Big blind ${fmt(a)}, small blind ${fmt(Math.floor(a/2))}`,note:a=>`That is about ${Math.floor(S.money/a)} big blinds deep.`,
+    onOk:bb=>{PK={n,bb,btn:R(0,n),names:OPP_NAMES.slice().sort(()=>rnd()-.5).slice(0,n)};pkHand();},onCancel:poker});}
+function pkPay(st,p,amt){amt=Math.max(0,Math.min(Math.floor(amt),p.stack));p.stack-=amt;p.put+=amt;p.cur+=amt;st.pot+=amt;if(p.stack<=0)p.allin=true;if(p.i===0)S.money-=amt;return amt;}
+function pkHand(){
+  const nP=PK.n+1,deck=newDeck(),S0=Math.floor(S.money),seats=[];
+  for(let i=0;i<nP;i++)seats.push({i,name:i?PK.names[i-1]:'Me',hole:[deck.pop(),deck.pop()],stack:S0,put:0,cur:0,folded:false,allin:false,tight:.8+rnd()*.6,aggr:.7+rnd()*.7,s:.5,rd:.5});
+  const st={seats,deck,board:[],pot:0,stage:0,bet:0,minRaise:PK.bb,bb:PK.bb,log:[],need:[],flop:false,last:null,raises:0};
+  PK.btn=(PK.btn+1)%nP;st.btn=PK.btn;
+  const sb=nP===2?PK.btn:(PK.btn+1)%nP,bi=nP===2?(PK.btn+1)%2:(PK.btn+2)%nP;
+  pkPay(st,seats[sb],Math.max(1,Math.floor(PK.bb/2)));pkPay(st,seats[bi],PK.bb);
+  st.bet=Math.max(...seats.map(p=>p.cur));
+  st.log.push(`${seats[sb].name} posts the small blind and ${seats[bi].name} the big blind.`);
+  st.need=pkRing(st,nP===2?sb:(bi+1)%nP).filter(i=>pkActive(seats[i]));
+  save();render();pkStep(st);}
+function pkAct(st,p,kind,to){
+  st.need=st.need.filter(x=>x!==p.i);
+  if(kind==='raise'&&Math.min(to,p.cur+p.stack)<=st.bet)kind='call';
+  if(kind==='fold'){p.folded=true;st.log.push(`${p.name} folds.`);}
+  else if(kind==='check')st.log.push(`${p.name} checks.`);
+  else if(kind==='call'){const a=pkPay(st,p,st.bet-p.cur);st.log.push(`${p.name} calls ${fmt(a)}${p.allin?', all in':''}.`);}
+  else{const was=st.bet;pkPay(st,p,Math.min(to,p.cur+p.stack)-p.cur);const by=p.cur-was;
+    if(by>=st.minRaise)st.minRaise=by;st.bet=p.cur;st.last=p.i;st.raises++;
+    st.log.push(`${p.name} ${was===0?'bets':'raises to'} ${fmt(p.cur)}${p.allin?', all in':''}.`);
+    st.need=pkRing(st,p.i+1).filter(i=>i!==p.i&&pkActive(st.seats[i]));}
+  if(p.i===0)save();}
+function pkStep(st){
+  for(;;){
+    if(st.seats.filter(p=>!p.folded).length===1)return pkFinish(st,[st.seats.findIndex(p=>!p.folded)],false);
+    st.need=st.need.filter(i=>pkActive(st.seats[i]));
+    if(!st.need.length)return pkStreetDone(st);
+    const p=st.seats[st.need[0]];
+    if(p.i===0)return pkHuman(st);
+    pkAI(st,p);}}
+function pkStreetDone(st){
+  if(st.stage>=3)return pkShowdown(st);
+  st.stage++;st.flop=true;
   const n=st.stage===1?3:1;for(let i=0;i<n;i++)st.board.push(st.deck.pop());
-  pkRound(st);}
-function pkEnd(st,how){
-  let res,pay=0;const rake=Math.round(st.pot*.05);
-  if(how==='fold')res='I folded.';
-  else if(how==='oppfold'){pay=st.pot-rake;res=`${st.opp} folded.`;}
-  else{const a=pokerScore(st.pl.concat(st.board)),b=pokerScore(st.op.concat(st.board));
-    if(a>b){pay=st.pot-rake;res=`I win with ${HAND_NAMES[pkCat(a)].toLowerCase()} against ${HAND_NAMES[pkCat(b)].toLowerCase()}.`;}
-    else if(a<b)res=`${st.opp} wins with ${HAND_NAMES[pkCat(b)].toLowerCase()} against my ${HAND_NAMES[pkCat(a)].toLowerCase()}.`;
-    else{pay=Math.round(st.pot/2);res='A split pot.';}}
-  S.money+=pay;const net=pay-st.paid;gambleNet(net);gRefresh();
-  choiceModal('♠️ '+(net>0?'You win':net<0?'You lose':'Even'),`${res} ${gSigned(net)}.`,[
-    [`Play again (ante ${fmt(st.bet)})`,()=>pkStart(st.bet),()=>S.money<st.bet],['Change ante',()=>poker(st.bet)],['Leave the table',()=>{}]],pkTable(st,how==='show'));}
+  st.seats.forEach(p=>p.cur=0);st.bet=0;st.minRaise=st.bb;st.raises=0;st.last=null;
+  const act=st.seats.filter(pkActive);
+  st.need=act.length>1?pkRing(st,(st.btn+1)%st.seats.length).filter(i=>pkActive(st.seats[i])):[];
+  pkStep(st);}
+function pkAI(st,p){
+  const opps=st.seats.filter(q=>!q.folded&&q!==p).length;
+  const s=pokerStrengthN(p.hole,st.board)+gauss()*.07-.045*(opps-1);
+  p.s=s;p.rd=s+gauss()*.1;
+  const toCall=st.bet-p.cur,odds=toCall/Math.max(1,st.pot+toCall),capped=st.raises>=4;
+  if(toCall<=0){
+    if(!capped&&(s>.62/p.aggr||rnd()<.05*p.aggr)){const size=Math.max(st.bb,Math.round(st.pot*(s>.85?.9:.45+rnd()*.3)));return pkAct(st,p,'raise',size);}
+    return pkAct(st,p,'check');}
+  if(!capped&&((s>.8&&rnd()<.45*p.aggr)||rnd()<.03*p.aggr))return pkAct(st,p,'raise',st.bet+Math.max(st.minRaise,Math.round((st.pot+toCall)*.7)));
+  if(s>.10+odds*.9*p.tight)return pkAct(st,p,'call');
+  pkAct(st,p,'fold');}
+function pkTable(st,mode){
+  const me=st.seats[0],best=st.board.length>=3?HAND_NAMES[pkCat(pokerScore(me.hole.concat(st.board)))]:null,ld=st.last!=null?st.seats[st.last]:null,
+    read=S.st.smarts>=60&&mode!=='end'&&ld&&!ld.folded&&ld.i!==0?` My read: ${ld.name} looks ${ld.rd>.7?'confident':ld.rd<.35?'shaky':'hard to read'}.`:'';
+  const rows=st.seats.slice(1).map(p=>{const reveal=mode==='end'&&!p.folded&&st.board.length===5;
+    const stat=p.folded?'folded':`${fmt(p.stack)} behind${p.allin?', all in':p.cur>0?`, in for ${fmt(p.cur)}`:''}`;
+    return h('div',{},h('p',{className:'label',style:'margin:4px 0 2px'},`${p.name}${st.btn===p.i?' (dealer)':''}: ${stat}${reveal&&p.sc!=null?`. ${HAND_NAMES[pkCat(p.sc)]}`:''}`),reveal?cardsEl(p.hole):null);});
+  return h('div',{},...rows,h('p',{className:'label',style:'margin:8px 0 2px'},'Board'),st.board.length?cardsEl(st.board):h('p',{className:'sub',style:'margin:0 0 6px'},'No community cards yet.'),
+    h('p',{className:'label',style:'margin:8px 0 2px'},'Me'+(st.btn===0?' (dealer)':'')+(best?`: ${best}`:'')),cardsEl(me.hole),
+    h('p',{className:'sub',style:'margin:0 0 6px'},st.log.slice(-6).join(' ')),
+    h('p',{className:'sub'},`Pot ${fmt(st.pot)}. I have put in ${fmt(me.put)} and ${fmt(me.stack)} behind.${read}`));}
+function pkHuman(st){
+  const me=st.seats[0],toCall=Math.min(st.bet-me.cur,me.stack),ch=[];
+  if(toCall<=0)ch.push(['Check',()=>{pkAct(st,me,'check');pkStep(st);}]);
+  else ch.push([`Call ${fmt(toCall)}${toCall>=me.stack?' (all in)':''}`,()=>{pkAct(st,me,'call');pkStep(st);}]);
+  if(me.stack>toCall)ch.push([st.bet===0?'Bet...':'Raise...',()=>pkRaise(st)]);
+  if(me.stack>toCall)ch.push([`All in (${fmt(me.stack)})`,()=>{pkAct(st,me,'raise',me.cur+me.stack);pkStep(st);}]);
+  if(toCall>0)ch.push(['Fold',()=>{pkAct(st,me,'fold');pkStep(st);}]);
+  choiceModal(`♠️ ${PK_STAGE[st.stage]}`,toCall>0?`It costs ${fmt(toCall)} to call.`:'Nobody has bet yet.',ch,pkTable(st,'play'));}
+function pkRaise(st){
+  const me=st.seats[0],maxTo=me.cur+me.stack,minTo=Math.min(maxTo,st.bet===0?st.bb:st.bet+st.minRaise);
+  amountModal({title:st.bet===0?'Bet':'Raise',sub:`The pot is ${fmt(st.pot)}. This is the total I will have in on this round. Minimum ${fmt(minTo)}, most ${fmt(maxTo)} (all in).`,min:minTo,max:maxTo,init:Math.min(maxTo,Math.max(minTo,Math.round(st.pot*.75+st.bet))),step:1,
+    btn:a=>`${st.bet===0?'Bet':'Raise to'} ${fmt(a)}${a>=maxTo?' (all in)':''}`,
+    note:a=>`That is ${fmt(a-me.cur)} more from my cash. ${st.seats.filter(p=>!p.folded).length-1} opponent${st.seats.filter(p=>!p.folded).length-1>1?'s':''} still in.`,
+    onOk:a=>{pkAct(st,me,'raise',a);pkStep(st);},onCancel:()=>pkHuman(st)});}
+function pkShowdown(st){
+  const live=st.seats.filter(p=>!p.folded);live.forEach(p=>p.sc=pokerScore(p.hole.concat(st.board)));
+  const top=Math.max(...live.map(p=>p.sc));pkFinish(st,live.filter(p=>p.sc===top).map(p=>p.i),true);}
+function pkFinish(st,win,showdown){
+  const rake=st.flop?Math.min(Math.round(st.pot*.05),st.bb*10):0,pot=st.pot-rake,share=Math.floor(pot/win.length),me=st.seats[0];
+  let mine=0;win.forEach((w,k)=>{if(w===0)mine+=share+(k===0?pot-share*win.length:0);});
+  S.money+=mine;const net=mine-me.put;gambleNet(net);gRefresh();
+  const names=win.map(w=>st.seats[w].name),hand=showdown?` with ${HAND_NAMES[pkCat(st.seats[win[0]].sc)].toLowerCase()}`:'';
+  const res=names.length>1?`${names.join(' and ')} split the pot of ${fmt(pot)}${hand}.`:`${names[0]==='Me'?'I win':names[0]+' wins'} ${fmt(pot)}${hand}.`;
+  choiceModal('♠️ '+(net>0?'You win':net<0?'You lose':'Even'),`${res}${rake?` The house took ${fmt(rake)} in rake.`:''} My result: ${gSigned(net)}.`,[
+    ['Next hand',()=>pkHand(),()=>S.money<PK.bb*2],['Change table or blinds',()=>poker()],['Leave the table',()=>{}]],pkTable(st,'end'));}
 
 function crime(catchP,[lo,hi],what,[jmin,jmax]){
   S.flags.crimes++;if(has('reckless'))catchP-=.1;
@@ -4308,7 +4370,7 @@ function mergeInto(b,x){const T=BIZ[x.type];payFrom(b,x.price);const old=b.locs;
 const spendPower=b=>Math.max(0,b?b.cash:0)+Math.max(0,S.money);
 
 /* ---- a reusable "choose an amount" modal: slider + typed number + quick chips ---- */
-function amountModal({title,sub,min=0,max,init,btn,note,onOk,step,fmtA=fmt}){
+function amountModal({title,sub,min=0,max,init,btn,note,onOk,onCancel,step,fmtA=fmt}){
   max=Math.max(0,Math.floor(max));min=Math.max(0,Math.min(min,max));
   if(max<=0||max<min){toast('Not enough money for that right now.');return;}
   const m=$('modal');m.innerHTML='';let amt=Math.max(min,Math.min(max,Math.round(init==null?max*.25:init)));
@@ -4320,7 +4382,7 @@ function amountModal({title,sub,min=0,max,init,btn,note,onOk,step,fmtA=fmt}){
   range.oninput=()=>upd(range.value);num.oninput=()=>upd(num.value,true);num.onblur=()=>{num.value=amt;};
   const chips=h('div',{className:'btns',style:'grid-template-columns:repeat(4,1fr)'},[.25,.5,.75,1].map(f=>h('button',{className:'row',on:()=>upd(min+(max-min)*f)},f===1?'Max':`${f*100}%`)));
   ok.onclick=()=>{if(amt<=0||amt<min)return;closeModal();onOk(amt);};
-  m.append(h('h3',{},title),sub?h('p',{className:'sub'},sub):null,h('p',{className:'label'},`Slide or type an amount (${fmtA(min)} to ${fmtA(max)})`),range,num,chips,noteEl,ok,h('button',{className:'choice alt',on:closeModal},'Cancel'));
+  m.append(h('h3',{},title),sub?h('p',{className:'sub'},sub):null,h('p',{className:'label'},`Slide or type an amount (${fmtA(min)} to ${fmtA(max)})`),range,num,chips,noteEl,ok,h('button',{className:'choice alt',on:()=>{closeModal();if(onCancel)onCancel();}},'Cancel'));
   upd(amt);$('modalWrap').classList.add('open');
 }
 /* keep the old name working everywhere */
