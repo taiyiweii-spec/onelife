@@ -52,7 +52,6 @@ Lean current-state note, read at the start of every session. Working rules are i
 
 | Issue | Note |
 |---|---|
-| `planShort` "can't afford next year's plan" prompt recurs | `autoQty`/`optPriceQty` ignore affordability. Re-test severity first. |
 | Understaffing hits twice | Hard capacity cap plus the soft demand `ratio` in `simBiz`. Deliberate; flag if it plays badly. |
 | Angel-startup IPO path is dead code | Always pays out as an acquisition. |
 | Saves hold a full copy of last year (undo) | Saves about twice the needed size. |
@@ -71,7 +70,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 
 ## 5. Pending decisions
 
-1. **`planShort` throttle.** Re-test how often it fires now, then decide whether to cap auto-production at what the business can afford.
+None open. (`planShort` throttle closed 2026-09-29: re-test showed 9 prompts in 255 business-years, at most 3 in one 15-year run, so no throttle needed.)
 
 ---
 
@@ -109,7 +108,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 
 ## 7. Next step
 
-Pick with David: the pending decision (section 5), or backlog item 4 (special-careers scaffold).
+Pick with David: backlog item 4 (special-careers scaffold).
 
 ---
 
@@ -120,3 +119,5 @@ Pick with David: the pending decision (section 5), or backlog item 4 (special-ca
 **2026-09-29, 3.5.30 price lever.** Goods types (restaurant, bar, farm, dealership) now honour lever `p` for non-default options via `levP`; `levText` shows the price line for them. Default options and the 4 service types unchanged. Balance 0 moved, so no re-baseline. Fingerprint unchanged (1da74e7c2331017d): the playtest never picks a non-default lever.
 
 **2026-09-29, 3.5.31 card debt limit.** Added `cardLimit()` and `fileBankruptcy()` (extracted from the manual button). Year-end forced bankruptcy when card debt passes the limit; Money tab text shows the limit. Phoenix start (-$60,000) stays under it. Not covered by tests (no playtest run reaches it).
+
+**2026-09-29, planShort re-test.** Counted prompts across all 17 business types over 15 years each: 9 prompts in 255 business-years. Not a recurring nuisance, so no code change. Issue and pending decision removed.
