@@ -1408,7 +1408,7 @@ function devPlan(d){
       amountModal({title:`${T.n} on ${d.n}`,sub:`Up to ${fmtN(d.sqm)} sqm fits. About ${fmt(Math.round(cost/d.sqm))} per sqm to build. Costs can run over by up to 25%, and builds can slip a year.`,min:Math.min(500,d.sqm),max:d.sqm,init:d.sqm,step:100,fmtA:fmtN,
         btn:a=>`Build ${fmtN(a)} sqm`,note:a=>`Build cost about ${fmt(devBuildCost(t,a))}. A loan would cover ${fmt(Math.round(devBuildCost(t,a)*.7))}.`,
         onOk:a=>{const c=devBuildCost(t,a),ln=Math.round(c*.7);
-          choiceModal('How to pay',`Build cost ${fmt(c)}. I have ${fmt(S.money)}.`,[
+          choiceModal('How to pay',`Build cost ${fmt(c)}. I have ${fmt(S.money)}. Once built, a loan this size costs about ${fmt(Math.round(ln*(loanRate()+.02)))} a year in interest, plus about ${fmt(Math.round(c*.01))} a year in property tax. Keep cash back for it: unpaid interest is added to the loan.`,[
             [`Pay cash (${fmt(c)})`,()=>startBuild(d,t,a,false),()=>S.money<c],
             [`Construction loan: bank lends ${fmt(ln)} at ${((loanRate()+.02)*100).toFixed(1)}%, I put in ${fmt(c-ln)}`,()=>startBuild(d,t,a,true),()=>badCredit()||S.money<c-ln],
             ['Cancel',()=>{}]]);}});}];});
@@ -1442,8 +1442,7 @@ function yrLand(){
   ds.slice().forEach(d=>{
     const T=d.type?DEV_TYPES[d.type]:null;
     d.v=Math.round(d.v*(1+(PHASE[localPhase()].home+gauss()*3+AREA[d.area].g)/100));
-    if(d.loan&&d.loan.bal>0)S.money-=Math.round(d.loan.bal*d.loan.rate);
-    S.money-=Math.round(devValue(d)*(d.st==='done'?.01:.006));
+    const owe=(d.loan&&d.loan.bal>0?Math.round(d.loan.bal*d.loan.rate):0)+Math.round(devValue(d)*(d.st==='done'?.01:.006));
     if(d.st==='rezone'){
       if(rnd()<rezoneP()){d.zone='commercial';d.st='land';d.v=Math.max(d.v,parcelPrice(d.area,d.sqm,'commercial'));line(`🏗️ The council approved commercial zoning for ${d.n}. The land is worth ${fmt(d.v)} now.`,'good');}
       else{d.st='land';line(`🏗️ The council turned down my rezoning request for ${d.n}. I can apply again.`,'bad');}
@@ -1462,7 +1461,11 @@ function yrLand(){
       const net=Math.round(devNet(d.type,d.area,d.bsqm,d.occ));
       S.money+=net>0?Math.round(net*.8):net;
       line(`🏢 ${d.n} was ${Math.round(d.occ*100)}% leased and ${net>=0?'earned':'lost'} ${fmt(Math.abs(net))} after costs${net>0?' (20% tax taken)':''}.`,net>=0?'good':'bad');}
+    const pay=Math.min(owe,Math.max(0,Math.floor(S.money)));S.money-=pay;
+    if(owe>pay){const short=owe-pay;d.loan=d.loan||{bal:0,rate:+(loanRate()+.03).toFixed(4)};d.loan.bal+=short;line(`🏗️ I could not cover ${fmt(short)} of the interest and property tax on ${d.n}, so it was added to its loan.`,'bad');}
   });
+  const carry=S.dev.reduce((a,d)=>a+(d.loan&&d.loan.bal>0?Math.round(d.loan.bal*d.loan.rate):0)+Math.round(devValue(d)*(d.st==='done'?.01:.006)),0);
+  if(carry>0&&S.money<carry*1.5)line(`⚠️ My cash is low next to the ${fmt(carry)} a year in interest and property tax on my land and buildings. Sell something or pay down a loan before it piles up.`,'bad');
 }
 
 /* ================= work ================= */
