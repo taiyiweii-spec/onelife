@@ -654,6 +654,9 @@ const ACH={
  oldmemoir:['📖','Author','Publish my memoir'],
  oldmuseum:['🏛️','Patron of the arts','Give my collection to a museum'],
  oldgoodbye:['🕊️','No regrets','Say my goodbyes'],
+ techexit:['🏁','Exit','Sell a tech startup to a buyer'],
+ techseriesa:['📈','Series A','Raise a Series A round'],
+ techunicorn:['🦄','Unicorn','Build a tech company worth $1 billion'],
  clubown:['🏟️','Club owner','Buy a sports club'],
  medmogul:['🎬','Media mogul','Own a film studio, record label or streaming service'],
  medbb:['💥','Blockbuster','Release a film that grosses $500 million'],
@@ -5451,6 +5454,183 @@ SPEC.lawfirm={tab:'Cases',
     s.append(tog('🤝 Pro bono work','Gives up 8% of revenue for a better name and family prestige',sp.probono,()=>{sp.probono=!sp.probono;stay();},lock),
       tog('🛡️ Malpractice insurance','Costs 2% of revenue. Without it one claim can hurt badly',sp.ins,()=>{sp.ins=!sp.ins;stay();},lock));
     s.append(h('p',{className:'sub'},'If I am ever arrested, my own firm defends me at a discount.'));}};
+/* ================= tech startup: product, growth, team, funding rounds, cap table, exits ================= */
+const TC_MODEL={
+  freemium:{n:'Freemium app',conv:.045,arpu:96,churn:.4,cac:12,tam:2.5e6,host:1.2,d:'Millions of free users, a few pay. Spreads by word of mouth.'},
+  saas:{n:'Business software (SaaS)',conv:1,arpu:8000,churn:.15,cac:9000,tam:6e3,host:420,d:'Few customers, big contracts. Needs a sales team.'},
+  ads:{n:'Ad-supported platform',conv:1,arpu:7,churn:.5,cac:6,tam:3e6,host:2,d:'Huge audience, tiny revenue per user.'}};
+const TC_ROUNDS=[
+  {k:'pre',n:'Pre-seed',size:[150e3,500e3],dil:[.06,.12],floor:1.5e6,need:'An idea and a founder'},
+  {k:'seed',n:'Seed',size:[500e3,3e6],dil:[.1,.2],floor:4e6,need:'A working product (50% built) or a launch'},
+  {k:'a',n:'Series A',size:[5e6,15e6],dil:[.15,.25],floor:20e6,need:'Revenue over $1M, 50% growth, product fit 50'},
+  {k:'b',n:'Series B',size:[20e6,60e6],dil:[.12,.2],floor:80e6,need:'Revenue over $5M and 35% growth'},
+  {k:'c',n:'Series C',size:[60e6,200e6],dil:[.08,.15],floor:250e6,need:'Revenue over $20M and 25% growth'}];
+const TC_FOCUS=[['product','Build the product'],['growth','Grow fast'],['money','Make money'],['stable','Fix and stabilise']];
+const TC_BUYERS=['Aldrin Systems','Northwave','Corvus Cloud','Helios Group','Maple Data','Zenith Labs'];
+function tcEnsure(b){
+  if(b.sp)return b.sp;
+  const live=b.yrs>=1&&b.lastRev>0,M=TC_MODEL.freemium,ar=M.arpu*cpiF();
+  b.sp={model:'freemium',stage:live?1:0,mvp:live?100:0,live,fit:live?45:20,debt:15,rel:70,users:live?Math.round(b.lastRev/(ar*M.conv)):0,eng:Math.max(1,(b.staff||2)-1),sales:0,
+    focus:'product',price:1,growth:1,comp:30,tam:M.tam,esop:false,rounds:[],hands:true,prevRev:b.lastRev||0,raisedYr:-9,pivots:0,last:null};
+  b.autoStaff=false;return b.sp;}
+const tcM=sp=>TC_MODEL[sp.model];
+const tcArpu=sp=>tcM(sp).arpu*cpiF()*(.6+.4*resC().pp)*sp.price;
+const tcPayers=sp=>Math.round(sp.users*tcM(sp).conv*(sp.model==='freemium'?(.5+sp.fit/100)*(sp.price>1?.8:sp.price<1?1.2:1):1));
+const tcGrowth=b=>{const sp=b.sp;return sp&&sp.prevRev>0?Math.max(-.9,b.lastRev/sp.prevRev-1):b.lastRev>0?1:0;};
+function techVal(b){
+  const sp=b.sp;if(!sp)return Math.max(b.lastRev*(b.lastPre>0?6:2.5),0);
+  if(!sp.live)return Math.round((800e3+sp.mvp*25e3+sp.eng*250e3)*cpiF());
+  const g=tcGrowth(b),mult=Math.max(1.5,Math.min(16,3+g*8+sp.fit/25-(sp.debt>60?1:0)-(sp.comp>70?1:0)));
+  return Math.round(b.lastRev*mult);}
+function techYear(b,common,ph,econ){
+  const sp=tcEnsure(b),M=tcM(sp),k=cpiF();
+  sp.eng=Math.max(0,Math.min(80,sp.eng));sp.sales=Math.max(0,Math.min(60,sp.sales));
+  b.staff=Math.max(1,sp.eng+sp.sales);b.autoStaff=false;
+  b.base=Math.max(15000,b.staff*130000);
+  const foc=sp.focus,dm={product:1.35,growth:.8,money:1,stable:.85}[foc]||1;
+  const skill=.8+Math.max(sk('tech'),S.st.smarts/2)/250;
+  const D=(sp.eng*26*(1-sp.debt/220)+(sp.hands&&b.life==='hands'?20:0))*dm*skill;
+  let rev=0,cogs=0,lines=[];
+  sp.comp=Math.max(5,Math.min(95,sp.comp+R(-5,7)+(ph==='boom'?2:0)));
+  if(!sp.live){
+    sp.mvp=Math.min(100,sp.mvp+D);
+    if(sp.mvp>=100){sp.live=true;sp.fit=Math.round(25+R(0,25)+D/10);sp.users=sp.model==='saas'?R(5,15):Math.round(R(6000,20000)*(sp.model==='ads'?1.5:1));sp.stage=Math.max(sp.stage,1);line(`🚀 ${b.name} launched its product!`,'good');mile(`Launched ${b.name}`);}
+    else lines.push(`${b.name} is ${Math.round(sp.mvp)}% through building its first product.`);
+  }
+  if(sp.live){
+    sp.fit=Math.max(0,Math.min(100,sp.fit+D*.12*(1-sp.fit/105)-sp.comp*.05+(foc==='product'?2:0)+R(-2,3)));
+    sp.debt=Math.max(0,Math.min(100,sp.debt+(foc==='growth'?9:5)-(foc==='stable'?14:0)-(sp.eng>=6?2:0)+D*.03));
+    sp.rel=Math.max(0,Math.min(100,sp.rel+(foc==='stable'?9:-2)-sp.debt*.04+sp.eng*.3));
+    const tam=sp.tam*cty(b).pop*(1+.08*Math.max(0,b.yrs));
+    const viral=({freemium:1.15,ads:1,saas:.12}[sp.model])*Math.pow(sp.fit/100,1.6)*(foc==='growth'?1.3:1);
+    const cac=M.cac*k*(1+sp.users/tam*3)*(1+(100-sp.fit)/150);
+    const mk=[0,.12,.3][sp.growth]*Math.max(0,b.cash);
+    const paid=mk/cac*(.5+sp.fit/100),sold=sp.sales*40*(sp.model==='saas'?1:.15)*(.3+sp.fit/100);
+    const organic=sp.users*viral*Math.max(0,1-sp.users/tam);
+    const load=(b.lastRev||0)/(Math.max(1,sp.eng+sp.sales+(sp.hands&&b.life==='hands'?1:0))*(sp.model==='saas'?450e3:350e3)*k);
+    if(load>1){sp.rel=Math.max(0,sp.rel-8*(load-1));if(load>1.3)lines.push('The team is stretched thin. Quality is slipping and customers are noticing.');}
+    const outage=sp.rel<60&&rnd()<(100-sp.rel)/300;
+    const churn=Math.max(.05,Math.min(.6,M.churn*(1.3-sp.fit/100)+(outage?.08:0)-(foc==='stable'?.02:0)+(load>1?Math.min(.15,.06*(load-1)):0)+(ph==='recession'?.03:ph==='crash'?.08:0)));
+    let nu=Math.max(0,Math.round(sp.users*(1-churn)+(organic+paid+sold)/Math.min(2,Math.max(1,load))));
+    if(rnd()<.14){const sh=pick([{m:.65,f:6,t:'A platform policy change cut off a major source of users.'},{m:.8,f:4,t:'A shift in the market made the product feel dated.'},{m:.7,f:8,t:'A larger rival launched a free copy and took users.'},{m:.85,f:3,t:'A bad review went viral and hurt sign-ups.'}]);nu=Math.round(nu*sh.m);sp.fit=Math.max(0,sp.fit-sh.f);lines.push(sh.t);}
+    sp.users=Math.min(Math.round(tam*.5),nu);sp.churn=churn;sp.cac=Math.round(cac);
+    const payers=tcPayers(sp);rev=payers*tcArpu(sp);
+    if(sp.model==='saas'&&sp.users>0)rev*=Math.max(.6,Math.min(1.5,common));
+    cogs=sp.users*M.host*k*(1+(100-sp.rel)/200)+mk+sp.sales*0;
+    sp.mk=Math.round(mk);sp.payers=payers;
+    if(outage){lines.push('A major outage cost the product some trust.');}
+  }
+  if(foc==='growth'&&!sp.live)lines.push('Growing before launching is only marketing hype.');
+  b.base=Math.max(b.base,15000);
+  // events
+  techEvent(b,sp,rev,ph);
+  sp.prevRev=b.lastRev||0;
+  if(techVal(b)>=1e9*k)unlock('techunicorn');
+  sp.last={rev:Math.round(rev),users:sp.users,payers:sp.payers||0,churn:sp.churn||0,fit:Math.round(sp.fit),debt:Math.round(sp.debt),rel:Math.round(sp.rel),comp:Math.round(sp.comp),D:Math.round(D)};
+  lines.forEach(t=>line(`🚀 ${t}`));
+  if(sp.live&&rev)line(`🚀 ${b.name}: ${fmtN(sp.users)} users, ${fmt(rev)} of revenue, product fit ${Math.round(sp.fit)}, churn ${Math.round((sp.churn||0)*100)}%.`,'');
+  return {rev:Math.round(rev),cogs:Math.round(cogs)};
+}
+function techEvent(b,sp,rev,ph){
+  if(b.ousted||!canManage())return;
+  // acquisition interest
+  if(sp.live&&rev>0&&rnd()<.1+(sp.fit>60?.08:0)+(sp.comp>60?.03:0)){
+    const buyer=pick(TC_BUYERS),price=Math.round(techVal(b)*R(120,240)/100*(sp.fit>=60?1.15:1));
+    Q.push({text:`🤝 ${buyer} wants to acquire ${b.name} for ${fmt(price)}. My share after investors and debt would be about ${fmt(Math.round(Math.max(0,price-(b.loan.bal||0)-(b.credit||0))*b.own*.97))}.`,ch:[
+      ['Accept the offer',()=>{const p=Math.round(Math.max(0,price-(b.loan.bal||0)-(b.credit||0))*b.own*.97+Math.max(0,b.cash)*b.own);unlock('techexit');return sellBiz(b,p);}],
+      ['Counter for 30% more',()=>{if(rnd()<.4){const p=Math.round(Math.max(0,price*1.3-(b.loan.bal||0)-(b.credit||0))*b.own*.97+Math.max(0,b.cash)*b.own);unlock('techexit');return sellBiz(b,p);}return `${buyer} walked away.`;}],
+      ['Decline, I am building something bigger',()=>{b.rep=Math.min(100,b.rep+1);return 'I turned the offer down.';}]]});return;}
+  const ev=[];
+  if(sp.rel<60)ev.push(()=>({text:`${b.name}'s servers went down for two days.`,ch:[
+    [`Fix it properly (${fmt(Math.round(Math.max(20000*cpiF(),b.cash*.04)))})`,()=>{const c=Math.round(Math.max(20000*cpiF(),b.cash*.04));b.cash-=c;sp.rel=Math.min(100,sp.rel+20);return 'We rebuilt the failing parts.';}],
+    ['Apologise and move on',()=>{sp.fit=Math.max(0,sp.fit-5);b.rep=Math.max(0,b.rep-4);return 'Customers were not impressed.';}]]}));
+  ev.push(()=>({text:`A well-funded rival just launched a product very close to ${b.name}'s.`,ch:[
+    ['Out-build them',()=>{sp.focus='product';sp.comp=Math.max(5,sp.comp-8);sp.debt=Math.min(100,sp.debt+6);return 'We switched to product focus and shipped faster.';}],
+    ['Cut prices to hold customers',()=>{sp.price=.8;sp.comp=Math.max(5,sp.comp-4);return 'We held our customers at lower prices.';}],
+    ['Ignore them',()=>{sp.fit=Math.max(0,sp.fit-6);sp.comp=Math.min(95,sp.comp+8);return 'They took some of our users.';}]]}));
+  if(sp.eng>=2)ev.push(()=>({text:`A big company is trying to hire away my best engineer.`,ch:[
+    [`Counter-offer (${fmt(Math.round(40000*cpiF()))})`,()=>{b.cash-=Math.round(40000*cpiF());return 'They stayed and the team was relieved.';},()=>b.cash<40000*cpiF()],
+    ['Let them go',()=>{sp.eng=Math.max(1,sp.eng-1);b.morale=Math.max(0,b.morale-8);return 'We lost an engineer and some momentum.';}]]}));
+  if(sp.live&&sp.fit>=45)ev.push(()=>({text:`A post about ${b.name} went viral.`,ch:[['Ride it',()=>{const g=Math.round(sp.users*R(20,70)/100);sp.users+=g;sp.growth=Math.max(sp.growth,1);S.fame=Math.min(100,(S.fame||0)+2);return `${fmtN(g)} new users arrived in a week.`;}]]}));
+  if(b.inv>=.3)ev.push(()=>({text:`My investors are pushing for faster growth.`,ch:[
+    ['Go all-in on growth',()=>{sp.focus='growth';sp.growth=2;sp.debt=Math.min(100,sp.debt+8);return 'We switched to growth mode.';}],
+    ['Hold my course',()=>{b.rep=Math.max(0,b.rep-2);return 'The board grumbled, but let me continue.';}]]}));
+  if(sp.model!=='saas'&&sp.live&&rnd()<.5)ev.push(()=>({text:`A privacy regulator is asking questions about how ${b.name} handles user data.`,ch:[
+    [`Hire a compliance lead (${fmt(Math.round(60000*cpiF()))})`,()=>{b.cash-=Math.round(60000*cpiF());return 'Compliance work cleared things up.';}],
+    ['Respond minimally',()=>{if(rnd()<.4){const f=Math.round(Math.max(30000*cpiF(),rev*.05));b.cash-=f;return `We were fined ${fmt(f)}.`;}return 'It went away.';}]]}));
+  if(ev.length&&rnd()<.5)Q.push(pick(ev)());
+  // out of runway
+  const burn=b.lastPre<0?-b.lastPre:0;
+  if(b.cash<burn*.4&&burn>0&&!sp.warn){sp.warn=true;
+    Q.push({text:`⚠️ ${b.name} has about ${Math.max(0,Math.round(b.cash/burn*12))} months of cash left.`,ch:[
+      ['Cut costs 30% (layoffs)',()=>{sp.eng=Math.max(1,Math.round(sp.eng*.7));sp.sales=Math.round(sp.sales*.7);b.morale=Math.max(0,b.morale-15);sp.warn=false;return 'We cut the team to extend the runway.';}],
+      [`Fund it myself (${fmt(Math.round(burn*.5))})`,()=>{const x=Math.round(burn*.5);if(S.money<x)return 'I could not afford it.';S.money-=x;b.cash+=x;sp.warn=false;return 'I put in my own money to keep it alive.';},()=>S.money<burn*.5],
+      ['Raise money urgently',()=>{sp.warn=false;return 'I will pitch investors this year.';}],
+      ['Let it run',()=>{sp.warn=false;return 'I decided to see how far the cash goes.';}]]});}
+  else if(b.cash>burn*.8)sp.warn=false;
+}
+function tcRound(b,r){
+  const sp=tcEnsure(b),k=cpiF(),ii=investorInterest(b,'raise'),g=tcGrowth(b);
+  const ok=r.k==='pre'?true:r.k==='seed'?(sp.mvp>=50||sp.live):r.k==='a'?(sp.live&&b.lastRev>=1e6*k&&g>=.5&&sp.fit>=50):r.k==='b'?(b.lastRev>=5e6*k&&g>=.35):(b.lastRev>=20e6*k&&g>=.25);
+  const idx=TC_ROUNDS.indexOf(r);return {ok:ok&&idx<=sp.stage+(sp.live?1:0)&&idx>=0,ii,g};}
+function tcPitch(b,r,sizeLevel){
+  const sp=tcEnsure(b),k=cpiF(),ii=investorInterest(b,'raise'),g=tcGrowth(b);
+  const dil=r.dil[0]+(r.dil[1]-r.dil[0])*sizeLevel/2,
+    pre0=Math.max(r.floor*k,techVal(b)*1.0);
+  pitch(`${r.n} for ${b.name}`,sc=>{
+    const fin=Math.round(ii.score*.5+sc*.4+(sp.fit-50)*.2+Math.min(15,g*10));
+    const pre=Math.round(pre0*(.7+fin/130)),eq=dil,amt=Math.round(pre*eq/(1-eq));
+    const p=Math.max(.1,Math.min(.92,.2+fin/150));
+    if(rnd()<p){
+      const prev=sp.rounds.length?sp.rounds[sp.rounds.length-1].post:0,down=prev&&pre+0<prev*.9;
+      b.own*=1-eq;if(b.co)b.co.share*=1-eq;b.inv=(b.inv||0)*(1-eq)+eq;b.cash+=amt;sp.rounds.push({age:S.age,k:r.k,n:r.n,amt,pre,post:pre+amt,eq});sp.stage=Math.max(sp.stage,TC_ROUNDS.indexOf(r)+1);sp.raisedYr=S.age;
+      if(down){b.morale=Math.max(0,b.morale-12);b.rep=Math.max(0,b.rep-3);}
+      mile(`${b.name} raised a ${r.n} round`);if(r.k==='a')unlock('techseriesa');
+      stay(`${b.name} raised ${fmt(amt)} in a ${r.n} round at a ${fmt(pre)} valuation${down?' (a down round)':''}, giving up ${(eq*100).toFixed(1)}%. I now own ${Math.round(b.own*100)}%.${b.inv>=.3?' Investors now have board seats.':''}`,down?'bad':'good');}
+    else stay(`Investors passed on the ${r.n} round (score ${fin}). I can try again next year.`,'bad');});}
+let tcTab='dash';
+SPEC.tech={tab:'Startup',
+  year:techYear,
+  panel(s,b,lock){
+    const sp=tcEnsure(b),M=tcM(sp),L=sp.last||{},g=tcGrowth(b),val=techVal(b),burn=b.lastPre<0?-b.lastPre:0;
+    s.append(h('div',{className:'tabs'},[['dash','Dashboard'],['product','Product'],['growth','Growth'],['team','Team'],['funding','Funding'],['exit','Exit']].map(([v,l])=>h('button',{'aria-pressed':String(tcTab===v),on:()=>{tcTab=v;drawSheet(true);}},l))));
+    if(tcTab==='dash'){
+      s.append(h('p',{className:'sub'},`${M.n}. ${sp.live?`Stage: ${sp.stage>=5?'Late stage':TC_ROUNDS[Math.min(4,Math.max(0,sp.stage-1))].n+' company'}`:'Still building the first product.'} ${b.yrs} yr${b.yrs===1?'':'s'} old.`));
+      s.append(...spBar('Product built',sp.live?100:sp.mvp,'smarts'),...spBar('Product-market fit',sp.fit,'happy'),...spBar('Reliability',sp.rel,'health'),...spBar('Tech debt (lower is better)',100-sp.debt,'smarts'));
+      s.append(h('dl',{},h('dt',{},'Revenue (last year)'),h('dd',{},fmt(b.lastRev)),h('dt',{},'Growth'),h('dd',{},sp.live?`${Math.round(g*100)}%`:'Pre-launch'),h('dt',{},'Users'),h('dd',{},fmtN(sp.users||0)),h('dt',{},'Paying'),h('dd',{},fmtN(sp.payers||tcPayers(sp))),h('dt',{},'Churn'),h('dd',{},sp.churn?`${Math.round(sp.churn*100)}% a year`:'n/a'),h('dt',{},'Cost to win a user'),h('dd',{},sp.cac?fmt(sp.cac):'n/a'),h('dt',{},'Cash'),h('dd',{className:b.cash<0?'bad':''},fmt(b.cash)),h('dt',{},'Runway'),h('dd',{},burn?`${Math.max(0,b.cash/burn*12).toFixed(0)} months`:'Cash positive'),h('dt',{},'Competition'),h('dd',{},`${Math.round(sp.comp)}%`),h('dt',{},'Valuation'),h('dd',{},fmt(val)),h('dt',{},'I own'),h('dd',{},`${Math.round(b.own*100)}%`)));
+      return;}
+    if(tcTab==='product'){
+      s.append(h('p',{className:'label'},'What we sell'),seg(Object.entries(TC_MODEL).map(([k,v])=>[k,v.n]),sp.model,v=>{if(sp.live&&sp.model!==v){return choiceModal('Change the business model?','Switching costs half of the users and some product fit.',[['Switch',()=>{sp.model=v;sp.tam=TC_MODEL[v].tam;sp.users=Math.round(sp.users*.5);sp.fit=Math.max(0,sp.fit-10);stay('We changed the business model.');}],['Keep it',()=>{}]]);}sp.model=v;sp.tam=TC_MODEL[v].tam;stay();}));
+      s.append(h('p',{className:'sub',style:'margin:-4px 0 10px'},M.d));
+      s.append(h('p',{className:'label'},'This year\'s focus'),seg(TC_FOCUS,sp.focus,v=>{sp.focus=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},{product:'More progress and better fit, but growth waits.',growth:'More users, but tech debt builds up.',money:'Balanced, steady revenue.',stable:'Pays down tech debt and fixes reliability.'}[sp.focus]));
+      s.append(h('p',{className:'label'},'Pricing'),seg([[.8,'Cheap'],[1,'Standard'],[1.25,'Premium']],sp.price,v=>{sp.price=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Cheaper prices keep more paying users, premium prices earn more from fewer.'));
+      s.append(tog('🧑‍💻 I write code myself','Adds to product progress while I run the company hands-on',sp.hands,()=>{sp.hands=!sp.hands;stay();},lock));
+      if(sp.live&&sp.fit<35&&sp.pivots<2)s.append(row('↩️ Pivot to a new idea','Keeps the team and 60% of the product, loses most users, resets fit to 40. Can be done twice','',()=>choiceModal('Pivot?','This is a big bet on a new direction.',[['Pivot',()=>{sp.pivots++;sp.users=Math.round(sp.users*.2);sp.fit=40;sp.mvp=60;sp.live=false;sp.comp=Math.max(5,sp.comp-15);b.morale=Math.max(0,b.morale-10);stay('We pivoted to a new idea.');}],['Stay the course',()=>{}]]),lock));
+      return;}
+    if(tcTab==='growth'){
+      s.append(h('p',{className:'sub'},sp.live?`Cost to win a user is about ${fmt(sp.cac||Math.round(M.cac*cpiF()))}. Word of mouth grows with product fit.`:'Growth spending only starts after launch.'));
+      s.append(h('p',{className:'label'},'Marketing spend (share of cash each year)'),seg([[0,'None'],[1,'Low (12%)'],[2,'High (30%)']],sp.growth,v=>{sp.growth=v;stay();}));
+      s.append(h('p',{className:'sub'},`Sales team: ${sp.sales}. Sales reps help most with business software.${sp.model==='saas'?'':' They add little in a consumer model.'}`));
+      s.append(row('➕ Hire a salesperson','A team member pays about the usual wage each year','',()=>{sp.sales++;stay();},lock||sp.sales>=60),row('➖ Let a salesperson go','','',()=>{sp.sales--;stay();},lock||sp.sales<=0));
+      s.append(h('p',{className:'sub'},`Revenue last year ${fmt(L.rev||0)}.`));return;}
+    if(tcTab==='team'){
+      s.append(h('p',{className:'sub'},`Engineers ${sp.eng}, sales ${sp.sales}. Everyone costs about ${fmt(wagePer(b))} a year. More engineers build faster, but tech debt slows them down.`));
+      s.append(row('➕ Hire an engineer','','',()=>{sp.eng++;stay();},lock||sp.eng>=80),row('➖ Let an engineer go','Layoffs hurt morale','',()=>{sp.eng--;b.morale=Math.max(0,b.morale-6);stay();},lock||sp.eng<=1));
+      s.append(tog('🎯 Employee stock option pool',`Gives staff a stake (I give up 10% of my share). Helps keep people`,sp.esop,()=>{if(!sp.esop){b.own*=.9;sp.esop=true;stay('I set up an employee option pool.');}},lock||sp.esop));
+      s.append(h('p',{className:'sub'},`Morale ${Math.round(b.morale)}%. Product progress per year about ${L.D||0} points.`));return;}
+    if(tcTab==='funding'){
+      s.append(h('p',{className:'sub'},`I own ${Math.round(b.own*100)}%. Investors own ${Math.round((b.inv||0)*100)}%. Valuation today about ${fmt(val)}.`));
+      const done=sp.raisedYr===S.age;
+      TC_ROUNDS.forEach((r,i)=>{const e=tcRound(b,r),prior=sp.rounds.find(x=>x.k===r.k);
+        s.append(row(`${r.n}${prior?' (raised)':''}`,prior?`${fmt(prior.amt)} at ${fmt(prior.pre)}, ${(prior.eq*100).toFixed(1)}% sold at age ${prior.age}`:e.ok?`Ask for ${fmt(Math.round(r.size[0]*cpiF()))} to ${fmt(Math.round(r.size[1]*cpiF()))}`:`Needs: ${r.need}`,'',()=>choiceModal(`Raise a ${r.n} round`,`How much of the company do I sell? A bigger round means more cash and more dilution. The investor interest score is ${e.ii.score}.`,[
+          ['A small round',()=>tcPitch(b,r,0)],['A normal round',()=>tcPitch(b,r,1)],['A large round',()=>tcPitch(b,r,2)],['Not now',()=>{}]]),lock||!e.ok||!!prior||done));});
+      if(sp.rounds.length){s.append(h('h4',{},'Round history'));sp.rounds.forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.n}, ${fmt(x.amt)} at ${fmt(x.pre)} before the money.`)));}
+      s.append(h('p',{className:'sub'},'Investors with 30% or more get board seats and can push for growth or even replace me.'));return;}
+    // exit
+    s.append(h('p',{className:'sub'},`Buyers and the public markets look at revenue, growth and product fit. Now: revenue ${fmt(b.lastRev)}, growth ${Math.round(g*100)}%, fit ${Math.round(sp.fit)}. A company worth about ${fmt(val)}.`));
+    s.append(row('🔔 Go public',b.pub?'Already public':'Needs a $75M value, 3 years and enough revenue. Use the Finance tab','',()=>{bTab='fin';drawSheet(true);},lock));
+    s.append(row('🏁 Shut it down','Close the company and recover what is left','',()=>choiceModal('Close the company?','This ends the business. I may recover some cash.',[['Close it',()=>{closeBiz(b,sp.live&&b.lastRev>0?false:true);stay(`I closed ${b.name}.`);}],['Keep going',()=>{}]]),lock));
+    s.append(h('p',{className:'sub'},'Buyers sometimes make offers on their own when the product is working. They are more likely if product fit is high.'));}};
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -6627,7 +6807,7 @@ const needStaff=b=>{const T=Tof(b);let n=T.tech?Math.max(2,Math.ceil(b.base/1500
 const payMult=b=>b.payPct!=null?b.payPct/100:({low:.85,market:1,high:1.15}[b.pay]||1);
 const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*payMult(b)*(b.union?1.1:1));
 const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0)+(b.sl?b.sl.bal:0);let v;
-  if(T.tech)v=Math.max(b.lastRev*(b.lastPre>0?6:2.5),T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
+  if(T.tech)v=Math.max(techVal(b),T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
   v+=(b.fac||0)*T.cost*.6;v*=1+Math.min(.12,(b.gens-1)*.04);return Math.max(0,Math.round(v*(b.pub?b.pub.sent:1)));};
 const stakeVal=()=>S.biz.reduce((a,b)=>a+bizVal(b)*b.own,0);
 const synergy=b=>SYN.filter(([x,y])=>(b.type===x&&S.biz.some(o=>o.type===y))||(b.type===y&&S.biz.some(o=>o.type===x)));
@@ -6690,7 +6870,7 @@ function simBiz(b){
   const cash0=b.cash,acc0=Object.assign({prod:0,owner:0,invest:0},b.cfAcc);
   const T=Tof(b),L=lev(b),ph=bizPhase(b),simple=b.mode==='simple';
   const econ={boom:.12,normal:0,recession:-.12,crash:-.28}[ph]*T.econ*cty(b).vol*(L.e||1)*(b.lever==='annual'?1:1);
-  if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.lossY=b.lastPre<0?(b.lossY||0)+1:0;setBase(b,Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+((b.rep-50)/4+(L.g||0))*Math.max(.25,slow))/100))));
+  if(T.tech&&!SPEC[b.type]){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.lossY=b.lastPre<0?(b.lossY||0)+1:0;setBase(b,Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+((b.rep-50)/4+(L.g||0))*Math.max(.25,slow))/100))));
     if((b.lossY||0)>=3&&b.base<1e6)setBase(b,Math.max(15000,Math.round(b.base*R(55,90)/100)));}
   if(b.ousted)b.life='absent';
   const sup=SUPPLIERS[b.supplier];
@@ -7117,7 +7297,7 @@ function drawBiz(s,b){
     if(trendHits(b)&&b.ride!==S.trend.k)s.append(row(`🔥 Ride the ${TRENDS[S.trend.k].n.toLowerCase()}`,`Rebrand for ${fmt(b.base*b.locs*.08)}. +20% while it lasts, dated for 2 years after`,'',()=>{b.cash-=Math.round(b.base*b.locs*.08);b.ride=S.trend.k;stay(`${b.name} jumped on the trend.`,'good')}));
     if(isGoods(b)){}else if(b.rd)s.append(h('p',{className:'sub'},`🧪 Developing ${b.rd.n}: ${b.rd.yrs} yr left.`));
     else s.append(row('🧪 Develop a new product',`R&D costs ${fmt(b.base*.1)} from business cash. Takes 1 to 2 years`,'',()=>{b.cash-=Math.round(b.base*.1);b.rd={n:prodName(b),yrs:R(1,2)};stay(`${b.name} started developing ${b.rd.n}.`)},false,1));
-    if(T.tech&&!b.pivoted)s.append(row('↩️ Pivot the product','Reset reputation and growth for a new idea. Could be better or worse. Once only','',()=>{b.pivoted=true;setBase(b,T.base*R(50,250)/100);b.rep=50;mile(`Pivoted ${b.name}`);stay(`${b.name} pivoted to a whole new idea.`)}));
+    if(false&&T.tech&&!b.pivoted)s.append(row('↩️ Pivot the product','Reset reputation and growth for a new idea. Could be better or worse. Once only','',()=>{b.pivoted=true;setBase(b,T.base*R(50,250)/100);b.rep=50;mile(`Pivoted ${b.name}`);stay(`${b.name} pivoted to a whole new idea.`)}));
     s.append(h('h4',{},'Growth'));growthBlock(s,b,T);
     return;}
   if(bTab==='people'){
@@ -7608,13 +7788,13 @@ function finTab(s,b){
         row('Repay','','',()=>amountModal({title:'Repay the credit line',max:Math.min(b.credit||0,b.cash),init:Math.min(b.credit||0,b.cash),btn:a=>`Repay ${fmt(a)}`,onOk:a=>{b.cash-=a;b.credit-=a;stay(`Repaid ${fmt(a)} of the credit line.`,'good')}}),!b.credit||b.cash<=0)));
     // investors
     const ii=investorInterest(b);const why=b.pub?'Public companies raise money on the stock market':S.used['raise'+b.id]?'Already pitched this year':ii.score<40?`Interest too low (${ii.score}/100, needs 40)`:energyLeft()<1?'Needs 1 energy (⚡)':b.own<=.15?'I own too little to sell more':null;
-    s.append(h('h4',{},'Investors'),row('💸 Raise money from investors',why||(bizScal(b)?'Sell part of the company. The money goes into the business':'Investors only back businesses that can scale: tech, online, or chains of 3 or more'),'',()=>{const base=Math.max(v,T.cost);
+    s.append(h('h4',{},'Investors'),row('💸 Raise money from investors',why||(T.tech?'Tech startups raise funding rounds in the Startup tab':bizScal(b)?'Sell part of the company. The money goes into the business':'Investors only back businesses that can scale: tech, online, or chains of 3 or more'),'',()=>{const base=Math.max(v,T.cost);
       amountModal({title:`Raise money for ${b.name}`,sub:`Investors value it at about ${fmt(investorOffer(ii.score,base,0).pre)} before their money.`,max:base*.5,init:base*.2,btn:a=>`Pitch for ${fmt(a)}`,
         note:a=>`They'd want about ${(investorOffer(ii.score,base,a).eq*100).toFixed(1)}% of the company.`,
         onOk:a=>{S.used['raise'+b.id]=true;spend(1);pitch(`Raising for ${b.name}`,sc=>{const fin=Math.round(ii.score*.6+sc*.4);
           if(fin>=45){const o=investorOffer(fin,base,a);const tot=b.own+(b.co?b.co.share:0)+(b.inv||0)||1;const keep=1-o.eq;b.own*=keep;if(b.co)b.co.share*=keep;b.inv=(b.inv||0)*keep+o.eq;b.cash+=a;
             stay(`${b.name} raised ${fmt(a)} for ${(o.eq*100).toFixed(1)}% (overall score ${fin}). I now own ${Math.round(b.own*100)}%.${b.inv>=.3?' Investors now have board seats.':''}`,'good');}
-          else stay(`Investors passed. Overall score ${fin}, they needed 45. I can try again next year.`,'bad');});}});},!!why||!bizScal(b)),interestBox(ii));
+          else stay(`Investors passed. Overall score ${fin}, they needed 45. I can try again next year.`,'bad');});}});},!!why||!bizScal(b)||T.tech),interestBox(ii));
     // IPO
     if(!b.pub){const need=75e6*cpiF();s.append(h('h4',{},'Go public'),row('🔔 IPO',v<need?`Needs a company value of ${fmt(need)} (now ${fmt(v)})`:(b.lastRev||0)<need/3?`Needs yearly revenue of ${fmt(need/3)} (now ${fmt(b.lastRev||0)})`:b.yrs<3?`Needs 3 years of trading (now ${b.yrs})`:'Sell 30% of my stake to the public. Shares trade in the Investing tab','',()=>{
       const cashOut=Math.max(0,Math.round(v*b.own*.3*.9*.93-2e6*cpiF()));S.money+=cashOut;b.inv+=b.own*.3;b.own*=.7;b.pub={sent:1};b.pub.px=sharePx(b);b.pub.h=[{age:S.age,nw:b.pub.px}];S.fame=Math.min(100,(S.fame||0)+15);unlock('ipo');mile(`Took ${b.name} public`);stay(`${b.name} went public! I cashed out ${fmt(cashOut)}.`,'good')},v<need||(b.lastRev||0)<need/3||b.yrs<3));}
