@@ -654,6 +654,7 @@ const ACH={
  oldmemoir:['📖','Author','Publish my memoir'],
  oldmuseum:['🏛️','Patron of the arts','Give my collection to a museum'],
  oldgoodbye:['🕊️','No regrets','Say my goodbyes'],
+ gmhit:['🎮','Critical darling','Release a game with a review score of 85 or more'],
  techexit:['🏁','Exit','Sell a tech startup to a buyer'],
  techseriesa:['📈','Series A','Raise a Series A round'],
  techunicorn:['🦄','Unicorn','Build a tech company worth $1 billion'],
@@ -5679,6 +5680,128 @@ function ipoModal(b){
       if(o[1]){b.inv+=b.own*o[1];S.money+=c.cash;b.own*=1-o[1];}
       b.pub={sent:1+R(0,15)/100,lock:S.age};b.pub.px=sharePx(b);b.pub.h=[{age:S.age,nw:b.pub.px}];S.fame=Math.min(100,(S.fame||0)+15);unlock('ipo');mile(`Took ${b.name} public`);
       stay(`${b.name} went public. It raised ${fmt(c.net)} from new shares${c.cash?` and I sold shares for ${fmt(c.cash)}`:''}. My stake fell to ${(b.own*100).toFixed(1)}%.`,'good');},()=>c.net<=0];}).concat([['Not now',()=>{}]]));}
+/* ================= game studio: projects, scope, quality, reviews, sales tails, live service, publishers ================= */
+const GM_GENRE={action:'Action',rpg:'Role-playing',puzzle:'Puzzle',sim:'Simulation',shooter:'Shooter',sports:'Sports'};
+const GM_SCOPE={1:{n:'Indie game',pts:45,units:42e3,price:15,ext:.03e6},2:{n:'Mid-size game',pts:180,units:85e3,price:28,ext:.6e6},3:{n:'AAA blockbuster',pts:700,units:900e3,price:60,ext:8e6}};
+const GM_PLAT={pc:{n:'PC',r:1,p:1,c:1},mobile:{n:'Mobile',r:1.5,p:.35,c:1},console:{n:'Consoles',r:1.25,p:1.05,c:1.2},all:{n:'All platforms',r:1.7,p:.9,c:1.6}};
+const GM_NAMES=['Echoes of Dawn','Hollow Circuit','Glass Frontier','Ember Drift','Last Signal','Moonlit Quarter','Iron Orchard','Paper Kingdoms','Static Harvest','Neon Tides','Wild Meridian','Quiet Engine'];
+function gmEnsure(b){
+  if(b.sp)return b.sp;
+  const live=b.yrs>=1&&b.lastRev>0;
+  b.sp={devs:Math.max(3,b.staff||3),tech:30,brand:live?30:15,crunch:false,qa:1,mkt:1,proj:null,cat:live?[{n:'Back catalogue',genre:'action',scope:1,score:62,model:'premium',age:S.age-1,rev1:b.lastRev,units:0,tailOnly:true}]:[],last:null,hist:[]};
+  b.autoStaff=false;return b.sp;}
+const gmSkill=b=>{const t=b.team||[];return (55*Math.max(1,b.sp.devs-t.length)+t.reduce((a,p)=>a+p.skill,0))/Math.max(1,b.sp.devs);};
+const gmCost=(sp,scope)=>Math.round(GM_SCOPE[scope].pts/14*80000*cpiF()*.9*(.6+.4*resC().pp));
+const gmPts=P=>Math.round(GM_SCOPE[P.scope].pts*GM_PLAT[P.plat].c);
+function gmProjectRow(b,sp,P){return `${P.n}: ${GM_GENRE[P.genre]}, ${GM_SCOPE[P.scope].n.toLowerCase()} for ${GM_PLAT[P.plat].n}. ${Math.round(P.prog/gmPts(P)*100)}% built, hype ${Math.round(P.hype*100)}%${P.pub?', backed by a publisher':''}`;}
+function gmRelease(b,sp,P,res){
+  const sc=GM_SCOPE[P.scope],plat=GM_PLAT[P.plat],k=cpiF();
+  const teamQ=gmSkill(b)*.3;
+  let Q=30+teamQ+sp.tech*.25+sp.qa*6+(P.seqN?-3*P.seqN:0)+gauss()*7-(sp.crunch?6:0)-(P.rushed?8:0)+(P.pub?2:0);
+  Q=Math.max(10,Math.min(98,Q));
+  const trend=trendHits(b)?1.15:1;
+  let A=sc.units*plat.r*(.5+sp.brand/80)*(1+P.hype)*trend*(P.seq?1.4:1)*(.6+b.rep/125);
+  const mult=Math.max(.12,Math.min(9,Math.exp((Q-65)/17)));
+  let units=Math.round(A*mult*(.85+rnd()*.3));
+  const sleeper=Q>=78&&rnd()<.12;if(sleeper){units=Math.round(units*R(15,35)/10);}
+  const price=sc.price*k*plat.p*(.4+.6*resC().pp);
+  let rev1,live=null;
+  if(P.model==='f2p'){const users=Math.round(units*3.5);live={users,arppu:Math.round(4.6*k*(.4+.6*resC().pp)*plat.p*100)/100,decay:.6};rev1=users*live.arppu;}
+  else rev1=units*price;
+  const done={n:P.n,genre:P.genre,scope:P.scope,score:Math.round(Q),model:P.model,age:S.age,rev1:Math.round(rev1),units,pub:P.pub,live,sleeper,seq:P.seqN||0};
+  sp.cat.push(done);if(sp.cat.length>14)sp.cat.shift();
+  sp.brand=Math.max(0,Math.min(100,sp.brand+(Q-60)/3));
+  b.rep=Math.max(0,Math.min(100,b.rep+(Q-62)/6));
+  if(Q>=85){S.fame=Math.min(100,(S.fame||0)+2);unlock('gmhit');}
+  if(Q<45)b.morale=Math.max(0,b.morale-8);
+  res.ln.push(`🎮 ${P.n} launched to a review score of ${Math.round(Q)}${sleeper?' and became a sleeper hit':''}. ${fmtN(units)} ${P.model==='f2p'?'players':'copies'}, ${fmt(Math.round(rev1))} in its first year.`);
+  mile(`Released ${P.n}`);return done;}
+function gmYear(b,common,ph,econ){
+  const sp=gmEnsure(b),res={ln:[]};sp.devs=Math.max(1,Math.min(120,sp.devs));b.staff=sp.devs;b.autoStaff=false;b.base=Math.max(15000,sp.devs*65000);
+  const k=cpiF();let rev=0,cogs=0;
+  // live service and sales tails from earlier games
+  sp.cat.forEach(g=>{const yrs=S.age-g.age;
+    if(g.live&&yrs>=1&&yrs<=5){g.live.users=Math.round(g.live.users*g.live.decay*(sp.devs>=4?1:.8));const r=g.live.users*g.live.arppu;rev+=r;g.rev1+=0;}
+    else if(!g.live&&yrs===1)rev+=g.rev1*.25;else if(!g.live&&yrs===2)rev+=g.rev1*.1;
+    else if(g.tailOnly&&yrs===1)rev+=g.rev1*.4;});
+  // development
+  const P=sp.proj;
+  if(P){
+    const sc=Object.assign({},GM_SCOPE[P.scope]);sc.pts=Math.round(sc.pts*GM_PLAT[P.plat].c);const liveShare=Math.min(.3,sp.cat.filter(g=>g.live&&S.age-g.age<=5).length*.1);
+    const pts=sp.devs*14*(.7+gmSkill(b)/100*.6)*(sp.crunch?1.3:1)*(.8+.4*b.morale/100)*(1-liveShare);
+    P.prog+=pts;P.hype=Math.min(1.5,P.hype+[0,.1,.3,.6][sp.mkt]*(P.pub?1.4:1));
+    cogs+=Math.round(gmCost(sp,P.scope)*[.05,.12,.3,.55][sp.mkt]/Math.max(1,sc.pts/pts));
+    cogs+=Math.round(sc.ext*k*(.4+.6*resC().pp)*Math.min(1,pts/sc.pts));
+    if(P.prog>=sc.pts){
+      const rel=gmRelease(b,sp,P,res);rev+=rel.rev1;sp.proj=null;
+      if(P.pub)cogs+=rel.rev1*.35;
+      cogs+=Math.round(rel.rev1*.05);
+    }else{
+      const left=Math.max(1,Math.round((sc.pts-P.prog)/pts*10)/10);res.ln.push(`🎮 ${P.n} is ${Math.round(P.prog/sc.pts*100)}% built. About ${left} year${left===1?'':'s'} to go.`);
+      if(P.prog/sc.pts<.7&&sp.devs*14<sc.pts/3)P.rushed=true;
+      if(rnd()<.08&&!P.delayed){P.delayed=true;P.prog*=.9;res.ln.push(`A major bug set ${P.n} back.`);}
+    }
+  }
+  // platform fees on all sales
+  cogs+=Math.round(rev*.3);
+  if(sp.crunch){b.morale=Math.max(0,b.morale-8);if(rnd()<.3&&sp.devs>3){sp.devs--;res.ln.push('A burned-out developer quit.');}}
+  sp.brand=Math.max(0,sp.brand*.95);
+  sp.last={rev:Math.round(rev)};
+  res.ln.forEach(t=>line(t,/launched|quit|set .* back/.test(t)?'':''));
+  // events
+  if(!b.ousted&&canManage()&&rnd()<.28)gmEvent(b,sp);
+  return {rev:Math.round(rev),cogs:Math.round(cogs)};}
+function gmEvent(b,sp){
+  const ev=[];
+  if(sp.proj)ev.push(()=>({text:`The publisher of a rival game is pulling out a similar title in the same month as ${sp.proj.n}.`,ch:[
+    ['Delay my launch (lose some momentum)',()=>{sp.proj.hype=Math.max(0,sp.proj.hype-.1);sp.proj.prog=Math.max(0,sp.proj.prog-5);return 'We slid the launch to avoid the clash.';}],
+    ['Launch anyway and spend more on marketing',()=>{sp.proj.hype=Math.min(1.5,sp.proj.hype+.2);b.cash-=Math.round(gmCost(sp,sp.proj.scope)*.1);return 'We fought for attention.';}]]}));
+  ev.push(()=>({text:'A big publisher offers to acquire the studio.',ch:[
+    [`Sell for about ${fmt(Math.round(bizVal(b)*R(125,200)/100))}`,()=>{const p=Math.round(Math.max(0,bizVal(b)*R(125,200)/100)*b.own*.97);return sellBiz(b,p);}],
+    ['Stay independent',()=>{b.rep=Math.min(100,b.rep+2);return 'We stayed independent.';}]]}));
+  if(sp.cat.length&&sp.cat[sp.cat.length-1].score>=75)ev.push(()=>({text:`A platform wants to feature ${sp.cat[sp.cat.length-1].n} on its front page.`,ch:[['Say yes',()=>{sp.brand=Math.min(100,sp.brand+6);b.cash+=Math.round(sp.cat[sp.cat.length-1].rev1*.08);return 'Sales jumped for a month.';}]]}));
+  if(sp.devs>=4)ev.push(()=>({text:'A bigger studio is trying to hire away my lead designer.',ch:[
+    [`Counter with a raise (${fmt(Math.round(30000*cpiF()))})`,()=>{b.cash-=Math.round(30000*cpiF());return 'They stayed.';}],
+    ['Let them go',()=>{sp.devs--;sp.tech=Math.max(0,sp.tech-3);b.morale=Math.max(0,b.morale-6);return 'We lost a key developer.';}]]}));
+  ev.push(()=>({text:'A copycat studio cloned my game mechanics.',ch:[['Sue for infringement',()=>{const c=Math.round(40000*cpiF());b.cash-=c;if(rnd()<.4){b.cash+=c*3;return 'We won damages.';}return 'It cost money and went nowhere.';}],['Let it go',()=>{sp.brand=Math.max(0,sp.brand-3);return 'It hurt a little.';}]]}));
+  Q.push(pick(ev)());}
+let gmTab='proj';
+SPEC.games={tab:'Studio',year:gmYear,
+  panel(s,b,lock){
+    const sp=gmEnsure(b),k=cpiF();
+    s.append(h('div',{className:'tabs'},[['proj','Projects'],['team','Studio'],['pub','Marketing'],['cat','Catalogue']].map(([v,l])=>h('button',{'aria-pressed':String(gmTab===v),on:()=>{gmTab=v;drawSheet(true);}},l))));
+    if(gmTab==='proj'){
+      const P=sp.proj;
+      if(P){s.append(h('p',{className:'sub'},gmProjectRow(b,sp,P)),...spBar('Progress',P.prog/gmPts(P)*100,'smarts'),...spBar('Hype',Math.min(100,P.hype*100),'happy'));
+        s.append(row('Cancel this project','Everything spent so far is lost','',()=>choiceModal('Cancel the project?','The team will be demoralised.',[['Cancel it',()=>{sp.proj=null;b.morale=Math.max(0,b.morale-12);stay();}],['Keep going',()=>{}]]),lock));
+        return;}
+      s.append(h('p',{className:'sub'},`The studio has ${sp.devs} developers (skill about ${Math.round(gmSkill(b))}) and engine tech ${sp.tech}. A game needs the whole team, and the bigger the game the longer it takes.`));
+      const dr={genre:'action',scope:1,plat:'pc',model:'premium',pub:false,seq:false};
+      s.append(row('➕ Start a new game','Pick genre, size, platform and how to publish','',()=>gmNew(b,sp,dr),lock));
+      const best=sp.cat.filter(g=>g.score>=72).slice(-1)[0];
+      if(best)s.append(row(`🔁 Make a sequel to ${best.n}`,'Brings fans along, but sequels tire out over time','',()=>gmNew(b,sp,{genre:best.genre,scope:Math.min(3,best.scope+(best.scope<3&&sp.devs>=8?1:0)),plat:'pc',model:best.model,pub:false,seq:true,seqN:(best.seq||0)+1,n:best.n+' '+((best.seq||0)+2)}),lock));
+      return;}
+    if(gmTab==='team'){
+      s.append(h('p',{className:'sub'},`Developers ${sp.devs}. Each costs about ${fmt(wagePer(b))} a year. Morale ${Math.round(b.morale)}%. Engine tech ${sp.tech}.`));
+      s.append(row('➕ Hire a developer','','',()=>{sp.devs++;stay();},lock||sp.devs>=120),row('➖ Let a developer go','','',()=>{sp.devs--;b.morale=Math.max(0,b.morale-5);stay();},lock||sp.devs<=1));
+      const rd=Math.round(100000*k*(1+sp.tech/50));
+      s.append(row('🔧 Invest in the game engine',`Costs ${fmt(rd)}. Better tech raises quality and cuts bugs`,fmt(rd),()=>{b.cash-=rd;sp.tech=Math.min(100,sp.tech+R(3,8));stay('The engine improved.','good');},lock||b.cash<rd||sp.tech>=100));
+      s.append(h('p',{className:'label'},'Quality testing'),seg([[0,'Minimal'],[1,'Standard'],[2,'Thorough'],[3,'Obsessive']],sp.qa,v=>{sp.qa=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'More testing lifts review scores a little, but it slows nothing in this model, only costs time you give up elsewhere. Skimping creates bugs.'));
+      s.append(tog('🔥 Crunch time','Develop 30% faster, but quality drops, morale falls and people quit',sp.crunch,()=>{sp.crunch=!sp.crunch;stay();},lock));return;}
+    if(gmTab==='pub'){
+      s.append(h('p',{className:'label'},'Marketing level'),seg([[0,'None'],[1,'Light'],[2,'Strong'],[3,'Blockbuster']],sp.mkt,v=>{sp.mkt=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Builds hype before launch. Cost scales with the size of the game.'));
+      s.append(row('🎪 Show at a trade fair',`About ${fmt(Math.round(40000*k))}. Gives the current game a hype boost and builds the brand`,'',()=>{const c=Math.round(40000*k);b.cash-=c;if(sp.proj)sp.proj.hype=Math.min(1.5,sp.proj.hype+.25);sp.brand=Math.min(100,sp.brand+4);stay('We showed the game at a fair.');},lock||!sp.proj||b.cash<40000*k));
+      s.append(h('p',{className:'sub'},`Fanbase ${Math.round(sp.brand)}%. A strong brand sells more of every game and fades if I stop releasing.`));return;}
+    s.append(h('p',{className:'sub'},'Games I have released.'));
+    if(!sp.cat.length)s.append(h('p',{className:'sub'},'Nothing released yet.'));
+    sp.cat.slice().reverse().forEach(g=>s.append(row(`${g.n}`,`${GM_GENRE[g.genre]||'Action'}, ${GM_SCOPE[g.scope].n.toLowerCase()}. Review score ${g.score}. ${g.units?fmtN(g.units)+' '+(g.model==='f2p'?'players':'copies')+', ':''}${fmt(g.rev1)} in year one${g.live&&S.age-g.age<=5?`. Live service with ${fmtN(g.live.users)} players`:''}.`,'',null,true)));}};
+function gmNew(b,sp,dr){
+  const draw=()=>{const m=$('modal');m.innerHTML='';const sc=GM_SCOPE[dr.scope],est=gmCost(sp,dr.scope);
+    m.append(h('h3',{},dr.seq?`Sequel: ${dr.n}`:'Start a new game'),h('p',{className:'sub'},`The studio can build about ${Math.round(sp.devs*14*(.7+gmSkill(b)/100*.6))} points of work a year. This ${sc.n.toLowerCase()} needs ${Math.round(sc.pts*GM_PLAT[dr.plat].c)}, so about ${(sc.pts*GM_PLAT[dr.plat].c/(sp.devs*14*(.7+gmSkill(b)/100*.6))).toFixed(1)} years. Estimated cost ${fmt(est)} in wages, plus about ${fmt(Math.round(sc.ext*cpiF()*(.4+.6*resC().pp)))} for art, licences and outside help. ${dr.scope===3&&sp.devs<15?'A blockbuster with a small team will come out rushed.':''}`));
+    m.append(h('p',{className:'label'},'Genre'),seg(Object.entries(GM_GENRE),dr.genre,v=>{dr.genre=v;draw();}),h('p',{className:'label'},'Size'),seg([[1,'Indie'],[2,'Mid-size'],[3,'AAA']],dr.scope,v=>{dr.scope=v;draw();}),h('p',{className:'label'},'Platform'),seg(Object.entries(GM_PLAT).map(([k,v])=>[k,v.n]),dr.plat,v=>{dr.plat=v;draw();}),h('p',{className:'label'},'How it earns'),seg([['premium','Sold once'],['f2p','Free to play, live service']],dr.model,v=>{dr.model=v;draw();}));
+    m.append(tog('🏢 Sign with a publisher',`A publisher pays about ${fmt(Math.round(est*.6))} up front and boosts marketing, but keeps 35% of the sales`,dr.pub,()=>{dr.pub=!dr.pub;draw();}));
+    m.append(h('button',{className:'choice',on:()=>{closeModal();sp.proj={n:dr.n||pick(GM_NAMES),genre:dr.genre,scope:dr.scope,plat:dr.plat,model:dr.model,pub:dr.pub,seq:dr.seq,seqN:dr.seqN||0,prog:0,hype:dr.pub?.2:0,start:S.age};if(dr.pub)b.cash+=Math.round(est*.6);stay(`We started work on ${sp.proj.n}.`,'good');}},'Start the project'),h('button',{className:'choice alt',on:closeModal},'Cancel'));
+    $('modalWrap').classList.add('open');};draw();}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -6943,7 +7066,7 @@ function simBiz(b){
     rev=Math.round(demand*P.p*(L.p||1)*cty(b).pp);}
   b.lastSoldOut=soldOut;
   if(SPEC[b.type]){const sp0=SPEC[b.type].year(b,common,ph,econ);rev=sp0.rev;b.spC=sp0.cogs;writeoff=0;}
-  let hit=false;if(T.hit&&rnd()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
+  let hit=false;if(T.hit&&!SPEC[b.type]&&rnd()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
   const conRev=b.contracts.reduce((a,c)=>a+c.rev,0);b.contracts.forEach(c=>c.yrs--);b.contracts=b.contracts.filter(c=>c.yrs>0);
   let royal=0;if(b.fr){const grow=Math.round(R(0,3)*(b.rep/70));b.fr.n+=grow;royal=Math.round(b.fr.n*b.base*.9*.06);}
   const idx=b.contract?b.contract.idx:S.supIdx;if(b.contract){b.contract.yrs--;if(b.contract.yrs<=0)b.contract=null;}
