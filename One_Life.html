@@ -2134,10 +2134,15 @@ let wbTab='work',bizPill='empire';
 function jobSheet(){bizView=null;launch=null;buyDeal=null;openSheet(drawWork);}
 function drawWork(s){
   if(bizView){const b=S.biz.find(x=>x.id===bizView);if(b)return drawBiz(s,b);bizView=null;}
-  s.append(h('div',{className:'tabs'},[['work','💼 Work'],['biz','🏢 Business']].map(([v,l])=>h('button',{'aria-pressed':String(wbTab===v),on:()=>{wbTab=v;bizView=null;launch=null;buyDeal=null;flash=null;drawSheet(true)}},l))));
+  s.append(h('div',{className:'tabs'},[['work','💼 Work'],['biz','🏢 Business'],['careers','🏆 Careers']].map(([v,l])=>h('button',{'aria-pressed':String(wbTab===v),on:()=>{wbTab=v;bizView=null;launch=null;buyDeal=null;flash=null;drawSheet(true)}},l))));
   if(wbTab==='work')return tabWorkContent(s);
+  if(wbTab==='careers')return tabCareers(s);
   s.append(h('div',{className:'tabs'},[['empire','Empire'],['market','Market'],['founder','Founder']].map(([v,l])=>h('button',{'aria-pressed':String(bizPill===v),on:()=>{bizPill=v;bizView=null;launch=null;buyDeal=null;flash=null;drawSheet(true)}},l))));
   ({empire:tabEmpire,market:tabMarket,founder:tabFounder})[bizPill](s);
+}
+function tabCareers(s){
+  s.append(h('p',{className:'sub'},'Other careers beyond a regular job: sport, politics, media, coaching and more.'));
+  s.append(row('🧢 Coaching and management',S.coach?`${CO_T[S.coach.tier][0]}${S.coach.team?' at '+S.coach.team:''}`:'Coach or manage a team after playing','',coachSheet,S.age<28||S.jail),row('🧑‍💼 Sports agent',S.agent?`${S.agent.cl.length} clients, reputation ${Math.round(S.agent.rep)}`:'Represent players, negotiate deals, take a commission','',agentSheet,S.age<25||S.jail),row('🏛️ Politics',S.pol&&S.pol.party?(S.pol.tier>=0?`${polTitle(S.pol.tier)}, approval ${Math.round(S.pol.pop)}%`:'Out of office, ready to run'):'Join a party, run for office and climb to the top job','',polSheet,S.age<21||S.jail),row('🎬 Media and entertainment',S.med?`${MED[S.med.type].ic} ${S.med.name}`:'Own a film studio, record label or streaming service','',medSheet,S.age<21||S.jail),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
 }
 function tabWorkContent(s){
   s.append(h('h3',{},'Work & school'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));
@@ -2656,7 +2661,6 @@ function actSheet(){openSheet(s=>{
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
   s.append(row('🩺 Health and care','Lifestyle, conditions, insurance and check-ups','',healthSheet,!S.alive));
-  s.append(h('h4',{},'Careers'),row('🧢 Coaching and management',S.coach?`${CO_T[S.coach.tier][0]}${S.coach.team?' at '+S.coach.team:''}`:'Coach or manage a team after playing','',coachSheet,S.age<28||S.jail),row('🧑‍💼 Sports agent',S.agent?`${S.agent.cl.length} clients, reputation ${Math.round(S.agent.rep)}`:'Represent players, negotiate deals, take a commission','',agentSheet,S.age<25||S.jail),row('🏛️ Politics',S.pol&&S.pol.party?(S.pol.tier>=0?`${polTitle(S.pol.tier)}, approval ${Math.round(S.pol.pop)}%`:'Out of office, ready to run'):'Join a party, run for office and climb to the top job','',polSheet,S.age<21||S.jail),row('🎬 Media and entertainment',S.med?`${MED[S.med.type].ic} ${S.med.name}`:'Own a film studio, record label or streaming service','',medSheet,S.age<21||S.jail),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
@@ -3291,7 +3295,7 @@ function offerRow(s,o,K,T,ro){
   s.append(row(`${o.st>T.st?'⬆️ ':''}${o.team}`,`${o.lg?o.lg+'. ':''}${o.str!=null?spLabel(o.str)+(o.mk===3?', big market':'')+'. ':''}${K.stages[o.st]}. ${o.kind==='college'?'Scholarship for '+o.yrs+' year'+(o.yrs>1?'s':''):fmt(o.sal)+' a year for '+o.yrs+' year'+(o.yrs>1?'s':'')}${o.fee?`, transfer fee ${fmt(o.fee)}, signing bonus ${fmt(o.bonus)}`:''}`,'Sign',()=>spAccept(o),ro||(o.st>=1&&S.age<SP_AGE[o.st])));}
 function drawSports(s){
   const T=S.spt,ro=!S.alive||!!S.jail;
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🏆 Sports career'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🏆 Sports career'));
   if(!T){
     s.append(h('p',{className:'sub'},'Pick a sport and start from the youth level. Train, take tryouts, sign contracts, climb to the big leagues, and earn endorsements and fame. It takes years.'));
     Object.entries(SP).forEach(([k,K])=>s.append(row(`${K.ic} ${K.n}`,K.blurb,'',()=>startSport(k),ro||S.age<14)));
@@ -3484,7 +3488,7 @@ function socBrandCrisis(){
 function socialSheet(){openSheet(drawSocial);}
 function drawSocial(s){
   const O=S.soc,ro=!S.alive||!!S.jail;
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'📱 Social media'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'📱 Social media'));
   if(!O){
     s.append(h('p',{className:'sub'},'Build an audience on three platforms: Snapshot for photos, ClipTok for short videos and Chirp for text. Post, ride trends, go viral, sign brand deals, and manage the drama that comes with being seen.'),
       row('Create my accounts','Free. Starts small, and fame gives me a head start','',startSocial,ro||S.age<12));return;}
@@ -3769,7 +3773,7 @@ function clDoBuy(e,own,loan){
   stay(`I bought ${own<1?'a controlling stake in ':''}${e.team} for ${fmt(cost)}${loan?`, with a ${fmt(loan)} bank loan`:''}. The squad is mine to run.`,'good');}
 function drawClub(s){
   const C=S.club,ro=!S.alive||!!S.jail;
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🏟️ Sports club'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🏟️ Sports club'));
   if(!C){clStore(s,ro);return;}
   s.append(h('div',{className:'tabs'},[['over','Overview'],['squad','Squad'],['mkt','Transfers'],['fin','Finance'],['staff','Staff'],['lg','League']].map(([v,l])=>h('button',{'aria-pressed':String(clTab===v),on:()=>{clTab=v;drawSheet(true)}},l))));
   ({over:clOver,squad:clSquadTab,mkt:clMktTab,fin:clFinTab,staff:clStaffTab,lg:clLgTab})[clTab](s,C,ro);}
@@ -4339,7 +4343,7 @@ function medYearStream(m,res){
 let medTab='over';
 function medSheet(){openSheet(drawMed);}
 function drawMed(s){
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🎬 Media and entertainment'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🎬 Media and entertainment'));
   const m=S.med,ro=!S.alive||!!S.jail;
   if(!m){s.append(h('p',{className:'sub'},'Own a piece of the entertainment business. Start from scratch for less, or buy an established name.'));
     Object.entries(MED).forEach(([k,K])=>{s.append(row(`${K.ic} ${K.n}`,K.blurb,'',null,true));
@@ -4804,7 +4808,7 @@ function yrPolitics(){
 let polTab='over';
 function polSheet(){openSheet(drawPol);}
 function drawPol(s){
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🏛️ Politics'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🏛️ Politics'));
   const ro=!S.alive||!!S.jail,P=S.pol;
   if(!P||!P.party){
     s.append(h('p',{className:'sub'},'Run for office, win votes, pass laws and rise from a city council seat to the top job. I need to be 21 to start.'));
@@ -4922,7 +4926,7 @@ function yrCoach(){
 let coTab='over';
 function coachSheet(){openSheet(drawCoach);}
 function drawCoach(s){
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🧢 Coaching and management'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🧢 Coaching and management'));
   const c=S.coach,ro=!S.alive||!!S.jail;
   if(!c){s.append(h('p',{className:'sub'},'Coach or manage a team once the playing days are over. A long playing career opens higher doors. I need to be 28 or older.'));
     Object.entries(SP).filter(([k])=>k!=='tennis').forEach(([k,K])=>s.append(row(`${K.ic} Coach ${K.n.toLowerCase()}`,'Start as a youth coach, or higher with a strong playing record','',()=>{coStart(k);stay(`I started coaching ${K.n.toLowerCase()}.`,'good');},ro||S.age<28)));return;}
@@ -4974,7 +4978,7 @@ function yrAgent(){
 const agCap=A=>3+Math.floor(A.rep/12);
 function agentSheet(){openSheet(drawAgent);}
 function drawAgent(s){
-  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🧑‍💼 Sports agent'));
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🧑‍💼 Sports agent'));
   const ro=!S.alive||!!S.jail,A=S.agent;
   if(!A){s.append(h('p',{className:'sub'},'Represent players, negotiate their contracts and take a commission. Stars sign with agents they trust. I need to be 25 or older.'));
     s.append(row('Start an agency','About $8,000 for licensing. Build a name one client at a time','',()=>{S.money-=Math.round(8000*cpiF());agEnsure().pool=Array.from({length:4},agProspect);mile('Started a sports agency');stay('I opened my own sports agency.','good');},ro||S.age<25||S.money<Math.round(8000*cpiF())));return;}
