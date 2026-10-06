@@ -655,6 +655,7 @@ const ACH={
  oldmuseum:['🏛️','Patron of the arts','Give my collection to a museum'],
  oldgoodbye:['🕊️','No regrets','Say my goodbyes'],
  gmhit:['🎮','Critical darling','Release a game with a review score of 85 or more'],
+ capexit:['🤝','Deal maker','Sell a business or a majority stake to a buyer'],
  techexit:['🏁','Exit','Sell a tech startup to a buyer'],
  techseriesa:['📈','Series A','Raise a Series A round'],
  techunicorn:['🦄','Unicorn','Build a tech company worth $1 billion'],
@@ -808,6 +809,7 @@ function fillDefaults(s){
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
   if(s.med===undefined)s.med=null;
+  if(!Array.isArray(s.earn))s.earn=[];
   if(s.old===undefined)s.old=null;
   if(s.crm===undefined)s.crm=null;
   if(typeof s.cpi!=='number')s.cpi=1;
@@ -1891,7 +1893,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['old',yrOld],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['crime',yrCrime],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['coach',yrCoach],['agent',yrAgent],['intl',yrIntl],['rival',()=>spRivalYear(S.spt)],['media',yrMedia],['media2',yrMediaPlus],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
+  ['business',yrBiz],['capital',yrCapital],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['coach',yrCoach],['agent',yrAgent],['intl',yrIntl],['rival',()=>spRivalYear(S.spt)],['media',yrMedia],['media2',yrMediaPlus],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -5802,6 +5804,74 @@ function gmNew(b,sp,dr){
     m.append(tog('🏢 Sign with a publisher',`A publisher pays about ${fmt(Math.round(est*.6))} up front and boosts marketing, but keeps 35% of the sales`,dr.pub,()=>{dr.pub=!dr.pub;draw();}));
     m.append(h('button',{className:'choice',on:()=>{closeModal();sp.proj={n:dr.n||pick(GM_NAMES),genre:dr.genre,scope:dr.scope,plat:dr.plat,model:dr.model,pub:dr.pub,seq:dr.seq,seqN:dr.seqN||0,prog:0,hype:dr.pub?.2:0,start:S.age};if(dr.pub)b.cash+=Math.round(est*.6);stay(`We started work on ${sp.proj.n}.`,'good');}},'Start the project'),h('button',{className:'choice alt',on:closeModal},'Cancel'));
     $('modalWrap').classList.add('open');};draw();}
+/* ================= capital and exits: buyer offers, private equity, earn-outs, convertible notes, revenue-based finance, recaps, covenants ================= */
+const CAP_BUYERS=['Atlas Capital','Brightmoor Partners','Northgate Holdings','Corvid Group','Summit Ridge','Halden and Co'];
+const CAP_TYPE={strat:'Strategic buyer',pe:'Private equity',mbo:'Management buyout'};
+function capGen(b){
+  b.offers=(b.offers||[]).filter(o=>S.age-o.age<1);
+  const v=bizVal(b),k=cpiF();
+  if(b.pub||b.ousted||b.yrs<2||v<250e3*k||b.offers.length>=2||b.pe)return;
+  const g=b.prevRev>0?b.lastRev/b.prevRev-1:0;
+  if(rnd()>.18+(g>.2?.08:0)+(b.rep>70?.05:0))return;
+  const opts=[['strat',.4]];if(b.lastPre>0&&v>=2e6*k)opts.push(['pe',.35]);if(b.staff>=3&&b.lastPre>0)opts.push(['mbo',.25]);
+  const tot=opts.reduce((t,x)=>t+x[1],0);let r=rnd()*tot,type='strat';for(const [t,w] of opts){r-=w;if(r<=0){type=t;break;}}
+  const syn=S.biz.some(x=>x!==b&&x.type===b.type)?.08:0;
+  const mult=type==='strat'?R(115,175)/100+syn:type==='pe'?R(100,135)/100:R(80,95)/100;
+  b.offers.push({id:uid(),type,buyer:type==='mbo'?`${b.name}'s management team`:pick(CAP_BUYERS),mult,age:S.age,earn:type==='strat'?R(15,35)/100:type==='mbo'?.4:0});
+  line(`💼 ${b.offers[b.offers.length-1].buyer} made an approach for ${b.name}.`);}
+function capAccept(b,o){
+  const v=bizVal(b),price=Math.round(v*o.mult);b.offers=(b.offers||[]).filter(x=>x!==o);
+  if(o.type==='pe'){
+    const q=.7,mine=Math.round(price*b.own*q*.97);
+    S.money+=mine;b.inv=(b.inv||0)*(1-q)+q;b.own*=1-q;if(b.co)b.co.share*=1-q;b.pe={age:S.age,exit:S.age+R(4,6),price};
+    mile(`${o.buyer} bought a majority of ${b.name}`);unlock('capexit');
+    return `${o.buyer} bought 70% of ${b.name} for ${fmt(price)}. I received ${fmt(mine)} and keep ${Math.round(b.own*100)}% and my role. They plan to sell in about ${b.pe.exit-S.age} years.`;}
+  const mine=Math.round(price*b.own*.97),later=Math.round(mine*o.earn),now=mine-later;
+  if(later>0){S.earn=S.earn||[];S.earn.push({n:b.name,amt:later,yrs:3,left:3,sure:o.type==='mbo'});}
+  unlock('capexit');
+  return sellBiz(b,now)+(later?` The other ${fmt(later)} will be paid over 3 years${o.type==='mbo'?' by the management team':', if the business performs under its new owner'}.`:'');}
+function capBlock(s,b,ro){
+  if(b.ousted)return;const v=bizVal(b),k=cpiF(),T=Tof(b);
+  s.append(h('h4',{},'Offers and financing'));
+  if(b.pe)s.append(h('p',{className:'sub'},`${b.name} is owned mostly by private equity. They expect to sell around age ${b.pe.exit}. They push for profit, and I keep ${Math.round(b.own*100)}% of the company.`));
+  const of=b.offers||[];
+  if(!of.length)s.append(h('p',{className:'sub'},'No buyers have made an approach right now. Strong growth, good profits and a high reputation attract offers.'));
+  of.forEach(o=>s.append(row(`${CAP_TYPE[o.type]}: ${o.buyer}`,`${o.type==='pe'?'Buys 70%, I keep the rest and stay in charge. ':o.type==='mbo'?'My management team buys me out, 40% paid over 3 years. ':'Buys all of it'+(o.earn?`, ${Math.round(o.earn*100)}% paid over 3 years if the business performs. `:'. ')}Values the company at about ${fmt(Math.round(v*o.mult))}.`,'Review',()=>choiceModal(`${CAP_TYPE[o.type]}`,`${o.buyer} offers ${fmt(Math.round(v*o.mult))} for the whole company, about ${Math.round(o.mult*100)}% of my estimate of ${fmt(v)}. My share is about ${fmt(Math.round(v*o.mult*b.own*(o.type==='pe'?.7:1)*.97))} before any deferred part.`,[['Accept the offer',()=>stay(capAccept(b,o),'good')],['Decline',()=>{b.offers=b.offers.filter(x=>x!==o);stay();}],['Keep thinking',()=>{}]]),ro)));
+  // revenue-based financing
+  const rbfMax=Math.round(b.lastRev*.12);
+  s.append(row('📈 Revenue-based financing',b.rbf?`Owing ${fmt(b.rbf.owed)}, repaid as ${Math.round(b.rbf.pct*100)}% of revenue`:`Borrow up to ${fmt(rbfMax)} against revenue, repay 1.3 times that as 10% of revenue. No shares given up`,'',()=>amountModal({title:'Revenue-based financing',sub:`Repay 1.3 times what I take, as 10% of revenue each year.`,max:rbfMax,init:Math.round(rbfMax/2),btn:a=>`Take ${fmt(a)}`,note:a=>`I would repay ${fmt(Math.round(a*1.3))}.`,onOk:a=>{b.rbf={owed:Math.round(a*1.3),pct:.1};b.cash+=a;stay(`I took ${fmt(a)} of revenue-based financing.`);}}),ro||!!b.rbf||rbfMax<20000*k||b.lastRev<=0));
+  // convertible note
+  const noteMax=Math.round(v*.15);
+  s.append(row('📝 Convertible note',`Raise up to ${fmt(noteMax)} now. It turns into shares after 3 years at a 20% discount. ${(b.notes||[]).length?`${(b.notes||[]).length} outstanding.`:''}`,'',()=>amountModal({title:'Convertible note',sub:'Investors lend money that converts into shares in 3 years at a 20% discount to my valuation then.',max:noteMax,init:Math.round(noteMax/2),btn:a=>`Raise ${fmt(a)}`,onOk:a=>{b.notes=b.notes||[];b.notes.push({amt:a,age:S.age});b.cash+=a;stay(`I raised ${fmt(a)} on a convertible note.`);}}),ro||noteMax<20000*k||b.pub));
+  // dividend recap
+  const lm=bizLoanMax(b);
+  s.append(row('💵 Dividend recap',`Borrow against the company and pay myself. Up to ${fmt(Math.round(lm*.8))}. The company carries the debt`,'',()=>amountModal({title:'Dividend recapitalisation',sub:'The company borrows and pays the money to its owners. My share is mine.',max:Math.round(lm*.8),init:Math.round(lm*.4),btn:a=>`Borrow ${fmt(a)}`,onOk:a=>{addLoan(b,a,.01);S.money+=Math.round(a*b.own*.98);stay(`${b.name} borrowed ${fmt(a)} and paid out a dividend. I received ${fmt(Math.round(a*b.own*.98))}.`);}}),ro||lm<50000*k||b.pub));
+  if(b.loan.bal>0)s.append(h('p',{className:'sub'},`Bank covenant: the loan needs profit to cover its payments at least 1.1 times. Right now about ${((b.lastPre+b.loan.bal*b.loan.rate)/Math.max(1,b.loan.pay)).toFixed(1)} times.`));
+}
+function yrCapital(){
+  // deferred sale payments
+  if(S.earn&&S.earn.length){S.earn.forEach(e=>{if(e.left>0){e.left--;const part=Math.round(e.amt/e.yrs);if(e.sure||rnd()<.8){S.money+=part;line(`💼 I received ${fmt(part)} of the deferred payment for ${e.n}.`,'good');}else line(`💼 The new owner of ${e.n} missed this year's deferred payment of ${fmt(part)}.`,'bad');}});S.earn=S.earn.filter(e=>e.left>0);}
+  S.biz.slice().forEach(b=>{
+    capGen(b);
+    if(b.rbf){const p=Math.min(b.rbf.owed,Math.round(b.lastRev*b.rbf.pct));b.cash-=p;b.rbf.owed-=p;if(b.rbf.owed<=1){b.rbf=null;line(`${b.name} repaid its revenue-based financing.`);}}
+    if(b.notes&&b.notes.length){b.notes=b.notes.filter(n=>{if(S.age-n.age<3)return true;const v=bizVal(b),val=Math.max(1,v*.8),eq=Math.min(.3,n.amt*1.24/(val+n.amt*1.24));
+      b.own*=1-eq;if(b.co)b.co.share*=1-eq;b.inv=(b.inv||0)*(1-eq)+eq;line(`📝 A convertible note on ${b.name} turned into ${(eq*100).toFixed(1)}% of the company.`);return false;});}
+    // bank covenant
+    if(b.loan.bal>0&&b.yrs>=1&&canManage()&&!b.ousted){const dscr=(b.lastPre+b.loan.bal*b.loan.rate)/Math.max(1,b.loan.pay);
+      if(dscr<1.1&&rnd()<.5)Q.push({text:`🏦 ${b.name} broke a covenant on its bank loan: profit no longer covers the payments comfortably.`,ch:[
+        [`Pay a waiver fee (${fmt(Math.round(b.loan.bal*.015))})`,()=>{b.cash-=Math.round(b.loan.bal*.015);return 'The bank waived the breach for a fee.';}],
+        ['Repay a quarter of the loan now',()=>{const x=Math.round(b.loan.bal*.25);b.cash-=x;b.loan.bal-=x;b.loan.pay=Math.round(annuity(b.loan.bal,b.loan.rate,b.loan.yrs||LOAN_YEARS));return `I repaid ${fmt(x)} to calm the bank.`;}],
+        ['Accept a higher rate (+2%)',()=>{b.loan.rate+=.02;b.loan.pay=Math.round(annuity(b.loan.bal,b.loan.rate,b.loan.yrs||LOAN_YEARS));return 'The bank raised the rate.';}]]});}
+    // private equity owner
+    if(b.pe&&!b.ousted){
+      if(S.age>=b.pe.exit&&canManage()){const price=Math.round(bizVal(b)*R(105,175)/100),mine=Math.round(price*b.own*.97);
+        Q.push({text:`🏁 The private equity owners of ${b.name} are selling it to a new buyer for about ${fmt(price)}. My ${Math.round(b.own*100)}% would bring ${fmt(mine)}.`,ch:[['Sell with them',()=>{unlock('capexit');return sellBiz(b,mine);}]]});}
+      else if(rnd()<.35&&canManage())Q.push({text:`The private equity owners of ${b.name} want faster profit growth.`,ch:[
+        ['Cut costs hard',()=>{b.cash+=Math.round(b.lastRev*.03);b.morale=Math.max(0,b.morale-8);b.rep=Math.max(0,b.rep-3);return 'Profit rose, and so did the grumbling.';}],
+        ['Push for growth instead',()=>{b.cash-=Math.round(b.lastRev*.02);b.base=Math.round(b.base*1.04);return 'We spent to grow. The owners accepted it for a year.';}],
+        ['Argue for the long term',()=>{b.rep=Math.min(100,b.rep+2);return 'They listened, this time.';}]]});}
+  });
+}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -6346,7 +6416,7 @@ function govYear(b,pre,net,paidDiv){const g=govOf(b);if(!g)return;const why=[];l
   d+=(55-g.conf)*.05;g.conf=clamp(Math.round(g.conf+d));g.why=why;if(g.acq>0)g.acq--;if(g.exp>0)g.exp--;shareholderMotion(b,g);
   g.low=g.conf<25?g.low+1:0;
   if(g.conf<40&&!b.ousted&&b.own<=.5)line(`⚠️ Board confidence at ${b.name} is down to ${g.conf}%. If it stays under 25% for 2 years, they may vote me out.`,'bad');
-  if(!b.ousted&&b.own<=.5&&g.low>=2){const v=boardVote(b,'remove');g.low=0;if(v.pass){b.ousted=true;b.life='absent';line(`🪑 The board of ${b.name} voted ${v.yes} to ${v.no} to remove me as CEO. I still own my shares and can fight back through a shareholder vote.`,'bad');mile(`Ousted as CEO of ${b.name}`);}else line(`🪑 The board of ${b.name} voted on removing me. I survived, ${v.no} to ${v.yes}.`,'good');}
+  if(!b.ousted&&!b.pe&&b.own<=.5&&g.low>=2){const v=boardVote(b,'remove');g.low=0;if(v.pass){b.ousted=true;b.life='absent';line(`🪑 The board of ${b.name} voted ${v.yes} to ${v.no} to remove me as CEO. I still own my shares and can fight back through a shareholder vote.`,'bad');mile(`Ousted as CEO of ${b.name}`);}else line(`🪑 The board of ${b.name} voted on removing me. I survived, ${v.no} to ${v.yes}.`,'good');}
   if(b.ousted&&b.own>.5){b.ousted=false;b.life='delegate';line(`As majority owner of ${b.name}, I appointed myself CEO again.`,'good');}}
 /* ---- motions other shareholders put to a vote ---- */
 function shareholderMotion(b,g){const others=(b.inv||0)+(b.co?b.co.share:0);if(others<.1||b.pub&&rnd()<.5||rnd()>.4)return;
@@ -7968,6 +8038,7 @@ function finTab(s,b){
     // IPO
     if(!b.pub){const need=75e6*cpiF();s.append(h('h4',{},'Go public'),row('🔔 IPO',v<need?`Needs a company value of ${fmt(need)} (now ${fmt(v)})`:(b.lastRev||0)<need/3?`Needs yearly revenue of ${fmt(need/3)} (now ${fmt(b.lastRev||0)})`:b.yrs<3?`Needs 3 years of trading (now ${b.yrs})`:'Issue new shares to raise money for the company, and sell some of mine if I want. Shares then trade in the Investing tab','',()=>ipoModal(b),v<need||(b.lastRev||0)<need/3||b.yrs<3));}
   }
+  capBlock(s,b,ro);
   // exit
   s.append(h('h4',{},'Exit'));
   {const sv=Math.max(v,Math.round(T.cost*.25*b.locs));s.append(row('🤝 Sell my stake',v>0?'Negotiate with a buyer':'Buyers will pay for the equipment and customers','~'+fmt(sv*b.own),()=>negotiate({title:`Selling ${b.name}`,offer:Math.round(sv*b.own*R(80,100)/100),lev:.4+b.rep/200,onDeal:p=>{bizView=null;return sellBiz(b,p);}})));}
