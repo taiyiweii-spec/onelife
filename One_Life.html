@@ -616,6 +616,14 @@ const ACH={
  named:['🎗️','Named after us','Build a family foundation to $10 million or 25 years'],
  dtrust:['🏦','Trust fund dynasty','Grow the family trust to $10 million'],
  pdream:['⭐','Chasing the dream','A child becomes a professional athlete, actor or musician'],
+ polfirst:['🗳️','Politician','Win my first election or pass my first law'],
+ polmayor:['🏙️','Mayor or higher','Win a seat above city council'],
+ polgov:['🏢','Governor','Be elected governor'],
+ polhead:['👑','Head of government','Win the top job'],
+ pollands:['🌊','Landslide','Win an election in a landslide'],
+ pollaw:['📜','Lawmaker','Pass 10 laws'],
+ polscand:['📰','Scandal survivor','Face a corruption scandal in office'],
+ polstate:['📚','Statesman','Write a memoir or open a library after a top career'],
  clubown:['🏟️','Club owner','Buy a sports club'],
  medmogul:['🎬','Media mogul','Own a film studio, record label or streaming service'],
  medbb:['💥','Blockbuster','Release a film that grosses $500 million'],
@@ -766,6 +774,7 @@ function fillDefaults(s){
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
   if(s.med===undefined)s.med=null;
+  if(s.pol===undefined)s.pol=null;
   if(typeof s.pres!=='number')s.pres=0;
   if(!s.pstyle)s.pstyle='support';
   ['dt','fo','fdn','will'].forEach(k=>{if(s[k]===undefined)s[k]=null;});
@@ -1806,7 +1815,7 @@ function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
-  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['media',yrMedia],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
+  ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['media',yrMedia],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
 function ageUp(quiet){
@@ -2577,7 +2586,7 @@ function actSheet(){openSheet(s=>{
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
   s.append(row('🩺 Health and care','Lifestyle, conditions, insurance and check-ups','',healthSheet,!S.alive));
-  s.append(h('h4',{},'Careers'),row('🎬 Media and entertainment',S.med?`${MED[S.med.type].ic} ${S.med.name}`:'Own a film studio, record label or streaming service','',medSheet,S.age<21||S.jail),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
+  s.append(h('h4',{},'Careers'),row('🏛️ Politics',S.pol&&S.pol.party?(S.pol.tier>=0?`${polTitle(S.pol.tier)}, approval ${Math.round(S.pol.pop)}%`:'Out of office, ready to run'):'Join a party, run for office and climb to the top job','',polSheet,S.age<21||S.jail),row('🎬 Media and entertainment',S.med?`${MED[S.med.type].ic} ${S.med.name}`:'Own a film studio, record label or streaming service','',medSheet,S.age<21||S.jail),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
   s.append(h('h4',{},'Where I live'),row(`${resC().ic} ${S.city}`,'Move to another country. Taxes, costs and the economy change','',moveSheet,S.age<18||S.jail));
@@ -4557,6 +4566,209 @@ function dyOffice(s,ro){
   const hs=homes();
   if(hs.length){s.append(h('h4',{},'Family heirlooms'),h('p',{className:'sub'},'A home marked as an heirloom cannot be sold, passes down with the family and adds to its name.'));
     hs.forEach(a=>s.append(tog(a.n,a.heirloom?'Heirloom':'Not an heirloom',a.heirloom,()=>{a.heirloom=!a.heirloom;stay();},ro)));}
+}
+/* ================= politics: parties, campaigns, offices, policy, scandals, legacy ================= */
+const POL_HEAD={us:'President',uk:'Prime Minister',ca:'Prime Minister',au:'Prime Minister',nz:'Prime Minister',ie:'Taoiseach',de:'Chancellor',ch:'Federal President',ae:'Minister of the Cabinet',ng:'President',za:'President',in:'Prime Minister',jp:'Prime Minister',sg:'Prime Minister',my:'Prime Minister',ph:'President'};
+const POL_T=[
+  {k:'council',n:'City councillor',min:21,sal:48e3,cost:60e3,opp:22,pow:1,ic:'🏘️'},
+  {k:'mayor',n:'Mayor',min:25,sal:110e3,cost:400e3,opp:36,pow:2,ic:'🏙️'},
+  {k:'state',n:'State legislator',min:25,sal:95e3,cost:300e3,opp:38,pow:2,ic:'🏛️'},
+  {k:'gov',n:'Governor',min:30,sal:190e3,cost:3e6,opp:52,pow:3,ic:'🏢'},
+  {k:'natl',n:'National legislator',min:25,sal:175e3,cost:1.5e6,opp:48,pow:3,ic:'🏛️'},
+  {k:'head',n:'Head of government',min:35,sal:400e3,cost:30e6,opp:72,pow:5,ic:'👑'}];
+const polTitle=t=>t===5?(POL_HEAD[resKey()]||'President'):POL_T[t].n;
+const POL_PARTY={left:{n:'Progressive Party',ideo:-55},centre:{n:'Centre Alliance',ideo:0},right:{n:'Conservative Party',ideo:55},ind:{n:'Independent',ideo:0}};
+const POL_POLICY=[
+  {id:'tax',n:'Cut taxes',ideo:20,cap:14,fav:['boom','normal'],d:'Popular with voters and business, but squeezes public services'},
+  {id:'stim',n:'Stimulus spending',ideo:-15,cap:16,fav:['recession','crash'],d:'Pumps money into jobs, works best in a downturn'},
+  {id:'health',n:'Expand healthcare',ideo:-25,cap:18,fav:['normal','boom'],d:'Popular and costly, with long-lasting goodwill'},
+  {id:'edu',n:'Fund schools',ideo:-10,cap:12,fav:['normal','boom','recession'],d:'A safe, steady crowd-pleaser'},
+  {id:'safe',n:'Crack down on crime',ideo:25,cap:12,fav:['normal','recession','crash'],d:'Wins support from worried voters, may anger civil rights groups'},
+  {id:'green',n:'Green investment',ideo:-20,cap:16,fav:['boom','normal'],d:'Wins young voters, costs money and enemies in industry'},
+  {id:'house',n:'Build affordable housing',ideo:-5,cap:14,fav:['normal','boom','recession'],d:'Helps renters and fills the news with ribbon cuttings'},
+  {id:'clean',n:'Anti-corruption drive',ideo:0,cap:15,fav:['normal','boom','recession','crash'],d:'Raises integrity and makes powerful enemies'}];
+const polCost=t=>Math.round(POL_T[t].cost*(.4+.6*resC().pp));
+const polSal=t=>Math.round(POL_T[t].sal*payF());
+function polEnsure(){if(!S.pol)S.pol={party:null,ideo:0,tier:-1,best:-1,term:0,pop:45,integ:Math.min(90,Math.max(30,S.ethic||50)+10),cap:20,fund:0,hid:0,staff:{mgr:0,poll:0,speech:0},agenda:[],camp:0,run:null,lvl:0,laws:0,wins:0,losses:0,rec:[],mood:R(-25,25),since:S.age,exFee:0,mem:false,lib:false,sc:0};return S.pol;}
+function polRecog(P){return clamp(Math.round(10+(S.fame||0)*.55+(P.best+1)*7+(S.pres||0)*.3+(S.soc&&typeof socTotal==='function'?Math.min(15,Math.log10(1+socTotal())*2.2):0)));}
+function polStrength(P,t,inc,spendF){
+  const fit=12-Math.abs(P.ideo-P.mood)*.22;
+  return .32*P.pop+.22*polRecog(P)+.2*Math.min(60,P.camp)+.06*S.st.looks+.08*S.st.smarts+(inc?8:0)+P.staff.mgr*3+fit+(P.integ<40?-6:0)+(spendF-1)*8-POL_T[t].opp*.38;}
+function polProb(P,t,inc,spendF){return Math.min(.92,1/(1+Math.exp(-(polStrength(P,t,inc,spendF)-31)/8)));}
+function polCanRun(P,t){
+  if(S.age<POL_T[t].min||S.jail||!canManage())return 'age';
+  if(P.tier===t&&P.term>0&&P.term>1)return 'seated';
+  if(t===5&&P.hterm>=2)return 'limit';
+  const req=Math.max(0,t-1-(S.fame>=70?1:0));
+  if(t>0&&P.best<req)return 'rank';
+  if(!P.party)return 'party';
+  return null;}
+function polHold(P,t,note){
+  if(t===5)P.hterm=(P.hterm||0)+1;P.tier=t;P.best=Math.max(P.best,t);P.term=4;P.cap=Math.max(P.cap,30);P.pop=Math.min(100,P.pop+6);P.wins++;P.agenda=[];
+  P.rec.push({age:S.age,t:`Elected ${polTitle(t)}${note||''}`});mile(`Became ${polTitle(t)}`);
+  S.pres=Math.min(100,(S.pres||0)+(t>=3?2:.8));S.fame=Math.min(100,(S.fame||0)+(t>=4?6:t>=2?3:1));
+  unlock('polfirst');if(t>=1)unlock('polmayor');if(t===3)unlock('polgov');if(t===5)unlock('polhead');
+  if(S.soc)socBoost(.04+.01*t,'📱 The win brought new followers.');}
+function polLeave(P,why){
+  if(P.tier<0)return;const t=P.tier;P.rec.push({age:S.age,t:`Left office as ${polTitle(t)}${why?' ('+why+')':''}`});
+  P.exFee=Math.round([0,0,0,60e3,120e3,350e3][P.best>=0?P.best:0]*(P.pop>50?1:.5));
+  line(`🏛️ I left office as ${polTitle(t)}${why?' ('+why+')':''}.`);P.tier=-1;P.term=0;P.agenda=[];}
+function polElection(P){
+  const t=P.run.t,sp=P.run.sp,inc=P.tier===t;
+  const want=Math.round(polCost(t)*sp),ratio=Math.min(1,(P.fund+Math.max(0,S.money))/Math.max(1,want)),spendCost=Math.round(want*ratio);
+  const prob2=polProb(P,t,inc,sp*ratio);let fromFund=Math.min(P.fund,spendCost);P.fund-=fromFund;S.money-=spendCost-fromFund;
+  if(ratio<1)line('💸 I ran out of money before election day and had to cut the campaign short.','bad');
+  const win=rnd()<prob2,m=Math.round(R(2,22)+(prob2-.5)*30);
+  P.camp=0;P.run=null;
+  if(win){polHold(P,t,m>=18?' in a landslide':'');line(`🗳️ I won the election for ${polTitle(t)}${m>=18?' in a landslide':''}!`,'good');if(m>=18&&t>=1)unlock('pollands');}
+  else{P.losses++;P.pop=Math.max(15,P.pop-3);P.rec.push({age:S.age,t:`Lost the race for ${polTitle(t)}`});line(`🗳️ I lost the race for ${polTitle(t)}. The campaign cost ${fmt(spendCost)}.`,'bad');S.st.happy=clamp(S.st.happy-10);
+    if(P.tier>=0&&P.tier!==t){P.pop=Math.max(5,P.pop-5);P.cap=Math.max(0,P.cap-10);}
+    else if(P.tier===t){polLeave(P,'defeated');}}
+}
+function polPolicyYear(P){
+  P.agenda.forEach(id=>{const d=POL_POLICY.find(x=>x.id===id);if(!d)return;
+    const ph=localPhase(),pw=POL_T[P.tier].pow,ch=cl0(.38+(P.pop-45)/220+P.staff.speech*.03+(d.fav.includes(ph)?.12:-.04)+pw*.04-(Math.abs(P.ideo-d.ideo)>50?.1:0)+(P.cap>=40?.05:0));
+    P.cap=Math.max(0,P.cap-d.cap);
+    if(rnd()<ch){P.laws++;P.pop=Math.min(100,P.pop+R(2,6)+(d.fav.includes(ph)?2:0));P.ideo=Math.max(-100,Math.min(100,P.ideo+Math.round(d.ideo/4)));if(d.id==='clean')P.integ=Math.min(100,P.integ+6);line(`📜 ${d.n} passed. Voters noticed.`,'good');unlock(P.laws>=10?'pollaw':'polfirst');}
+    else{P.pop=Math.max(5,P.pop-R(1,4));line(`📜 My ${d.n.toLowerCase()} plan stalled in the legislature.`,'bad');}});
+  P.agenda=[];}
+const cl0=v=>Math.max(.05,Math.min(.95,v));
+function polEvents(P){
+  const t=P.tier,sc=hcScale(),ph=localPhase(),ev=[];
+  ev.push(()=>({text:`A storm and floods hit my constituents. People want me there.`,ch:[
+    ['Lead the recovery on the ground',()=>{P.cap-=4;if(rnd()<.7){P.pop+=R(4,8);return 'My visible leadership was praised everywhere.';}P.pop-=2;return 'The response was slow and the cameras noticed.';}],
+    ['Send officials and stay at my desk',()=>{P.pop-=1;return 'It was handled quietly. Some said I looked distant.';}],
+    ['Announce a relief fund',()=>{const c=Math.round(25000*sc*(t+1));if(S.money<c){return 'I could not afford a donation.';}S.money-=c;P.pop+=R(2,5);P.integ=Math.min(100,P.integ+2);return `My ${fmt(c)} donation to the relief fund was well received.`;}]]}));
+  ev.push(()=>({text:'A lobbyist offers a large donation in return for a favourable vote on a coming bill.',ch:[
+    ['Take the money and promise the favour',()=>{const x=Math.round(250000*sc*(1+t*.6));P.fund+=x;P.hid++;P.integ=Math.max(0,P.integ-10);return `The donation of ${fmt(x)} went into the campaign fund. I hope no one asks questions.`;}],
+    ['Decline and say so publicly',()=>{P.pop+=3;P.integ=Math.min(100,P.integ+3);return 'The refusal made headlines and earned respect.';}],
+    ['Accept a small, clean donation only',()=>{const x=Math.round(30000*sc*(1+t*.4));P.fund+=x;return `I accepted ${fmt(x)} with no strings.`;}]]}));
+  ev.push(()=>({text:'Thousands of protesters gather outside my office.',ch:[
+    ['Meet their leaders',()=>{P.cap-=3;if(rnd()<.65){P.pop+=R(2,5);return 'The talks calmed things and won trust.';}return 'The meeting went nowhere and the protests grew.';}],
+    ['Order a firm response',()=>{P.pop-=R(2,6);P.integ=Math.max(0,P.integ-3);return 'The crackdown made the front pages for the wrong reasons.';}],
+    ['Wait it out',()=>{P.pop-=R(0,3);return 'It faded after a week.';}]]}));
+  ev.push(()=>({text:'My party wants me to back a controversial bill.',ch:[
+    ['Follow the party line',()=>{P.cap+=8;P.pop-=2;return 'The party leadership noted my loyalty.';}],
+    ['Vote my conscience',()=>{P.cap=Math.max(0,P.cap-8);P.integ=Math.min(100,P.integ+4);P.pop+=2;return 'I stood alone and some respected it.';}]]}));
+  ev.push(()=>({text:'A rival attacks my record in a televised interview.',ch:[
+    ['Hit back hard',()=>{if(rnd()<.45+S.st.smarts/250){P.pop+=3;return 'My reply landed. The clip went viral.';}P.pop-=4;return 'It backfired and I looked angry.';}],
+    ['Stay on message',()=>{P.pop+=1;return 'I stayed calm and the attack fizzled.';}]]}));
+  if(ph==='recession'||ph==='crash')ev.push(()=>({text:'The economy is in trouble and jobs are being lost.',ch:[
+    ['Launch an emergency jobs plan',()=>{P.cap=Math.max(0,P.cap-10);if(rnd()<.6){P.pop+=R(3,7);return 'The plan saved jobs and my approval.';}P.pop+=1;return 'It helped a little, but critics called it too small.';}],
+    ['Blame the previous government',()=>{P.pop-=1;return 'It played well with my base, and no one else.';}],
+    ['Say little and wait for recovery',()=>{P.pop-=R(2,5);return 'Voters felt ignored.';}]]}));
+  if(t>=1)ev.push(()=>({text:'A big infrastructure project is on my desk.',ch:[
+    ['Approve it in full',()=>{if(rnd()<.55){P.pop+=R(3,6);return 'The project came in on time. Ribbon cutting day was a triumph.';}P.pop-=R(2,5);return 'Costs ballooned and the papers had a field day.';}],
+    ['Approve a smaller version',()=>{P.pop+=1;return 'A sensible compromise.';}]]}));
+  if(t>=4)ev.push(()=>({text:'A major international summit is coming up.',ch:[
+    ['Take a strong stance',()=>{if(rnd()<.5){P.pop+=R(3,6);return 'My firm line won applause at home.';}P.pop-=R(2,5);return 'Allies were unhappy and the press said so.';}],
+    ['Pursue careful diplomacy',()=>{P.cap+=4;P.pop+=1;return 'A quiet, productive trip.';}]]}));
+  if(P.integ<55)ev.push(()=>({text:'A whistleblower has contacted a journalist about my office.',ch:[
+    ['Come clean and fix it',()=>{P.integ=Math.min(100,P.integ+8);P.pop-=3;P.hid=Math.max(0,P.hid-1);return 'The honesty hurt in the short term and helped long term.';}],
+    ['Deny everything',()=>{if(rnd()<.5){return 'The story died for lack of evidence.';}P.sc++;P.pop-=6;return 'The denial unravelled. A formal inquiry has begun.';}]]}));
+  return pick(ev)();}
+function yrPolitics(){
+  const P=S.pol;if(!P||!S.alive)return;
+  P.pop=Math.max(5,Math.min(100,P.pop));
+  const ph=localPhase();
+  P.mood=Math.max(-40,Math.min(40,P.mood+R(-5,5)));
+  if(P.tier<0&&P.pop<45)P.pop=Math.min(45,P.pop+3);
+  if(P.tier>=0){
+    if(S.jail||S.age>85){polLeave(P,S.jail?'jailed':'retired');}
+    else{
+      S.money+=Math.round(polSal(P.tier)*.78);
+      P.cap=Math.min(100,P.cap+R(8,14)+(P.pop>=60?3:0));
+      P.pop+=(ph==='boom'?2:ph==='recession'?-3:ph==='crash'?-6:0)+R(-3,3)+(P.integ>=70?1:P.integ<40?-2:0)+Math.round((50-P.pop)*.12);
+      P.pop=Math.max(5,Math.min(100,P.pop));
+      polPolicyYear(P);
+      P.integ=Math.max(0,P.integ);
+      // scandals
+      const sp=(100-P.integ)/450+P.hid*.025+(P.sc?.05:0);
+      if(rnd()<sp){const lost=P.pop;P.sc++;
+        Q.push({text:'📰 A corruption scandal breaks around my office. The press will not let go.',ch:[
+          ['Resign with dignity',()=>{P.pop=Math.max(5,P.pop-8);polLeave(P,'resigned');return 'I stepped down. The story faded in time.';}],
+          ['Apologise and cooperate',()=>{P.pop=Math.max(5,P.pop-7);P.hid=0;P.integ=Math.min(100,P.integ+8);return 'The apology cost me dearly, but I survived.';}],
+          ['Fight it',()=>{if(rnd()<.45){P.pop=Math.max(5,P.pop-3);return 'The accusations were not proven. I fought it off.';}
+            if(P.hid>=2&&rnd()<.5){S.jail=R(2,4);S.flags.record=true;S.flags.crimes++;polLeave(P,'convicted');return 'I was convicted of corruption and sentenced to prison.';}
+            P.pop=Math.max(5,P.pop-12);polLeave(P,'forced out');return 'I was forced out and left in disgrace.';}]]});unlock('polscand');}
+      else if(rnd()<.45)Q.push(polEvents(P));
+      // staff costs
+      const sc=Math.round((P.staff.mgr+P.staff.poll+P.staff.speech)*polCost(P.tier)*.02);if(sc)S.money-=sc;
+      P.term--;
+      if(P.tier>=0&&P.term===1)line('🗳️ It is the final year of my term. I should decide whether to run again.');
+      if(P.tier>=0)S.pres=Math.min(100,(S.pres||0)+(P.tier>=3?.4:.1));
+    }
+  }
+  if(P.run)polElection(P);
+  if(P.tier>=0&&P.term<=0)polLeave(P,'term ended');
+  // after-office income and legacy
+  P.pop=Math.max(5,Math.min(100,Math.round(P.pop)));
+  if(P.tier<0&&P.best>=3&&S.age<=80&&P.exFee){S.money+=Math.round(P.exFee*.8);if(rnd()<.25)line(`🎤 Speaking fees paid me ${fmt(Math.round(P.exFee*.8))} this year.`,'good');S.fame=Math.max(0,(S.fame||0)-(rnd()<.2?1:0));}
+  if(P.tier<0&&P.best>=4&&!P.mem&&rnd()<.5){P.mem=true;const adv=Math.round(P.exFee*3+200000);S.money+=adv;S.pres=Math.min(100,(S.pres||0)+2);S.fame=Math.min(100,(S.fame||0)+3);line(`📖 My political memoir earned a ${fmt(adv)} advance and sold well.`,'good');unlock('polstate');}
+  if(P.tier>=0&&P.tier<5)P.fund=Math.round(P.fund*1.0);
+}
+/* ---------- screen ---------- */
+let polTab='over';
+function polSheet(){openSheet(drawPol);}
+function drawPol(s){
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🏛️ Politics'));
+  const ro=!S.alive||!!S.jail,P=S.pol;
+  if(!P||!P.party){
+    s.append(h('p',{className:'sub'},'Run for office, win votes, pass laws and rise from a city council seat to the top job. I need to be 21 to start.'));
+    Object.entries(POL_PARTY).forEach(([k,v])=>s.append(row(`Join the ${v.n}`,k==='ind'?'No party machine behind me, but also no baggage':`Leans ${v.ideo<0?'left':v.ideo>0?'right':'centre'}`,'',()=>{const P2=polEnsure();P2.party=k;P2.ideo=v.ideo;mile(`Joined the ${v.n}`);stay(`I joined the ${v.n}.`);},ro||S.age<21)));
+    return;}
+  const t=P.tier;
+  s.append(h('p',{className:'sub'},`${POL_PARTY[P.party].n}. ${t>=0?`${polTitle(t)}, ${P.term} year${P.term===1?'':'s'} left in my term.`:P.best>=0?`Out of office. Highest post: ${polTitle(P.best)}.`:'No office yet.'}`));
+  s.append(...mbar('Approval',P.pop,'happy'),...mbar('Integrity',P.integ,'health'));
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['run','Run'],['gov','Govern'],['team','Team']].map(([v,l])=>h('button',{'aria-pressed':String(polTab===v),on:()=>{polTab=v;drawSheet();}},l))));
+  if(polTab==='over')polOver(s,P,ro);else if(polTab==='run')polRun(s,P,ro);else if(polTab==='gov')polGov(s,P,ro);else polTeam(s,P,ro);
+}
+function polOver(s,P,ro){
+  s.append(h('dl',{},h('dt',{},'Name recognition'),h('dd',{},`${polRecog(P)}%`),h('dt',{},'Political capital'),h('dd',{},String(Math.round(P.cap))),h('dt',{},'Campaign fund'),h('dd',{},fmt(P.fund)),h('dt',{},'Laws passed'),h('dd',{},String(P.laws)),h('dt',{},'Elections won and lost'),h('dd',{},`${P.wins} and ${P.losses}`),h('dt',{},'Mood of the country'),h('dd',{},P.mood<-12?'Leaning left':P.mood>12?'Leaning right':'Centrist')));
+  if(P.tier<0&&P.exFee)s.append(h('p',{className:'sub'},`As a former leader I earn about ${fmt(Math.round(P.exFee*.8))} a year in speaking fees until 80.`));
+  if(P.tier>=0)s.append(h('p',{className:'sub'},`Salary ${fmt(polSal(P.tier))} a year before tax.`));
+  if(P.tier>=0)s.append(row('Step down from office','I keep my record and legacy','',()=>choiceModal('Step down?','I will leave office now.',[['Step down',()=>{polLeave(P,'stepped down');stay();}],['Stay',()=>{}]]),ro));
+  if(P.rec.length){s.append(h('h4',{},'My record'));P.rec.slice(-8).reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.t}`)));}
+  if(P.best===5&&!P.lib)s.append(row('📚 Build a presidential library','About $5,000,000. A lasting legacy','',()=>{S.money-=5e6;P.lib=true;S.pres=Math.min(100,(S.pres||0)+5);unlock('polstate');mile('Opened my own library');stay('I opened a library in my name.','good');},ro||S.money<5e6));
+}
+function polRun(s,P,ro){
+  if(P.run){const R2=POL_T[P.run.t];s.append(h('p',{className:'sub'},`I am running for ${polTitle(P.run.t)} with a ${['modest','standard','heavy'][[.5,1,2].indexOf(P.run.sp)]} campaign. The vote is at the end of the year.`));
+    s.append(row('Withdraw my candidacy','No cost, but the campaign effort is lost','',()=>{P.run=null;P.camp=0;stay();},ro));}
+  const est=t=>polProb(P,t,P.tier===t,1);
+  s.append(h('p',{className:'sub'},`Campaign effort this year: ${Math.round(P.camp)}. Fund ${fmt(P.fund)}. ${P.staff.poll>=1?'My pollster is tracking each race.':'Hire a pollster to see my chances.'}`));
+  POL_T.forEach((T,t)=>{const why=polCanRun(P,t);
+    const odds=P.staff.poll>=1?`, odds about ${Math.round(Math.max(1,Math.min(99,est(t)*100+R(-12,12)/(1+P.staff.poll))))}%`:'';
+    s.append(row(`${T.ic} ${polTitle(t)}`,why==='limit'?'Two terms is the limit':why==='age'?`Needs age ${T.min}`:why==='rank'?`Needs a ${polTitle(Math.max(0,t-1))} seat first`:why==='seated'?'Already in this seat':`Campaign about ${fmt(polCost(t))}${odds}`,P.tier===t?'In office':'',()=>polDeclare(P,t),ro||!!why||!!P.run));});
+  s.append(h('h4',{},'Campaign actions'));
+  s.append(row('🤝 Host a fundraiser','Raises money from supporters','',()=>{const x=Math.round(polCost(Math.max(0,P.tier,P.best,0))*.12*(1+polRecog(P)/100));P.fund+=x;stay(`The fundraiser raised ${fmt(x)}.`,'good');},ro||false,2));
+  s.append(row('📣 Hold a rally','Builds support and name recognition','',()=>{P.camp+=R(6,12);P.pop=Math.min(100,P.pop+R(1,3));S.fame=Math.min(100,(S.fame||0)+(rnd()<.3?1:0));stay('The rally drew a big crowd.');},ro,1));
+  s.append(row('📺 Buy advertising','Spend $100,000 or more from the fund or my own money','',()=>amountModal({title:'Advertising budget',sub:`Fund ${fmt(P.fund)}, my cash ${fmt(S.money)}.`,min:100000,max:Math.max(100000,P.fund+S.money),init:Math.min(500000,P.fund+S.money),btn:a=>`Spend ${fmt(a)}`,onOk:a=>{const f=Math.min(P.fund,a);P.fund-=f;S.money-=a-f;P.camp+=Math.min(40,a/polCost(Math.max(1,P.tier,0))*30);stay(`I bought ${fmt(a)} of advertising.`);}}),ro||P.fund+S.money<100000));
+  s.append(row('💵 Put my own money in the fund','','',()=>amountModal({title:'Self-fund the campaign',sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,250000),btn:a=>`Add ${fmt(a)}`,onOk:a=>{S.money-=a;P.fund+=a;stay();}}),ro||S.money<10000));
+  s.append(row('🏦 Take a donor favour','A big donation now, with strings attached. Risky','',()=>{const x=Math.round(polCost(Math.max(0,P.tier,0))*.5);P.fund+=x;P.hid++;P.integ=Math.max(0,P.integ-10);stay(`A donor gave ${fmt(x)}. I owe them a favour.`,'bad');},ro));
+}
+function polDeclare(P,t){
+  const T=POL_T[t],c=polCost(t),inc=P.tier===t;
+  choiceModal(`Run for ${polTitle(t)}`,`A standard campaign costs about ${fmt(c)}, paid from the campaign fund first, then my own money. The vote is at the end of this year.${P.tier>=0&&P.tier!==t?' If I lose, I keep my seat but my standing falls.':''}`,[
+    [`Modest campaign (${fmt(Math.round(c*.5))})`,()=>{P.run={t,sp:.5};stay(`I am running for ${polTitle(t)}.`);}],
+    [`Standard campaign (${fmt(c)})`,()=>{P.run={t,sp:1};stay(`I am running for ${polTitle(t)}.`);}],
+    [`Heavy campaign (${fmt(c*2)})`,()=>{P.run={t,sp:2};stay(`I am running for ${polTitle(t)}.`);}],
+    ['Not now',()=>{}]]);}
+function polGov(s,P,ro){
+  if(P.tier<0){s.append(h('p',{className:'sub'},'I am not in office. Win a seat to set a policy agenda and pass laws.'));return;}
+  s.append(h('p',{className:'sub'},`Choose up to 2 policies this year. Each uses political capital (I have ${Math.round(P.cap)}). Success depends on my approval, my team and the economy (now ${PHASE[localPhase()].l.toLowerCase()}).`));
+  POL_POLICY.forEach(d=>{const on=P.agenda.includes(d.id);
+    s.append(tog(`${d.n}`,`${d.d}. Capital ${d.cap}`,on,()=>{if(on)P.agenda=P.agenda.filter(x=>x!==d.id);else if(P.agenda.length>=2){toast('Two policies a year.');return;}else if(P.cap<d.cap){toast('Not enough political capital.');return;}else P.agenda.push(d.id);stay();},ro));});
+  s.append(h('h4',{},'Using my office'));
+  s.append(row('📰 Give a major speech','Lifts approval and name recognition','',()=>{P.pop=Math.min(100,P.pop+R(1,4)+P.staff.speech);S.fame=Math.min(100,(S.fame||0)+(rnd()<.35?1:0));stay('My speech was well received.');},ro,1));
+  s.append(row('🧹 Run a clean-government drive','Raises integrity, costs some political capital','',()=>{P.cap=Math.max(0,P.cap-6);P.integ=Math.min(100,P.integ+7);P.hid=Math.max(0,P.hid-1);stay('I made my office more transparent.','good');},ro,1));
+  s.append(row('💰 Use my position for private gain','Quick money, big risk. Not recommended','',()=>{const x=Math.round(polSal(P.tier)*R(40,110)/100);S.money+=x;P.hid++;P.integ=Math.max(0,P.integ-12);stay(`I quietly pocketed ${fmt(x)}.`,'bad');},ro));
+}
+function polTeam(s,P,ro){
+  s.append(h('p',{className:'sub'},`Staff cost about ${fmt(Math.round(polCost(Math.max(0,P.tier,0))*.02))} a year per level while I hold office. My party: ${POL_PARTY[P.party].n}. My leaning: ${P.ideo<-15?'left':P.ideo>15?'right':'centre'}.`));
+  [['mgr','Campaign manager','Adds to my strength in every race'],['poll','Pollster','Shows my odds before I commit'],['speech','Speechwriter','Helps policies pass and speeches land']].forEach(([k,n,d])=>{
+    s.append(row(`${n}: level ${P.staff[k]} of 3`,d,P.staff[k]>=3?'Max':'Upgrade',()=>{P.staff[k]++;stay(`I upgraded my ${n.toLowerCase()}.`);},ro||P.staff[k]>=3));});
+  s.append(h('h4',{},'Party and positioning'));
+  s.append(row('Switch parties','Voters remember, and approval drops a little','',()=>choiceModal('Switch party',`Changing sides costs 8 approval.`,[...Object.entries(POL_PARTY).filter(([k])=>k!==P.party).map(([k,v])=>[v.n,()=>{P.party=k;P.ideo=v.ideo;P.pop=Math.max(5,P.pop-8);stay(`I joined the ${v.n}.`);}]),['Stay',()=>{}]]),ro));
 }
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
