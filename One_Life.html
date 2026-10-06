@@ -5192,6 +5192,7 @@ function crmArrest(what,jail,kind,note){
     ['Public defender (free)',()=>verdict(.85,false,'My public defender did what they could.')],
     [`Private lawyer (${fmt(Math.round(15e3*c))})`,()=>{S.money-=Math.round(15e3*c);return verdict(.6,false,'My lawyer fought hard.');},()=>S.money<15e3*c],
     [`Top defence team (${fmt(Math.round(150e3*c))})`,()=>{S.money-=Math.round(150e3*c);return verdict(.38,false,'The best defence money can buy.');},()=>S.money<150e3*c],
+    ...(S.biz.some(x=>x.type==='lawfirm'&&!x.ousted)?[['My own law firm defends me (free)',()=>{const f=S.biz.find(x=>x.type==='lawfirm'&&!x.ousted);return verdict(Math.max(.2,.4-(f.rep-50)/300),false,'My own firm took the case.');}]]:[]),
     ['Plead guilty for a reduced sentence',()=>verdict(1,true,'I took the plea deal.')],
     [`Bribe a court official (${fmt(Math.round(40e3*c))} of dirty cash)`,()=>{C.dirty-=Math.round(40e3*c);if(rnd()<.35+C.rep/200){C.heat=Math.min(100,C.heat+10);return '🤐 The charges quietly disappeared.';}C.heat=Math.min(100,C.heat+15);jail=[jail[0]+1,jail[1]+2];return verdict(1,false,'The bribe was refused and reported.');},()=>C.dirty<40e3*c]];
   Q.push({text:`🚔 I was arrested for ${what.toLowerCase()}.${note?' '+note:''} How do I face the court?`,ch});
@@ -5343,6 +5344,113 @@ function legacyLine(){
   const kd=kids().length;if(kd)bits.push(`${kd} ${kd===1?'child':'children'}`);
   return bits.length?`🕯️ I leave behind ${bits.length>1?bits.slice(0,-1).join(', ')+' and '+bits[bits.length-1]:bits[0]}.`:'';}
 function funeralEffect(){const O=S.old;if(!O||O.fun==null)return;const [n,c,p]=OLD_FUN[O.fun],cost=Math.round(c*cpiF());S.money-=Math.min(Math.max(0,S.money),cost);S.pres=Math.min(100,(S.pres||0)+p);line(`⚰️ My ${n.toLowerCase()} was held as I planned.`);}
+/* ================= specialty mechanics: construction firm, real estate agency, law firm ================= */
+const SPEC={};
+const spTake=(b,extra)=>{const c=Math.round(b.spC+extra);b.spC=null;return c;};
+const spBar=(l,v,c)=>[h('p',{className:'label'},`${l} ${Math.round(v)}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${Math.max(0,Math.min(100,v))}%;background:var(--${c})`}))];
+/* ---------------- construction ---------------- */
+const CN_JOBS={home:{n:'Home renovations',u:1,v:1.05,c:.5,risk:.12},comm:{n:'Commercial fit-outs',u:2,v:1.05,c:.45,risk:.2},civil:{n:'Civil and government works',u:4,v:1.2,c:.42,risk:.3}};
+const CN_FOCUS={home:{home:.7,comm:.3,civil:0},comm:{home:.25,comm:.65,civil:.1},civil:{home:.1,comm:.4,civil:.5}};
+const CN_BID=[[.9,'Aggressive (-10%)'],[1,'Fair'],[1.12,'Premium (+12%)']];
+function cnEnsure(b){if(!b.sp)b.sp={bid:1,focus:'home',sub:'own',safety:1,eq:0,mat:1,fwd:false,lock:1,recv:0,last:null};return b.sp;}
+SPEC.construction={tab:'Projects',
+  year(b,common,ph,econ){
+    const sp=cnEnsure(b),pot=b.base*distLocs(b)*common;
+    sp.mat=Math.max(.8,Math.min(1.6,sp.mat*(1+gauss()*.07+({boom:.03,normal:0,recession:-.02,crash:-.06}[ph]||0))));
+    const mat=sp.fwd?sp.lock*1.04:sp.mat;
+    const U=Math.max(3,Math.round(b.staff*1.1))*(1+.25*sp.eq)*(sp.sub==='sub'?1.5:sp.sub==='mixed'?1.2:1);
+    const unitVal=pot/(Math.max(3,Math.round(b.staff*1.1))*.85*(1+.25*sp.eq*0));
+    const W=Object.assign({},CN_FOCUS[sp.focus]);if(b.rep<50&&W.civil){W.comm+=W.civil;W.civil=0;}
+    const offered=[];let units=0;const target=1.6*Math.max(3,Math.round(b.staff*1.1))*Math.max(.4,Math.min(1.7,common/Math.max(.3,b.gm||1)))*(.6+b.rep/120);
+    let guard=0;while(units<target&&guard++<60){let r=rnd(),k='home';const tot=W.home+W.comm+W.civil;r*=tot;if(r<W.home)k='home';else if(r<W.home+W.comm)k='comm';else k='civil';offered.push(k);units+=CN_JOBS[k].u;}
+    const pWin=k=>Math.max(.12,Math.min(.88,.5+(1-sp.bid)*1.8+(b.rep-50)/220));
+    let used=0,rev=0,cost=0,won=0,over=0,lost=0,skipped=0;
+    offered.forEach(k=>{const J=CN_JOBS[k];if(rnd()>=pWin(k)){lost++;return;}
+      if(used+J.u>U){skipped++;return;}used+=J.u;won++;
+      const bid=unitVal*J.u*J.v*sp.bid;let c=bid/sp.bid*J.c*(1+(mat-1)*.6)*(sp.sub==='sub'?1.12:sp.sub==='mixed'?1.05:1);
+      if(rnd()<J.risk*(cty(b).red||1)*(sp.sub==='sub'?1.1:1)){c*=1+R(12,40)/100;over++;}
+      rev+=bid;cost+=c;});
+    // retention: 12% of billings arrive next year
+    const prev=sp.recv,hold=rev*.12;b.cash+=prev-hold;sp.recv=hold;
+    const safeC=rev*[0,.008,.02][sp.safety],eqRun=sp.eq*b.base*.02;cost+=safeC+eqRun;
+    if(rnd()<.1*(1-.3*sp.safety)*(1+U/15)&&rev>0){const f=Math.round(rev*R(10,50)/1000);cost+=f;b.rep=Math.max(0,b.rep-R(2,6));line(`🦺 A site accident at ${b.name} cost ${fmt(f)} in fines and repairs.`,'bad');}
+    if(rnd()<.015*(1-.3*sp.safety)&&rev>0){const f=Math.round(rev*.08);cost+=f;b.rep=Math.max(0,b.rep-10);line(`⚖️ A serious injury at ${b.name} led to a lawsuit that cost ${fmt(f)}.`,'bad');}
+    sp.last={won,offered:offered.length,lost,skipped,over,units:used,cap:Math.round(U),mat:sp.mat,margin:rev?Math.round((rev-cost)/rev*100):0};
+    line(`🏗️ ${b.name} won ${won} of ${offered.length} bids${over?`, ${over} ran over budget`:''}. Materials prices ${sp.mat>=1.05?'are high':sp.mat<=.95?'are low':'are steady'}.`,over>=Math.max(1,won/2)?'bad':'');
+    return {rev:Math.round(rev),cogs:Math.round(cost)};},
+  panel(s,b,lock){const sp=cnEnsure(b),L=sp.last;
+    s.append(h('p',{className:'sub'},`Crews can handle about ${Math.max(3,Math.round(b.staff*1.1))*(1+.25*sp.eq)*(sp.sub==='sub'?1.5:sp.sub==='mixed'?1.2:1)} job units a year. Materials price index ${(sp.mat*100).toFixed(0)}.${sp.fwd?' Locked in for a year.':''}`));
+    if(L)s.append(h('dl',{},h('dt',{},'Bids won'),h('dd',{},`${L.won} of ${L.offered}`),h('dt',{},'Lost on price or fit'),h('dd',{},String(L.lost)),h('dt',{},'Turned down, no capacity'),h('dd',{},String(L.skipped)),h('dt',{},'Jobs over budget'),h('dd',{},String(L.over)),h('dt',{},'Job margin'),h('dd',{className:L.margin<0?'bad':''},`${L.margin}%`)));
+    s.append(h('p',{className:'label'},'Bid pricing'),seg(CN_BID.map(([v,l])=>[v,l]),sp.bid,v=>{sp.bid=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Lower bids win more jobs but leave thin margins. Premium bids win fewer.'));
+    s.append(h('p',{className:'label'},'Type of work'),seg([['home','Home renovations'],['comm','Commercial'],['civil','Civil and government']],sp.focus,v=>{sp.focus=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},b.rep<50?'Civil and government contracts need a reputation of 50 or more.':'Bigger jobs pay more but overrun more often.'));
+    s.append(h('p',{className:'label'},'Crews'),seg([['own','Own crews'],['mixed','Mixed'],['sub','Subcontract']],sp.sub,v=>{sp.sub=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Subcontracting adds capacity but costs more and overruns more.'));
+    s.append(h('p',{className:'label'},'Safety programme'),seg([[0,'Basic'],[1,'Standard (1%)'],[2,'Strong (2.5%)']],sp.safety,v=>{sp.safety=v;stay();}));
+    const ec=Math.round(b.base*.25*(1+sp.eq));
+    s.append(row(`🚜 Buy better equipment (level ${sp.eq} of 3)`,`More capacity, costs ${fmt(ec)} from business cash. Running costs rise a little`,'',()=>{b.cash-=ec;sp.eq++;stay('The firm bought new equipment.','good');},lock||sp.eq>=3||b.cash<ec),
+      tog('🔒 Lock in materials prices',`Fixes this year's index at +4% cost. Protects against a price spike`,sp.fwd,()=>{sp.fwd=!sp.fwd;sp.lock=sp.mat;stay();},lock));
+    s.append(h('p',{className:'sub'},`${hasBiz('construction')?'My land developments get a 12% build discount and half the overruns from this firm.':''}`));}};
+/* ---------------- real estate agency ---------------- */
+const RE_STRAT={vol:{n:'Volume',d:1.5,p:.72,r:.02,sd:.12},bal:{n:'Balanced',d:1,p:1,r:.025,sd:.14},lux:{n:'Luxury',d:.35,p:3.2,r:.03,sd:.4}};
+function reEnsure(b){if(!b.sp)b.sp={split:.4,strat:'bal',mgmt:false,units:0,flip:0,last:null};return b.sp;}
+SPEC.realty={tab:'Listings',
+  year(b,common,ph,econ){
+    const sp=reEnsure(b),st=RE_STRAT[sp.strat],c=cty(b);
+    const mv={boom:1.3,normal:1,recession:.72,crash:.45}[ph]||1;
+    const P=260000*S.homeIdx*c.rent;
+    const agents=b.staff+b.team.length,ag=(b.staff*55+b.team.reduce((t,p)=>t+p.skill,0))/Math.max(1,agents),skillF=.6+ag/125;
+    const splitF=sp.split>=.5?1.1:sp.split<=.3?.9:1;
+    let deals=b.staff*11*skillF*mv*st.d*(.7+b.rep/170)*splitF*Math.exp(gauss()*st.sd);
+    if(sp.strat==='lux'&&b.rep<55)deals*=.5;
+    deals=Math.max(0,Math.round(deals));
+    const gross=deals*P*st.p*st.r;
+    let rev=gross,cogs=gross*sp.split+gross*.06;
+    // rental management arm
+    let mg=0;if(sp.mgmt){sp.units=Math.round(sp.units*.88+deals*.35);mg=sp.units*P*.055*.08;rev+=mg;cogs+=mg*.35;}else sp.units=Math.round(sp.units*.8);
+    // flipping homes with the agency's own cash
+    let flipNet=0;const cap=Math.max(0,b.cash)*[0,.2,.4][sp.flip];
+    if(cap>0){const r=Math.max(-.25,Math.min(.4,(PHASE[ph].home/100)+gauss()*.07+.02));flipNet=Math.round(cap*r);if(flipNet>=0)rev+=flipNet;else cogs+=-flipNet;}
+    // agents can be poached when the split is stingy
+    if(b.team.length&&rnd()<(sp.split<.35?.2:sp.split<.45?.1:.04)){const p=b.team[0];b.team=b.team.filter(x=>x!==p);line(`🏡 A rival agency poached ${p.name} from ${b.name}.`,'bad');}
+    sp.last={deals,ph,P:Math.round(P),gross:Math.round(gross),mg:Math.round(mg),flip:flipNet,units:sp.units};
+    line(`🏡 ${b.name} closed ${deals} sale${deals===1?'':'s'}${ph==='boom'?' in a hot market':ph==='recession'||ph==='crash'?' in a weak market':''}${mg?` and earned ${fmt(Math.round(mg))} managing ${sp.units} rentals`:''}${flipNet?` and ${flipNet>0?'made':'lost'} ${fmt(Math.abs(flipNet))} flipping homes`:''}.`,deals<b.staff*6?'bad':'');
+    return {rev:Math.round(rev),cogs:Math.round(cogs)};},
+  panel(s,b,lock){const sp=reEnsure(b),L=sp.last;
+    s.append(h('p',{className:'sub'},`The market is ${PHASE[bizPhase(b)].l.toLowerCase()}. A typical home sells for about ${fmt(Math.round(260000*S.homeIdx*cty(b).rent))}. Agents: ${b.staff+b.team.length}.`));
+    if(L)s.append(h('dl',{},h('dt',{},'Sales last year'),h('dd',{},String(L.deals)),h('dt',{},'Commission earned'),h('dd',{},fmt(L.gross)),h('dt',{},'Rental management'),h('dd',{},sp.mgmt?`${L.units} units, ${fmt(L.mg)}`:'Off'),h('dt',{},'Home flipping'),h('dd',{className:L.flip<0?'bad':''},sp.flip?fmt(L.flip):'Off')));
+    s.append(h('p',{className:'label'},'What we sell'),seg(Object.entries(RE_STRAT).map(([k,v])=>[k,v.n]),sp.strat,v=>{sp.strat=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},{vol:'Many cheaper homes. Steady work and lower fees.',bal:'A mix of homes. The safe default.',lux:b.rep<55?'Luxury sales need a reputation of 55 or more, or volume halves.':'Few big deals, high fees, lumpy income.'}[sp.strat]));
+    s.append(h('p',{className:'label'},'Agent commission split'),seg([[.3,'30%'],[.4,'40%'],[.5,'50%']],sp.split,v=>{sp.split=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'A bigger split keeps good agents and lifts sales, but costs margin. Below 35% they leave.'));
+    s.append(tog('🏘️ Rental management arm','Manage rentals for owners. Recurring fees that keep coming in a slow market',sp.mgmt,()=>{sp.mgmt=!sp.mgmt;stay();},lock));
+    s.append(h('p',{className:'label'},'Flip homes with the agency\'s cash'),seg([[0,'No flipping'],[1,'Small (20%)'],[2,'Big (40%)']],sp.flip,v=>{sp.flip=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Buy, fix and sell. Profits follow the property market. Booms pay, crashes bite.'));}};
+/* ---------------- law firm ---------------- */
+const LW_MIX={bal:{n:'Balanced',corp:.35,fam:.25,inj:.25,crim:.15},corp:{n:'Corporate',corp:.6,fam:.1,inj:.2,crim:.1},inj:{n:'Injury claims',corp:.15,fam:.2,inj:.55,crim:.1},crim:{n:'Criminal and family',corp:.15,fam:.35,inj:.1,crim:.4}};
+const LW_N={corp:'Corporate',fam:'Family',inj:'Injury claims',crim:'Criminal defence'};
+function lwEnsure(b){if(!b.sp)b.sp={mix:'bal',probono:false,ins:true,last:null,cases:0};return b.sp;}
+SPEC.lawfirm={tab:'Cases',
+  year(b,common,ph,econ){
+    const sp=lwEnsure(b),mix=LW_MIX[sp.mix],pot=b.base*distLocs(b)*common;
+    const repF=.7+b.rep/170,res={};let rev=0;
+    const vol={corp:1+econ*1.5,fam:1-econ*.5,inj:Math.exp(gauss()*.45),crim:1-econ*.4};
+    ['corp','fam','inj','crim'].forEach(k=>{res[k]=Math.max(0,pot*mix[k]*vol[k]*repF);rev+=res[k];});
+    let big=0;if(rnd()<.05*(1+b.rep/100)){big=Math.round(pot*R(15,50)/10*.3);rev+=big;line(`⚖️ ${b.name} won a landmark case. The fee was ${fmt(big)}.`,'good');b.rep=Math.min(100,b.rep+6);S.fame=Math.min(100,(S.fame||0)+2);}
+    else if(rnd()<.03){const loss=Math.round(pot*.2);rev-=loss;line(`⚖️ ${b.name} lost a high-profile case and refunded ${fmt(loss)} in fees.`,'bad');b.rep=Math.max(0,b.rep-6);}
+    if(sp.probono){rev*=.92;b.rep=Math.min(100,b.rep+2);S.pres=Math.min(100,(S.pres||0)+.2);}
+    let cogs=rev*.05,claim=0;
+    if(sp.ins)cogs+=rev*.02;
+    else if(rnd()<.04*(1+(100-b.rep)/100)){claim=Math.round(pot*R(3,12)/10);cogs+=claim;line(`⚖️ A malpractice claim cost ${b.name} ${fmt(claim)}. It was not insured.`,'bad');b.rep=Math.max(0,b.rep-8);}
+    if(sp.ins&&rnd()<.04){cogs+=Math.round(pot*.05);}
+    // ethics
+    if(rnd()<.12&&canManage()&&!b.ousted)Q.push({text:`A partner at ${b.name} wants to pad client bills to hit this year's targets.`,ch:[
+      ['Allow it',()=>{b.cash+=Math.round(pot*.04);if(rnd()<.35){b.rep=Math.max(0,b.rep-15);return 'It came out in an audit. The firm paid a fine and lost trust.';}return 'It went unnoticed this year, but the practice is rotten.';}],
+      ['Forbid it and set an example',()=>{b.rep=Math.min(100,b.rep+4);b.morale=Math.min(100,b.morale-2);return 'The partner sulked, but clients noticed the firm\'s honesty.';}]]});
+    sp.last={res:Object.fromEntries(Object.entries(res).map(([k,v])=>[k,Math.round(v)])),big,claim};
+    return {rev:Math.round(rev),cogs:Math.round(cogs)};},
+  panel(s,b,lock){const sp=lwEnsure(b),L=sp.last;
+    s.append(h('p',{className:'sub'},'Corporate work follows the economy, family and criminal work often grow in a downturn, and injury claims are lumpy. A big case is a rare jackpot, and a loss hurts.'));
+    if(L)s.append(h('dl',{},...Object.entries(L.res).flatMap(([k,v])=>[h('dt',{},LW_N[k]),h('dd',{},fmt(v))]),h('dt',{},'Landmark cases'),h('dd',{},L.big?fmt(L.big):'None'),h('dt',{},'Malpractice claims'),h('dd',{className:L.claim?'bad':''},L.claim?fmt(L.claim):'None')));
+    s.append(h('p',{className:'label'},'Practice focus'),seg(Object.entries(LW_MIX).map(([k,v])=>[k,v.n]),sp.mix,v=>{sp.mix=v;stay();}));
+    s.append(tog('🤝 Pro bono work','Gives up 8% of revenue for a better name and family prestige',sp.probono,()=>{sp.probono=!sp.probono;stay();},lock),
+      tog('🛡️ Malpractice insurance','Costs 2% of revenue. Without it one claim can hurt badly',sp.ins,()=>{sp.ins=!sp.ins;stay();},lock));
+    s.append(h('p',{className:'sub'},'If I am ever arrested, my own firm defends me at a discount.'));}};
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -5815,7 +5923,7 @@ const BIZ={
   lever:{t:'Memberships',o:{monthly:{l:'Monthly'},annual:{l:'Annual contracts',d:.95,v:.5,e:.6},payg:{l:'Pay as you go',d:1.1,v:1.4}}},names:['Iron Yard','Pulse Fitness','Lift Club','Core House'],prods:['Sunrise Bootcamp','Rowing League','Recovery Lounge']},
  fashion:{n:'Clothing brand',ic:'👕',cost:50000,cap:0.35,base:250000,fixed:30000,cogs:.45,staff:2,wage:35000,mult:4,vol:.35,econ:1,art:1,inv:1,unit:['items sold',60],item:'jacket',season:'Holiday collection push',
   lever:{t:'Collection size',o:{small:{l:'Small drop',inv:.8,r:3},standard:{l:'Standard'},huge:{l:'Huge',inv:1.4}}},names:['Threadbare','Loud Quiet','Northbound Supply','Hemline'],prods:['Nightfall Jacket','Cloud Hoodie','Heritage Denim']},
- realty:{n:'Real estate agency',ic:'🏡',cost:120000,cap:0.3,base:360000,fixed:50000,cogs:.1,staff:5,wage:55000,mult:3,vol:.25,econ:1.8,unit:['home sales',9000],item:'open house',season:'Spring market push',
+ realty:{n:'Real estate agency',ic:'🏡',cost:120000,cap:0.3,base:360000,fixed:50000,cogs:.1,staff:5,wage:25000,mult:3,vol:.25,econ:1.8,unit:['home sales',9000],item:'open house',season:'Spring market push',
   lever:{t:'Focus',o:{starter:{l:'Starter homes'},luxury:{l:'Luxury',d:1.15,e:1.4,v:1.3},commercial:{l:'Commercial',d:1.05,e:.7}}},names:['Keystone Realty','Open Door Homes','Brickwell Agents','Hearth & Co'],prods:['Virtual Tours','Buyer Concierge','Flat-Fee Listings']},
  tech:{n:'Tech startup',ic:'🚀',cost:200000,cap:0.8,base:100000,fixed:40000,cogs:.1,staff:2,wage:130000,mult:0,vol:.5,econ:1.2,tech:1,online:1,gov:1,unit:['users',60],item:'app',season:'Product launch week',
   lever:{t:'Growth mode',o:{blitz:{l:'Grow at all costs',d:1.15,c:1.25,g:15},balanced:{l:'Balanced'},profit:{l:'Profitable',d:.9,c:.85,g:-10}}},names:['Loopwise','Stackly','Nudgebot','Tidal AI','Quanta Labs'],prods:['Autopilot Mode','Team Workspaces','Smart Insights']},
@@ -6608,11 +6716,12 @@ function simBiz(b){
   if(!isGoods(b)){if(T.inv){const stock=b.base*effLocs(b)*(.5+b.rep/100)*(L.inv||1)*(1+econ*.5);if(demand>stock){demand=stock;soldOut=true;}else writeoff=(stock-demand)*T.cogs*.7;}
     rev=Math.round(demand*P.p*(L.p||1)*cty(b).pp);}
   b.lastSoldOut=soldOut;
+  if(SPEC[b.type]){const sp0=SPEC[b.type].year(b,common,ph,econ);rev=sp0.rev;b.spC=sp0.cogs;writeoff=0;}
   let hit=false;if(T.hit&&rnd()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
   const conRev=b.contracts.reduce((a,c)=>a+c.rev,0);b.contracts.forEach(c=>c.yrs--);b.contracts=b.contracts.filter(c=>c.yrs>0);
   let royal=0;if(b.fr){const grow=Math.round(R(0,3)*(b.rep/70));b.fr.n+=grow;royal=Math.round(b.fr.n*b.base*.9*.06);}
   const idx=b.contract?b.contract.idx:S.supIdx;if(b.contract){b.contract.yrs--;if(b.contract.yrs<=0)b.contract=null;}
-  const cogs=isGoods(b)?Math.round(gcost+conRev*T.cogs*idx*(1+(T.food?S.regs.foodTax:0))):Math.round((rev+conRev)*T.cogs*sup.c*idx*(L.c||1)*(1+(T.food?S.regs.foodTax:0))+writeoff);
+  const cogs=b.spC!=null?spTake(b,conRev*T.cogs*idx):isGoods(b)?Math.round(gcost+conRev*T.cogs*idx*(1+(T.food?S.regs.foodTax:0))):Math.round((rev+conRev)*T.cogs*sup.c*idx*(L.c||1)*(1+(T.food?S.regs.foodTax:0))+writeoff);
   let owner=0;if(b.salary>0&&!b.ousted&&!S.jail&&S.age>=18){const mx=maxSalary(b);if(b.salary>mx){b.salary=mx;line(`${b.name} is smaller now, so I cut my salary to ${fmt(mx)}.`,'bad');}owner=b.salary;}
   const ceoPay=b.ceo&&!b.ousted?b.ceo.wage:b.ceo?b.ceo.wage:0;
   const wages=Math.round((b.staff*wagePer(b)+storeMgrCost(b))*fx.cost)+b.team.reduce((a,p)=>a+p.wage,0)+ceoPay+owner+(b.smm?b.smm.wage:0);
@@ -6971,9 +7080,10 @@ function drawBiz(s,b){
   s.append(h('button',{className:'back',on:()=>{bizView=null;flash=null;drawSheet(true)}},'‹ All businesses'));
   s.append(h('h3',{},`${T.ic} ${b.name}`),h('p',{className:'sub'},`${b.cty&&COUNTRIES[b.cty]?COUNTRIES[b.cty].ic+' '+COUNTRIES[b.cty].n+'. ':''}${T.n}, ${b.yrs} yr${b.yrs===1?'':'s'} old${b.gens>1?`, family-owned for ${b.gens} generations`:''}. I own ${Math.round(b.own*100)}%${b.co?`, ${fname(b.co.name)} owns ${Math.round(b.co.share*100)}%`:''}${b.inv>0?`, investors own ${Math.round(b.inv*100)}%`:''}.${b.pub?' Publicly traded.':''}`));
   if(b.ousted)s.append(h('p',{className:'flash bad'},'🪑 The board removed me as CEO. A hired CEO runs things. I can sell my stake or buy out the investors to take back control.'));
-  ensureGoods(b);s.append(h('div',{className:'tabs'},(b.mode==='simple'?[['over','Overview'],['people','CEO'],['grow','Growth'],['fin','Finance'],['risk','Risk']]:[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),['strat','Strategy'],['mkt','Marketing'],['people','People'],['fin','Finance'],['risk','Risk']]).map(([k,l])=>h('button',{'aria-pressed':String(bTab===k||(k==='over'&&bTab==='fins')),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
+  ensureGoods(b);s.append(h('div',{className:'tabs'},(b.mode==='simple'?[['over','Overview'],['people','CEO'],['grow','Growth'],['fin','Finance'],['risk','Risk']]:[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),...(SPEC[b.type]?[['spec',SPEC[b.type].tab]]:[]),['strat','Strategy'],['mkt','Marketing'],['people','People'],['fin','Finance'],['risk','Risk']]).map(([k,l])=>h('button',{'aria-pressed':String(bTab===k||(k==='over'&&bTab==='fins')),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
   const bars=(l,v,c)=>[h('p',{className:'label'},`${l} ${v}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${v}%;background:var(--${c})`}))];
   if(bTab==='prod'&&!isGoods(b))bTab='over';
+  if(bTab==='spec'&&(!SPEC[b.type]||b.mode==='simple'))bTab='over';
   if(b.mode==='simple'&&['prod','strat','fins','mkt'].includes(bTab))bTab='over';
   if(b.mode!=='simple'&&bTab==='grow')bTab='strat';
   if(bTab==='prod'){tabProducts(s,b,lock);return;}
@@ -6997,6 +7107,7 @@ function drawBiz(s,b){
     const sy=synergy(b);if(sy.length)s.append(h('p',{className:'sub'},`🔗 ${sy.map(x=>x[3]).join(', ')}`));
     return;}
   if(lock&&bTab!=='fin'){s.append(h('p',{className:'sub'},S.jail?"The business runs without me while I'm in prison.":S.age<18?'A trustee runs this until I turn 18.':'The board is in charge.'));return;}
+  if(bTab==='spec'){SPEC[b.type].panel(s,b,lock);return;}
   if(bTab==='strat'){
     if(!isGoods(b))s.append(h('p',{className:'label'},'Prices'),seg(Object.entries(PRICE).map(([k,p])=>[k,p.l]),b.price,x=>{b.price=x;stay()}));
     else s.append(h('p',{className:'sub'},'Prices, suppliers and quantities are set per product in the Products tab.'));
