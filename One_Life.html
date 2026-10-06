@@ -610,6 +610,12 @@ const ACH={
  smile:['📈','Milestone','Reach a career stats milestone'],
  sstat:['💥','Statement season','Average 25 points a game, score 25 goals in a season or win 70 matches'],
  sviral:['🚀','Gone viral','Have a post explode'],
+ dyn3:['👪','Three generations','Reach the third generation of the family'],
+ oldmoney:['🏛️','Old money','Hold $100 million in the third generation or later'],
+ famemp:['👑','Family empire','Reach a dynasty score of 150'],
+ named:['🎗️','Named after us','Build a family foundation to $10 million or 25 years'],
+ dtrust:['🏦','Trust fund dynasty','Grow the family trust to $10 million'],
+ pdream:['⭐','Chasing the dream','A child becomes a professional athlete, actor or musician'],
  clubown:['🏟️','Club owner','Buy a sports club'],
  medmogul:['🎬','Media mogul','Own a film studio, record label or streaming service'],
  medbb:['💥','Blockbuster','Release a film that grosses $500 million'],
@@ -760,6 +766,10 @@ function fillDefaults(s){
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
   if(s.med===undefined)s.med=null;
+  if(typeof s.pres!=='number')s.pres=0;
+  if(!s.pstyle)s.pstyle='support';
+  ['dt','fo','fdn','will'].forEach(k=>{if(s[k]===undefined)s[k]=null;});
+  if(typeof s.lifeIns!=='number')s.lifeIns=0;
   if(!s.cm)s.cm={};
   Object.keys(COL_CATS).forEach(k=>{if(s.cm[k]==null)s.cm[k]=1;});
   if(!Array.isArray(s.exes))s.exes=[];
@@ -898,7 +908,7 @@ function newLife(o={}){
     log:[],job:null,edu:{major:null,yrs:0,degrees:[]},rels:[],assets:o.assets||[],jail:0,gen:o.gen||1,
     used:{},flags:{crimes:0,jailYears:0,exes:0,record:false,hs:(o.age||0)>=18?true:undefined},retired:false,pension:0,cause:null,
     hold:{},basis:{},mkt:o.mkt||initMkt(),econ:o.econ||{phase:'normal',yrs:0},cecon:o.cecon||initCecon(o.econ?o.econ.phase:'normal'),homeIdx:o.homeIdx||1,
-    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false,spt:null,soc:null,club:o.club||null};
+    biz:o.biz||[],ret:{bal:0,pct:0},angels:[],gig:null,peak:0,fame:0,rivals:o.rivals||[],forSale:[],mentees:[],trend:o.trend||null,regs:o.regs||{wage:1,foodTax:0,tax:.2,deliv:.15,zoning:1},supIdx:o.supIdx||1,holding:null,exes:[],chal:o.chal||null,mem:{},seen:{},miles:[],nwHist:[],talent:null,aiNext:null,tip:null,careers:[],act:{cls:0,rep:0,tier:0,awards:0,noms:0,films:[],inactive:0,scandalCd:0},shorts:[],margin:{bal:0},bubble:null,ipoIdx:0,advisor:null,secWatch:0,dev:o.dev||[],col:o.col||[],cm:o.cm||colIdx0(),cmHot:o.cmHot||null,colIns:false,spt:null,soc:null,club:o.club||null,med:o.med||null,pres:o.pres||0,pstyle:o.pstyle||'support',dt:o.dt||null,fo:o.fo||null,fdn:o.fdn||null,will:null,lifeIns:0};
   if(o.addTrait&&!S.traits.includes(o.addTrait)){S.traits[S.traits.length-1]=o.addTrait;if(o.addTrait==='hustler')S.traits=S.traits.filter(t=>t!=='lazy'||t==='hustler');}
   // trait bonuses only apply to a rolled start. If the player set the sliders, their numbers stand.
   if(!o.st){if(has('genius'))S.st.smarts=R(70,100);if(has('athletic'))S.st.health=R(85,100);if(has('charming'))S.st.looks=Math.min(100,S.st.looks+15);}
@@ -1571,7 +1581,7 @@ function applyJob(o){const C=CAREERS[o.c],t=C.t[o.lvl][0];
   if(C.sm===0&&!C.deg&&o.lvl===0)return finish(0);
   const q=pick(IVQ),lvlNote=o.lvl>0?' It\'s a senior role, so they dig deep.':'';
   choiceModal(`Interview: ${t}`,`${o.co?o.co+'. ':''}"${q[0]}"${lvlNote}`,q.slice(1).map(([txt,st])=>[txt,()=>{
-    const v=st==='looks'?S.st.looks+(has('charming')?10:0):S.st[st];const bonus=(v-50)/250+R(-5,5)/100;finish(bonus);}]));}
+    const v=st==='looks'?S.st.looks+(has('charming')?10:0):S.st[st];const bonus=(v-50)/250+R(-5,5)/100+(S.pres||0)/1000;finish(bonus);}]));}
 
 function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
 function loanRate(){return Math.max(.01,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate+(S.age>=18?(700-creditScore())/12000:0));}
@@ -1794,7 +1804,7 @@ function yrDecade(){ if(S.age%10===0&&S.age>=20)Q.push(decadeReview()); }
 function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
-  ['tick',yrTick],['people',yrPeople],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['school',yrSchool],
+  ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['media',yrMedia],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
@@ -1820,7 +1830,7 @@ function checkDeath(){
   if(rnd()<p){
     const rare=rnd()<.04;
     S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):hlCause()?hlCause():S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&rnd()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
-    S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');if(hlDeathSummary())line(hlDeathSummary());
+    S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');if(kids().some(k=>k.alive)||S.gen>1)line(`👪 Family legacy: generation ${S.gen}, family name ${dTier().toLowerCase()}, dynasty score ${dScore()}.`);if(hlDeathSummary())line(hlDeathSummary());
     if(S.age<18)unlock('speedrun');if(S.age>=100)unlock('century');
     const ob=obituary();S.obit=ob;
     META.tree.push({dyn:S.dyn,gen:S.gen,name:S.name,age:S.age,cause:S.cause,nw:netWorth(),ribbon:ribbon(),obit:ob,traits:S.traits,id:S.id});if(META.tree.length>200)META.tree.shift();saveMeta();
@@ -2439,7 +2449,8 @@ function assetModal(a){
     if(a.mort)ch.push([`Pay off mortgage (${fmt(a.mort.bal)})`,()=>{S.money-=a.mort.bal;a.mort=null;unlock('debtfree');stay(`I paid off the mortgage on my ${a.n.toLowerCase()}.`,'good')},()=>S.money<a.mort.bal]);}
   ch.push([`Sell (I'd get ${fmt(eq)})`,()=>{S.money+=eq;S.assets=S.assets.filter(x=>x!==a);if(a.bought&&S.age-a.bought.age<=3&&saleVal(a)>=a.bought.p*1.25)unlock('flip');stay(`I sold my ${a.n.toLowerCase()} and got ${fmt(eq)}.`)}]);
   ch.push(['Cancel',()=>{}]);
-  choiceModal(a.n,`${a.k==='home'?homeDesc(a)+' ':''}${a.rent?rentTenantLine(a)+'. ':''}Worth ${fmt(a.v)}.${a.k==='home'?' Selling costs 6% in fees.':''}${a.mort?` Mortgage left: ${fmt(a.mort.bal)} at ${(a.mort.rate*100).toFixed(1)}%.`:''}`,ch);
+  if(a.heirloom)ch.forEach(c=>{if(c[0].startsWith('Sell'))c[2]=()=>true;});
+  choiceModal(a.n,`${a.k==='home'?homeDesc(a)+' ':''}${a.heirloom?'A family heirloom. ':''}${a.rent?rentTenantLine(a)+'. ':''}Worth ${fmt(a.v)}.${a.k==='home'?' Selling costs 6% in fees.':''}${a.mort?` Mortgage left: ${fmt(a.mort.bal)} at ${(a.mort.rate*100).toFixed(1)}%.`:''}`,ch);
 }
 function tabRet(s){
   s.append(h('p',{className:'sub'},`Balance ${fmt(S.ret.bal)}. It's invested in the market index. I put in a share of my salary before tax, from my job or from salaries I pay myself at my businesses. My employer (or my business) matches half of it, up to 5% of the salary.`));
@@ -2453,6 +2464,7 @@ function tabRet(s){
 /* ================= People ================= */
 function relSheet(){openSheet(s=>{
   s.append(h('h3',{},'People'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));const alive=S.rels.filter(p=>p.alive);
+  s.append(row('👪 Family hub',`Generation ${S.gen}. Children, wills, trusts and the family name`,'',familySheet,!S.alive));
   if(!alive.length)s.append(h('p',{className:'sub'},'No one right now.'));
   alive.forEach(p=>s.append(h('button',{className:'row',on:()=>personSheet(p)},h('span',{},h('b',{},p.name),h('small',{},`${p.type}, age ${p.age}${p.type==='Child'&&p.life&&p.age>=18?` · ${p.life.job?CAREERS[p.life.job.c].t[p.life.job.lvl][0]:p.life.major?'Studying '+p.life.major:'Not working'}${p.life.married?' · married':''}`:''}`)),h('span',{},h('div',{className:'relbar'},h('i',{style:`width:${p.rel}%`}))))));
   if(canManage()&&S.age>=25){s.append(h('h4',{},'Family'),row('Adopt a child','$15,000 in fees','',()=>{S.used.adopt=true;S.money-=15000;const g=pick(['M','F']);const k=person('Child',g,R(0,8),lastName());k.rel=75;S.rels.push(k);S.st.happy+=12;mile(`Adopted ${fname(k.name)}`);stay(`I adopted ${fname(k.name)}, age ${k.age}. Welcome home.`,'good')},S.used.adopt||S.money<15000,1));}
@@ -4301,6 +4313,251 @@ function medStreamTab(s,m,ro){
   s.append(row('🎬 Content budget',`Now ${fmt(m.content)} a year. Originals and licensing keep the library strong`,fmt(m.content),()=>amountModal({title:'Yearly content budget',sub:`Now ${fmt(m.content)}.`,min:0,max:Math.max(2e8,m.content*2),init:m.content,btn:'Set',step:100000,onOk:v=>{m.content=v;stay();}}),ro));
   s.append(row('📣 Marketing budget',`Now ${fmt(m.mkt)} a year. Each ${fmt(Math.round(45+m.subs/40000))} buys about one subscriber`,fmt(m.mkt),()=>amountModal({title:'Yearly marketing budget',sub:`Now ${fmt(m.mkt)}.`,min:0,max:Math.max(1e8,m.mkt*2),init:m.mkt,btn:'Set',step:50000,onOk:v=>{m.mkt=v;stay();}}),ro));
 }
+/* ================= family dynasty: upbringing, talents, wills, trusts, estate tax, family office, prestige ================= */
+const D_TAL=[['acad','Academic','📚'],['sport','Athletic','🏅'],['arts','Artistic','🎨'],['biz','Business','💼'],['soc','Social','🤝']];
+const D_PLAN=[['acad','Academics','Tutoring and study time',4000],['sport','Sports','Coaching and clubs',5000],['arts','Arts','Lessons and instruments',4000],['biz','Business','Mentoring and small projects',3000],['soc','Character','Travel, community and mentors',2500]];
+const D_SCHOOL={public:['Public school',0],private:['Private school',28000],boarding:['Boarding school',48000]};
+const D_STYLE={strict:['Strict','Better grades and discipline, less closeness'],support:['Supportive','Balanced, the safe choice'],hands:['Hands-off','Independent kids, less guidance'],indulge:['Indulgent','Happy kids who spend freely and work less']};
+const D_EST={us:[13e6,.4],uk:[325e3,.4],ca:[0,.15],au:[0,0],nz:[0,0],ie:[33e4,.33],de:[4e5,.3],ch:[0,.07],ae:[0,0],ng:[0,0],za:[15e5,.2],in:[0,0],jp:[6e5,.4],sg:[0,0],my:[0,0],ph:[0,.06]};
+const D_DREAM={sport:'athlete',arts:'musician or actor'};
+const D_TIER=[[0,'Unknown'],[12,'Local name'],[30,'Respected'],[55,'Notable family'],[80,'Legendary house']];
+const dTier=()=>D_TIER.filter(t=>S.pres>=t[0]).pop()[1];
+const dYou=n=>n;
+function dTal(p){const L=kidLife(p);
+  if(!L.tal){L.tal={acad:clamp(Math.round((S.st.smarts+R(20,95))/2)),sport:clamp(Math.round((S.st.health+R(20,95))/2+(has('athletic')?8:0))),arts:clamp(R(20,90)),biz:clamp(Math.round(((S.biz.length?70:45)+R(20,95))/2)),soc:clamp(Math.round((S.st.looks+R(20,95))/2+(has('charming')?8:0)))};
+    L.rev=[];L.plan=[];L.school='public';L.fund=0;L.trained=0;L.role=null;L.spoil=0;L.contacts=0;L.dream=null;L.pro=null;}
+  return L;}
+function dReady(p){const L=dTal(p);return clamp(Math.round(L.tal.biz*.3+L.st.smarts*.25+L.degrees.length*8+(L.trained||0)*9));}
+function dTop(L){return D_TAL.slice().sort((a,b)=>L.tal[b[0]]-L.tal[a[0]])[0];}
+function dKidYear(p){
+  const L=dTal(p),fn=fname(p.name),sc=hcScale(),style=S.pstyle||'support';
+  const mult=style==='strict'?1.15:style==='hands'?.85:style==='indulge'?.9:1;
+  // upbringing costs and effects
+  const sch=D_SCHOOL[L.school||'public'],scost=Math.round(sch[1]*sc);
+  if(scost&&S.money>=scost&&S.age>=18){S.money-=scost;L.tal.acad=Math.min(99,L.tal.acad+(L.school==='boarding'?2:1)*(rnd()<.6?1:0));L.contacts+=1;if(L.school==='boarding')p.rel-=2;}
+  else if(scost&&S.money<scost)L.school='public';
+  (L.plan||[]).forEach(k=>{const d=D_PLAN.find(x=>x[0]===k),c=Math.round(d[3]*sc);if(S.money<c){line(`I could not afford ${fn}'s ${d[1].toLowerCase()} this year.`,'bad');return;}
+    S.money-=c;L.tal[k]=Math.min(99,L.tal[k]+Math.round(R(1,4)*mult*(1+(L.tal[k]<60?.15:0))));
+    if(k==='acad')L.st.smarts=Math.min(99,L.st.smarts+1);if(k==='sport')L.st.health=Math.min(99,L.st.health+1);
+    if(!L.rev.includes(k)&&L.tal[k]>=55&&rnd()<.6)L.rev.push(k);});
+  if((L.plan||[]).length<2)p.rel=Math.min(100,p.rel+2);
+  if(style==='strict'){p.rel-=1;if(rnd()<.05)L.rebel=true;}else if(style==='support')p.rel=Math.min(100,p.rel+1);else if(style==='hands'){p.rel-=1;L.tal.soc=Math.min(99,L.tal.soc+(rnd()<.3?1:0));}
+  else if(style==='indulge'){p.rel=Math.min(100,p.rel+2);L.spoil=Math.min(10,L.spoil+.5);}
+  // talents show up with age
+  if(p.age===8&&!L.rev.length){const t=dTop(L);L.rev.push(t[0]);line(`${t[2]} ${fn} is showing a real gift for ${t[1].toLowerCase()} things.`,'good');}
+  // college fund
+  if(p.age===17&&L.fund>0){const t=Math.round(tuition()*4);if(L.fund>=t){L.paid=true;L.cash+=L.fund-t;}else L.cash+=L.fund;line(`🎓 ${fn}'s college fund of ${fmt(L.fund)} is ready for university.`,'good');L.fund=0;}
+  dKidEvent(p,L,fn);
+}
+function dKidEvent(p,L,fn){
+  if(rnd()>.32)return;const a=p.age,sc=hcScale(),T=L.tal;
+  const ev=[];
+  if(a>=7&&a<=15)ev.push(()=>({text:`${fn} is being bullied at school.`,ch:[
+    ['Talk to the school',()=>{p.rel+=2;return `The school stepped in and ${fn} felt heard.`;}],
+    ['Teach them to stand up for themselves',()=>{T.soc=Math.min(99,T.soc+3);if(rnd()<.6){p.rel+=4;return `${fn} found their voice and the bullying stopped.`;}p.rel-=2;return `It went badly at first. ${fn} was suspended for a day.`;}],
+    ['Move them to a better school',()=>{const c=Math.round(10000*sc);if(S.money<c)return 'I could not afford it.';S.money-=c;p.rel+=3;return `A new school was a fresh start. It cost ${fmt(c)}.`;}]]}));
+  if(a>=13&&a<=17)ev.push(()=>({text:`${fn} is struggling with exam stress.`,ch:[
+    ['Hire a tutor ($3,000)',()=>{const c=Math.round(3000*sc);if(S.money<c)return 'I could not afford a tutor.';S.money-=c;T.acad=Math.min(99,T.acad+3);return `The tutor helped a lot. ${fn}'s grades improved.`;}],
+    ['Let them rest',()=>{p.rel+=3;L.st.health=Math.min(99,L.st.health+2);return `${fn} took time to recover and was grateful.`;}],
+    ['Push them harder',()=>{T.acad=Math.min(99,T.acad+2);p.rel-=4;L.st.health=Math.max(5,L.st.health-3);return `${fn} worked harder, and resented it.`;}]]}));
+  if(a>=15&&a<=17)ev.push(()=>({text:`${fn} has fallen in love for the first time.`,ch:[
+    ['Be supportive',()=>{p.rel+=4;return `${fn} told me everything. It was sweet.`;}],
+    ['Set strict rules',()=>{p.rel-=3;if(rnd()<.35)L.rebel=true;return `${fn} rolled their eyes and sulked for months.`;}],
+    ['Stay out of it',()=>'It burned bright and faded, as first loves do.']]}));
+  if(a>=15&&a<=17&&!L.dream){const dr=T.sport>=62?'sport':T.arts>=62?'arts':null;if(dr)ev.push(()=>({text:`${fn} wants to chase a dream of becoming a ${D_DREAM[dr]}.`,ch:[
+    [`Fund it ($${Math.round(20000*sc).toLocaleString('en-US')})`,()=>{const c=Math.round(20000*sc);if(S.money<c)return 'I could not afford it.';S.money-=c;L.dream=dr;p.rel+=6;T[dr]=Math.min(99,T[dr]+4);return `${fn} threw everything into the dream. Let us see how far it goes.`;}],
+    ['Insist on college first',()=>{p.rel-=4;if(rnd()<.4)L.rebel=true;return `${fn} agreed, unhappily.`;}]]}));}
+  if(a>=13&&a<=17)ev.push(()=>({text:`${fn} got into trouble with friends and the police called.`,ch:[
+    ['Pay the fine and have a serious talk ($2,000)',()=>{const c=Math.round(2000*sc);S.money-=c;p.rel-=1;return `${fn} understood and apologised.`;}],
+    ['Let them face the consequences',()=>{p.rel-=3;if(rnd()<.6)L.rebel=false;return `It was a hard lesson, but ${fn} learned it.`;}],
+    ['Hire a lawyer ($10,000)',()=>{const c=Math.round(10000*sc);if(S.money<c)return 'I could not afford a lawyer.';S.money-=c;L.spoil=Math.min(10,L.spoil+1);return `The lawyer made it go away. ${fn} learned the wrong lesson.`;}]]}));
+  if(a>=14&&a<=17&&(S.soc||S.fame>20))ev.push(()=>({text:`A post by ${fn} went viral for the wrong reasons.`,ch:[
+    ['Hire a PR firm ($5,000)',()=>{const c=Math.round(5000*sc);S.money-=c;return 'The story died quickly.';}],
+    ['Ground them',()=>{p.rel-=3;return `${fn} deleted everything and sulked.`;}]]}));
+  if(a>=8&&a<=14){const t=dTop(L);if(T[t[0]]>=65)ev.push(()=>({text:`${fn} entered a ${t[1].toLowerCase()} competition.`,ch:[['Go and cheer them on',()=>{const win=rnd()<T[t[0]]/140;if(win){p.rel+=4;S.pres=Math.min(100,S.pres+.6);return `${fn} won! ${t[2]} The whole family celebrated.`;}p.rel+=2;return `${fn} did not win, but loved it.`;}]]}));}
+  if(a>=16&&a<=17&&L.rebel)ev.push(()=>({text:`${fn} has been drinking and running with a risky crowd.`,ch:[
+    ['Pay for a rehab programme ($15,000)',()=>{const c=Math.round(15000*sc);if(S.money<c)return 'I could not afford it.';S.money-=c;L.rebel=false;p.rel+=2;return `${fn} came back a changed teenager.`;}],
+    ['Tough love',()=>{if(rnd()<.5){L.rebel=false;p.rel-=2;return `It worked, in the end.`;}p.rel-=8;L.cash-=R(2000,8000);return `${fn} stormed out. It was a rough year.`;}]]}));
+  if(ev.length)Q.push(pick(ev)());
+}
+function dAdultYear(p){
+  const L=dTal(p),fn=fname(p.name),a=p.age,sc=hcScale();
+  // family-business training
+  if(L.role){L.trained=Math.min(10,(L.trained||0)+1);if(rnd()<.03){L.role=null;line(`${fn} quit the family firm to do something else.`);}}
+  // dreams break through or fade
+  if(L.dream&&!L.pro&&a>=19){const t=L.tal[L.dream],chance=Math.max(.01,(t-52)/260+(L.contacts||0)*.004);
+    if(rnd()<chance){L.pro={k:L.dream,inc:Math.round(R(60,400)*1000*(1+t/100))};line(`⭐ ${fn} broke through as a professional ${D_DREAM[L.dream]}!`,'good');S.pres=Math.min(100,S.pres+3);S.fame=Math.min(100,(S.fame||0)+3);unlock('pdream');mile(`${fn} became a professional ${D_DREAM[L.dream]}`);}
+    else if(a>=28){L.dream=null;line(`${fn} gave up on the dream and found a steadier path.`);}}
+  if(L.pro){L.cash+=Math.round(L.pro.inc*.4);L.pro.inc=Math.round(L.pro.inc*R(92,110)/100);if(a>40&&rnd()<.2){L.pro=null;line(`${fn} retired from professional ${D_DREAM[L.dream]||'life'}.`);}}
+  L.cash-=Math.round(L.spoil*1200*(a>=18&&a<=35?1:.4));
+  if(S.fo&&S.fo.pol!=='tight'){const nw=Math.max(0,netWorth()),n=Math.max(1,kids().filter(k=>k.alive&&k.age>=18).length),x=Math.round(nw*(S.fo.pol==='generous'?.015:.005)/n);if(x>0&&S.money>x*2){S.money-=x;L.cash+=x;}}
+  // asks for help
+  if(a>=20&&a<=45&&L.cash<-8000&&rnd()<.3&&canManage()){const need=Math.min(60000,Math.abs(L.cash)+5000);
+    Q.push({text:`${fn} is in financial trouble and asks for ${fmt(need)}.`,ch:[
+      [`Give it (${fmt(need)})`,()=>{if(S.money<need)return 'I could not afford it.';S.money-=need;L.cash+=need;p.rel+=8;return `${fn} was deeply grateful.`;}],
+      ['Teach them to manage it (lend half)',()=>{const h2=Math.round(need/2);if(S.money<h2)return 'I could not afford it.';S.money-=h2;L.cash+=h2;p.rel+=2;return `${fn} accepted the help and a budgeting lesson.`;}],
+      ['Say no',()=>{p.rel-=10;return `${fn} was hurt, but made it work.`;}]]});}
+  if(a>=22&&a<=40&&!L.biz&&L.tal.biz>=55&&rnd()<.06&&canManage()){const x=Math.round(120000*sc);
+    Q.push({text:`${fn} pitches a business idea and asks me to invest ${fmt(x)}.`,ch:[
+      [`Invest ${fmt(x)}`,()=>{if(S.money<x)return 'I could not afford it.';S.money-=x;p.rel+=5;const t=L.tal.biz;if(rnd()<.35+t/200){L.biz={type:pick(Object.keys(BIZ).filter(k=>!BIZ[k].req&&!HIDDEN.includes(k))),name:pick(['Northgate','Blue Fern','Fieldstone','Orchard','Kite Works'])+' Co',v:x*3};return `${fn}'s business took off. My stake paid off, on paper at least.`;}return `The venture failed and the money was lost. ${fn} learned a lot.`;}],
+      ['Decline',()=>{p.rel-=3;return `${fn} said they understood.`;}]]});}
+}
+/* ---------- estate: taxes, wills, trusts ---------- */
+function dWill(){if(!S.will)S.will={mode:'equal',pct:{},charity:0,trustPct:0,guardian:null,heir:{}};return S.will;}
+function dShares(){const W=dWill(),ks=kids().filter(k=>k.alive);
+  if(!ks.length)return {};
+  if(W.mode==='equal')return Object.fromEntries(ks.map(k=>[k.id,1/ks.length]));
+  const tot=ks.reduce((t,k)=>t+(W.pct[k.id]!=null?W.pct[k.id]:10),0)||1;
+  return Object.fromEntries(ks.map(k=>[k.id,(W.pct[k.id]!=null?W.pct[k.id]:10)/tot]));}
+function dTrustAtRisk(){return S.dt?S.dt.log.filter(x=>x.age>S.age-3).reduce((t,x)=>t+x.amt,0):0;}
+function dLiquid(){return S.money-S.sloan+investVal()+S.ret.bal+angelVal();}
+function dEstate(k){
+  const W=dWill(),liq=dLiquid(),ins=S.lifeIns&&S.age<=85?S.lifeIns:0,ex=D_EST[resKey()]||[0,0];
+  const total=Math.max(0,netWorth()+dTrustAtRisk());
+  const charity=Math.max(0,Math.min(Math.max(0,liq),Math.round(Math.max(0,liq)*W.charity/100)));
+  const trust=Math.max(0,Math.round((Math.max(0,liq)-charity)*W.trustPct/100));
+  const base=Math.max(0,total-charity-trust-ex[0]),tax=Math.round(base*ex[1]*(S.fo?.9:1));
+  const cost=Math.round(Math.max(0,liq)*.05);
+  const net=liq+ins-charity-trust-tax-cost;
+  const sh=dShares(),share=k&&sh[k.id]!=null?sh[k.id]:1;
+  return {liq,ins,total,charity,trust,tax,cost,net,share,cash:Math.max(0,Math.round(net*share)),short:Math.max(0,-net),rate:ex[1],exempt:ex[0]};}
+function dDesignate(k){
+  const W=dWill(),H=W.heir||{},out={};
+  const kidOf=id=>id&&id!==k.id?kids().find(x=>x.id===id&&x.alive):null;
+  const give=(c,v)=>{const L=dTal(c);L.cash+=Math.round(v*.9);};
+  let assets=S.assets,dev=S.dev,col=S.col,club=S.club,med=S.med;const notes=[];
+  let c;
+  if((c=kidOf(H.club))&&club){give(c,Math.max(0,club.own*(clValue(club)+club.cash)-club.loan));notes.push(`${fname(c.name)} received the sports club`);club=null;}
+  if((c=kidOf(H.med))&&med){give(c,medEquity());notes.push(`${fname(c.name)} received ${med.name}`);med=null;}
+  if((c=kidOf(H.col))&&col.length){give(c,colEquity());notes.push(`${fname(c.name)} received the collection`);col=[];}
+  if((c=kidOf(H.prop))&&assets.some(a=>a.k==='home')){give(c,assets.filter(a=>a.k==='home').reduce((t,a)=>t+saleVal(a)-(a.mort?a.mort.bal:0),0));notes.push(`${fname(c.name)} received the property portfolio`);assets=assets.filter(a=>a.k!=='home'||a.heirloom);}
+  if((c=kidOf(H.land))&&dev.length){give(c,dev.reduce((t,d)=>t+devEquity(d),0));notes.push(`${fname(c.name)} received the land and developments`);dev=[];}
+  return {assets,dev,col,club,med,notes};}
+function dReadyPenalty(k,inh){
+  const r=dReady(k);
+  if(r>=40)return;const pen=(40-r);
+  if(inh.club){inh.club.brand=Math.max(5,(inh.club.brand||50)-Math.round(pen/2));line(`${k.name.split(' ')[0]} is not ready to run ${inh.club.team}. Fans and sponsors are nervous.`,'bad');}
+  if(inh.med){inh.med.brand=clamp((inh.med.brand||30)-Math.round(pen/2));line(`Without training, running ${inh.med.name} is a struggle.`,'bad');}}
+function yrDynasty(){
+  if(!S.alive)return;
+  S.pres=S.pres||0;
+  kids().forEach(p=>{if(!p.alive)return;if(p.age>=3&&p.age<18)dKidYear(p);if(p.age>=16)dAdultYear(p);});
+  // insurance premium
+  if(S.lifeIns&&S.age<=85){const prem=Math.round(S.lifeIns*(.0015+Math.max(0,S.age-30)*.00012));S.money-=prem;}
+  // dynasty trust
+  if(S.dt){const mk=S.mkt&&S.mkt.MKT?S.mkt.MKT.chg:5;S.dt.bal=Math.max(0,Math.round(S.dt.bal*(1+mk*.8/100)));
+    if(S.age>=18){const pay=Math.round(S.dt.bal*.03);S.dt.bal-=pay;S.money+=pay;if(pay>=1000)line(`🏛️ The family trust paid me ${fmt(pay)}.`,'good');}
+    if(S.dt.bal>=1e7)unlock('dtrust');S.dt.log=S.dt.log.filter(x=>x.age>S.age-3);}
+  // foundation
+  if(S.fdn){const mk=S.mkt&&S.mkt.MKT?S.mkt.MKT.chg:5,g=Math.round(S.fdn.bal*.05);S.fdn.bal=Math.max(0,Math.round(S.fdn.bal*(1+mk*.7/100)-g));S.fdn.yrs++;
+    if(g>=10000){S.st.happy=clamp(S.st.happy+2);S.pres=Math.min(100,S.pres+.8);line(`🎗️ The ${S.fdn.name} gave ${fmt(g)} in grants this year.`,'good');}
+    if(S.fdn.bal>=1e7||S.fdn.yrs>=25)unlock('named');}
+  // family office
+  if(S.fo){const nw=Math.max(0,netWorth());S.money-=Math.round(nw*.003);
+    const pol=S.fo.pol;S.fo.harm=clamp(S.fo.harm+R(-3,3)+(pol==='generous'?2:pol==='tight'?-1:0));
+    const adults=kids().filter(k=>k.alive&&k.age>=20);
+    if(adults.length>=2&&S.age%3===0&&canManage()){const c=pick(adults);
+      Q.push({text:`👪 At the family council, ${fname(c.name)} argues for a bigger share of the family money.`,ch:[
+        ['Give them a bigger allowance',()=>{S.fo.harm=clamp(S.fo.harm+6);p2(c,5);const x=Math.round(nw*.004);S.money-=x;dTal(c).cash+=x;return `${fname(c.name)} was satisfied. Others grumbled quietly.`;}],
+        ['Hold the line',()=>{S.fo.harm=clamp(S.fo.harm-6);p2(c,-6);return 'It was a tense meeting. Nobody left happy.';}],
+        ['Propose a fair formula for everyone',()=>{S.fo.harm=clamp(S.fo.harm+3);S.pres=Math.min(100,S.pres+.5);return 'The family agreed to a written formula. It calmed things down.';}]]});}
+    if(S.fo.harm<30&&rnd()<.3){const c=Math.round(nw*.01);S.money-=c;S.pres=Math.max(0,S.pres-4);line(`⚖️ A family dispute over money turned into a lawsuit that cost ${fmt(c)} and dented the family name.`,'bad');}
+    if(S.fo.harm>=70&&S.pres<100)S.pres=Math.min(100,S.pres+.4);}
+  // prestige drift
+  const nwv=Math.max(0,netWorth());
+  S.pres=Math.min(100,Math.max(0,S.pres+(nwv>=1e8?1:nwv>=1e7?.5:nwv>=1e6?.2:0)+((S.fame||0)>=60?.5:0)+(S.jail?-3:0)+Math.min(3,homes().filter(a=>a.heirloom).length)*.3));
+  kids().forEach(p=>{const L=p.life;if(L&&L.pro)S.pres=Math.min(100,S.pres+.3);});
+  if(S.pres>=50)S.biz.forEach(b=>{b.rep=Math.min(100,b.rep+1);});
+  if(S.gen>=3)unlock('dyn3');
+  if(S.gen>=3&&nwv>=1e8)unlock('oldmoney');
+  if(dScore()>=150)unlock('famemp');
+}
+const p2=(c,d)=>{c.rel=Math.max(0,Math.min(100,c.rel+d));};
+function dFamilyNW(){return Math.round(netWorth()+kids().filter(k=>k.alive&&k.life).reduce((t,k)=>t+Math.max(0,kNW(k.life)),0));}
+function dScore(){return Math.round(Math.sqrt(Math.max(0,dFamilyNW())/1e4)*1.5+(S.pres||0)*1.2+(S.gen-1)*15+(S.fo?S.fo.harm/5:0)+(S.fdn?10:0));}
+/* ---------- family hub ---------- */
+let dyTab='tree';
+function familySheet(){openSheet(drawFamily);}
+function drawFamily(s){
+  s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},'👪 Family hub'));
+  const ro=!S.alive||!!S.jail;
+  s.append(h('dl',{},h('dt',{},'Generation'),h('dd',{},String(S.gen)),h('dt',{},'Family name'),h('dd',{},`${dTier()} (${Math.round(S.pres||0)})`),h('dt',{},'Family net worth'),h('dd',{},fmt(dFamilyNW())),h('dt',{},'Dynasty score'),h('dd',{},String(dScore()))));
+  s.append(h('div',{className:'tabs'},[['tree','Tree'],['kids','Children'],['estate','Estate'],['office','Office']].map(([v,l])=>h('button',{'aria-pressed':String(dyTab===v),on:()=>{dyTab=v;drawSheet();}},l))));
+  if(dyTab==='tree')dyTree(s);else if(dyTab==='kids')dyKids(s,ro);else if(dyTab==='estate')dyEstate(s,ro);else dyOffice(s,ro);
+}
+function dyTree(s){
+  const grp=(l,list)=>{if(!list.length)return;s.append(h('p',{className:'label'},l));list.forEach(p=>s.append(row(p.name,`${p.type}, age ${p.age}. ${p.type==='Child'&&p.life?dyKidLine(p):''}`,p.alive?`${p.rel}%`:'Late',()=>personSheet(p),!p.alive&&false)));};
+  s.append(h('p',{className:'label'},'Me'),row(S.name,`Age ${S.age}, generation ${S.gen}`,'',null,true));
+  grp('Parents',S.rels.filter(p=>['Mother','Father'].includes(p.type)&&p.alive));
+  grp('Partner',living(['Partner','Spouse']));
+  grp('Siblings',S.rels.filter(p=>p.type==='Sibling'&&p.alive));
+  grp('Children',S.rels.filter(p=>p.type==='Child'&&p.alive));
+  grp('Grandchildren',S.rels.filter(p=>p.type==='Grandchild'&&p.alive));
+  if(!S.rels.some(p=>['Child','Grandchild'].includes(p.type)&&p.alive))s.append(h('p',{className:'sub'},'No children yet. A dynasty starts with the next generation.'));
+}
+function dyKidLine(p){const L=dTal(p),C=L.job&&CAREERS[L.job.c];
+  if(p.age<18)return `${D_SCHOOL[L.school||'public'][0]}. ${L.rev.length?'Gifted at '+L.rev.map(k=>D_TAL.find(t=>t[0]===k)[1].toLowerCase()).join(', '):'Talents still unclear'}.`;
+  return `${L.pro?'Professional '+D_DREAM[L.pro.k]:C?C.t[L.job.lvl][0]:L.major?'Studying':'No job'}. Ready to inherit ${dReady(p)}%.`;}
+function dyKids(s,ro){
+  s.append(h('p',{className:'label'},'Parenting style'),seg(Object.entries(D_STYLE).map(([k,v])=>[k,v[0]]),S.pstyle||'support',v=>{S.pstyle=v;stay();}));
+  s.append(h('p',{className:'sub'},D_STYLE[S.pstyle||'support'][1]+'.'));
+  const kd=kids().filter(k=>k.alive);
+  if(!kd.length){s.append(h('p',{className:'sub'},'No children yet.'));return;}
+  kd.forEach(p=>{const L=dTal(p);
+    if(p.age<18)s.append(row(`${p.name}`,`Age ${p.age}. ${dyKidLine(p)} Plan: ${(L.plan||[]).map(k=>D_PLAN.find(x=>x[0]===k)[1]).join(' and ')||'family time'}`,'Plan',()=>dyPlan(p),ro));
+    else s.append(row(`${p.name}`,`Age ${p.age}. ${dyKidLine(p)} ${L.role?'Training in '+dyRoleName(L.role):''}`,fmt(kNW(L)),()=>dyAdult(p),ro));});
+}
+const dyRoleName=r=>r==='club'?'the club':r==='med'?'the media company':(S.biz.find(b=>'biz:'+b.id===r)||{name:'the business'}).name;
+function dyPlan(p){const L=dTal(p),fn=fname(p.name);
+  const draw=()=>{const m=$('modal');m.innerHTML='';
+    m.append(h('h3',{},`Raising ${fn}`),h('p',{className:'sub'},`Pick up to 2 focus areas. Each costs money and grows a talent. Talents I have spotted: ${L.rev.map(k=>D_TAL.find(t=>t[0]===k)[1]).join(', ')||'none yet'}.`));
+    D_PLAN.forEach(([k,n,d,c])=>{const on=L.plan.includes(k);m.append(tog(`${n}${on?' (on)':''}`,`${d}. About ${fmt(Math.round(c*hcScale()))} a year. Talent ${L.rev.includes(k)||on?L.tal[k]:'?'}`,on,()=>{if(on)L.plan=L.plan.filter(x=>x!==k);else if(L.plan.length<2)L.plan.push(k);else{toast('Only 2 focus areas at a time.');return;}draw();}));});
+    m.append(h('p',{className:'label'},'School'),seg(Object.entries(D_SCHOOL).map(([k,v])=>[k,`${v[0]}${v[1]?' '+fmt(Math.round(v[1]*hcScale())):''}`]),L.school,v=>{L.school=v;draw();}));
+    m.append(row('🎓 College fund',`Now ${fmt(L.fund||0)}. Pays for university at 17`,'',()=>{closeModal();amountModal({title:`College fund for ${fn}`,sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,50000),btn:a=>`Save ${fmt(a)}`,onOk:a=>{S.money-=a;L.fund=(L.fund||0)+a;stay(`I put ${fmt(a)} into ${fn}'s college fund.`);}});}));
+    m.append(h('button',{className:'choice',on:()=>{closeModal();stay(`I set ${fn}'s plan for the year.`);}},'Done'));
+    $('modalWrap').classList.add('open');};
+  draw();}
+function dyAdult(p){const L=dTal(p),fn=fname(p.name),ch=[];
+  ch.push(['See their profile',()=>personSheet(p)]);
+  const roles=[['club',S.club?`Train at ${S.club.team}`:null],['med',S.med?`Train at ${S.med.name}`:null],...S.biz.map(b=>['biz:'+b.id,`Train at ${b.name}`])].filter(x=>x[1]);
+  roles.forEach(([r,l])=>ch.push([l+(L.role===r?' (current)':''),()=>{L.role=r;stay(`${fn} will train in ${dyRoleName(r)}.`);}]));
+  if(L.role)ch.push(['Stop the training',()=>{L.role=null;stay();}]);
+  if(!roles.length)ch.push(['No business, club or company to train in yet',()=>{},()=>true]);
+  ch.push(['Close',()=>{}]);
+  choiceModal(p.name,`Readiness to inherit ${dReady(p)}%. Talents: ${D_TAL.map(t=>`${t[1]} ${L.tal[t[0]]}`).join(', ')}.`,ch);}
+function dyEstate(s,ro){
+  const W=dWill(),kd=kids().filter(k=>k.alive),E=dEstate(kd[0]||null);
+  s.append(h('p',{className:'sub'},`If I died today: estate about ${fmt(E.total)}. ${E.tax?`Estate tax ${fmt(E.tax)} (${Math.round(E.rate*100)}% over ${fmt(E.exempt)}). `:'No estate tax to pay. '}${E.charity?`Charity ${fmt(E.charity)}. `:''}${E.trust?`Into the family trust ${fmt(E.trust)}. `:''}${E.ins?`Life insurance adds ${fmt(E.ins)}. `:''}Cash for heirs ${fmt(Math.max(0,E.net))}.${E.short?` Short by ${fmt(E.short)}, so property would be sold.`:''}`));
+  s.append(h('p',{className:'label'},'How to divide the cash'),seg([['equal','Equal shares'],['custom','Custom shares']],W.mode,v=>{W.mode=v;stay();}));
+  if(W.mode==='custom'){const sh=dShares();kd.forEach(k=>s.append(row(k.name,`Share ${Math.round((sh[k.id]||0)*100)}%. Tap to raise, wraps around`,'',()=>{W.pct[k.id]=((W.pct[k.id]!=null?W.pct[k.id]:10)%50)+10;stay();},ro)));}
+  s.append(h('p',{className:'label'},'To charity'),seg([[0,'0%'],[5,'5%'],[10,'10%'],[25,'25%']],W.charity,v=>{W.charity=v;stay();}));
+  s.append(h('p',{className:'label'},'Into the family trust'),seg([[0,'0%'],[10,'10%'],[25,'25%'],[50,'50%']],W.trustPct,v=>{W.trustPct=v;stay();}));
+  s.append(h('p',{className:'label'},'Life insurance'),seg([[0,'None'],[250000,'$250k'],[1000000,'$1M'],[5000000,'$5M']],S.lifeIns||0,v=>{S.lifeIns=v;stay();}));
+  if(S.lifeIns)s.append(h('p',{className:'sub'},`Premium about ${fmt(Math.round(S.lifeIns*(.0015+Math.max(0,S.age-30)*.00012)))} a year. Pays out tax free.`));
+  if(kd.length){s.append(h('h4',{},'Who gets what'));
+    const asset=(key,label,has)=>{if(!has)return;const c=kd.find(k=>k.id===(W.heir||{})[key]);s.append(row(label,c?`Goes to ${fname(c.name)}. The child I continue as gets whatever is not assigned`:'Goes to the child I continue as','',()=>choiceModal(label,'Who should receive it?',[['The child I continue as',()=>{delete W.heir[key];stay();}],...kd.map(k=>[fname(k.name),()=>{W.heir[key]=k.id;stay();}]),['Cancel',()=>{}]]),ro));};
+    asset('club','🏟️ Sports club',!!S.club);asset('med','🎬 Media company',!!S.med);asset('col','🖼️ Collection',S.col.length>0);asset('prop','🏠 Property portfolio',homes().length>0);asset('land','🏗️ Land and developments',S.dev.length>0);}
+  const minors=kd.filter(k=>k.age<18);
+  if(minors.length){const g=living(['Partner','Spouse','Sibling','Mother','Father']).filter(p=>p.age>=25);s.append(h('p',{className:'label'},'Guardian for young children'));
+    s.append(row(W.guardian&&g.find(x=>x.id===W.guardian)?g.find(x=>x.id===W.guardian).name:'Not chosen','Who raises them if I die',' ',()=>choiceModal('Guardian','Who should raise my young children?',[...g.map(p=>[`${p.name} (${p.type})`,()=>{W.guardian=p.id;stay();}]),['Cancel',()=>{}]]),ro||!g.length));}
+  s.append(h('h4',{},'Trusts and giving'));
+  s.append(row('🏛️ Family trust',S.dt?`Holds ${fmt(S.dt.bal)}. Pays me 3% a year and passes to my heirs, outside estate tax after 3 years`:'Set aside money that grows across generations','',()=>amountModal({title:'Put money into the family trust',sub:`It counts as part of my estate for 3 years.`,max:S.money,init:Math.min(S.money,1e6),btn:a=>`Add ${fmt(a)}`,onOk:a=>{S.money-=a;if(!S.dt)S.dt={bal:0,log:[]};S.dt.bal+=a;S.dt.log.push({age:S.age,amt:a});stay(`I moved ${fmt(a)} into the family trust.`,'good');}}),ro||S.money<100000));
+  s.append(row('🎗️ Family foundation',S.fdn?`${S.fdn.name} holds ${fmt(S.fdn.bal)}, gives 5% a year and lifts the family name`:'Start a foundation with $1M or more (a lasting legacy)','',()=>{
+    if(!S.fdn)return amountModal({title:'Start a family foundation',sub:'It gives grants every year and raises the family name.',min:1e6,max:S.money,init:Math.min(S.money,2e6),btn:a=>`Fund ${fmt(a)}`,onOk:a=>{S.money-=a;S.fdn={name:`${S.name.split(' ').slice(1).join(' ')||S.name} Foundation`,bal:a,yrs:0};S.pres=Math.min(100,S.pres+3);mile(`Started the ${S.fdn.name}`);stay(`I started the ${S.fdn.name} with ${fmt(a)}.`,'good');}});
+    amountModal({title:`Give to the ${S.fdn.name}`,sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,500000),btn:a=>`Give ${fmt(a)}`,onOk:a=>{S.money-=a;S.fdn.bal+=a;stay(`I gave ${fmt(a)} to the ${S.fdn.name}.`,'good');}});},ro||(!S.fdn&&S.money<1e6)||S.money<1000));
+}
+function dyOffice(s,ro){
+  s.append(h('p',{className:'sub'},`Family name: ${dTier()}. Prestige builds from wealth, fame, a foundation, professional children and heirlooms. At 50 or more, my businesses gain reputation each year.`));
+  s.append(...mbar('Family prestige',Math.round(S.pres||0),'smarts'));
+  const nw=netWorth();
+  if(!S.fo){s.append(row('🏢 Open a family office',nw>=5e7?`Costs about 0.3% of net worth a year. Sets allowances, cuts estate tax by 10% and keeps the peace`:'Unlocks at $50M net worth','',()=>{S.fo={harm:70,pol:'balanced'};mile('Opened a family office');stay('I opened a family office.','good');},ro||nw<5e7));}
+  else{s.append(...mbar('Family harmony',S.fo.harm,'happy'));
+    s.append(h('p',{className:'label'},'Allowance policy for adult children'),seg([['tight','None'],['balanced','Balanced (0.5%)'],['generous','Generous (1.5%)']],S.fo.pol,v=>{S.fo.pol=v;stay();}));
+    s.append(row('Close the family office','Stops the costs and the tax saving','',()=>{S.fo=null;stay();},ro));}
+  const hs=homes();
+  if(hs.length){s.append(h('h4',{},'Family heirlooms'),h('p',{className:'sub'},'A home marked as an heirloom cannot be sold, passes down with the family and adds to its name.'));
+    hs.forEach(a=>s.append(tog(a.n,a.heirloom?'Heirloom':'Not an heirloom',a.heirloom,()=>{a.heirloom=!a.heirloom;stay();},ro)));}
+}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -4529,12 +4786,27 @@ function showDeath(){
 }
 function continueAs(k){
   const heirs=kids().filter(p=>p.alive).length;
-  const liquid=S.money-S.sloan+investVal()+S.ret.bal+angelVal();
-  const estate=Math.max(0,Math.round(liquid*.85/heirs));
-  const sp=partner();const parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
-  const sibs=kids().filter(p=>p.alive&&p!==k).map(p=>({...p,type:'Sibling'}));
+  const W=dWill(),E=dEstate(k),inh=dDesignate(k);
+  let cash=E.cash,assets=inh.assets.slice(),soldNote='';
+  if(E.short>0){let need=E.short;assets.filter(a=>a.k==='home'&&!a.heirloom).sort((a,b)=>a.v-b.v).forEach(a=>{if(need>0){const g=saleVal(a)-(a.mort?a.mort.bal:0);need-=g;cash+=Math.max(0,g);assets=assets.filter(x=>x!==a);soldNote=' Property was sold to cover estate costs.';}});cash=Math.max(0,Math.round(cash-Math.max(0,need)));}
+  const sp=partner();let parents=sp?[{...sp,type:sp.gender==='F'?'Mother':'Father'}]:[];
+  if(k.age<18&&W.guardian){const g=S.rels.find(x=>x.id===W.guardian&&x.alive);if(g)parents=[{...g,type:g.gender==='F'?'Mother':'Father',rel:70}];}
+  const otherKids=kids().filter(p=>p.alive&&p!==k),sh=dShares();
+  otherKids.forEach(p=>dTal(p));
+  const sibs=otherKids.map(p=>({...p,type:'Sibling'}));
   const gks=S.rels.filter(r=>r.type==='Grandchild'&&r.par===k.id&&r.alive).map(r=>({...r,type:'Child',rel:Math.max(r.rel,75)}));
-  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:estate,assets:S.assets,dev:S.dev,col:S.col,cm:S.cm,cmHot:S.cmHot,club:S.club,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals});
+  const nd=S.dt||E.trust?{bal:(S.dt?S.dt.bal:0)+E.trust,log:[]}:null,nf=S.fdn?{...S.fdn,bal:S.fdn.bal+E.charity}:null,nfo=S.fo?{...S.fo,harm:Math.round(S.fo.harm*.9)}:null;
+  const oldTal=k.life&&k.life.tal,eqShare=1/Math.max(1,heirs),short=otherKids.filter(p=>W.mode==='custom'&&(sh[p.id]||0)<eqShare*.5);
+  const gen0=S.gen,pres0=S.pres||0,style0=S.pstyle||'support';
+  newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:cash,assets,dev:inh.dev,col:inh.col,cm:S.cm,cmHot:S.cmHot,club:inh.club,med:inh.med,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals,pres:Math.round(pres0*.85),pstyle:style0,dt:nd,fo:nfo,fdn:nf});
+  if(E.tax)line(`🏛️ Estate tax took ${fmt(E.tax)}.${soldNote}`,'bad');else if(soldNote)line(soldNote.trim());
+  if(E.charity&&S.fdn)line(`🎗️ ${fmt(E.charity)} went to the ${S.fdn.name}.`);
+  inh.notes.forEach(t=>line(`📜 ${t}.`));
+  if(oldTal){[['sport','athletic',75],['soc','charming',75],['acad','genius',85],['biz','hustler',80]].some(([t,tr,th])=>{if(oldTal[t]>=th&&TRAITS[tr]&&!S.traits.includes(tr)){S.traits[S.traits.length-1]=tr;line(`Growing up, ${tr==='athletic'?'sport':tr==='charming'?'people':tr==='genius'?'study':'business'} came naturally to me.`);return true;}return false;});}
+  dReadyPenalty(k,{club:S.club&&inh.club?S.club:null,med:S.med&&inh.med?S.med:null});
+  short.forEach(p=>{if(rnd()<.5)Q.push({text:`${fname(p.name)} is contesting the will. They feel they were treated unfairly.`,ch:[
+    ['Settle for 15% of the cash',()=>{const x=Math.round(E.net*.15);S.money=Math.max(0,S.money-x);kidLife(S.rels.find(r=>r.id===p.id)||p).cash+=x;return `We settled quietly for ${fmt(x)}. The family stayed intact.`;}],
+    ['Fight it in court',()=>{if(rnd()<.6){return 'The court upheld the will, but the relationship is cold.';}const x=Math.round(S.money*.2);S.money-=x;return `I lost and paid ${fmt(x)} in costs and damages.`;}]]});});
   if(k.life){const L=k.life;['smarts','looks'].forEach(x=>S.st[x]=L.st[x]);S.edu.degrees=[...L.degrees];if(L.major){S.edu.major=L.major;S.edu.yrs=L.degYrs;}
     if(L.job){S.job={c:L.job.c,s:L.job.s,perf:55,lvl:L.job.lvl,yrs:3,lvlYrs:1,warn:0,style:'normal'};if(!S.careers.includes(L.job.c))S.careers.push(L.job.c);}
     S.money+=L.cash+L.inv+(L.biz?L.biz.v:0);if(L.home)S.assets.push({n:L.home.n,v:L.home.v,k:'home',rent:false,mort:L.home.mort>0?{bal:L.home.mort,rate:loanRate(),pay:Math.round(annuity(L.home.mort,loanRate(),25))}:null});
