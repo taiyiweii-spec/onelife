@@ -273,15 +273,15 @@ const NAMES={
      l:['Ito','Tanaka','Nakamura','Kobayashi','Yamashita','Sasaki','Fujiwara','Hasegawa','Ishikawa','Morita','Okabe','Kuroda']},
  sg:{g:[
    {m:['Wei Ming','Aloysius','Jun Kai','Zhi Hao','Marcus','Yong Sheng','Jia Hao','Wen Kai'],f:['Hui Ling','Jia Yi','Charmaine','Mei Xin','Rachel','Xin Yi','Hui Shan','Wan Ting'],l:['Tan','Lim','Wong','Ng','Chua','Goh','Koh','Teo']},
-   {m:['Haziq','Firdaus','Faizal','Ridhwan','Syafiq','Iskandar'],f:['Siti','Nurul','Farah','Nadiah','Suriani','Hidayah'],l:['Bin Osman','Abdullah','Bin Ismail','Rahman','Bin Salleh']},
+   {m:['Haziq','Firdaus','Faizal','Ridhwan','Syafiq','Iskandar'],f:['Siti','Nurul','Farah','Nadiah','Suriani','Hidayah'],l:['Osman','Abdullah','Ismail','Rahman','Salleh']},
    {m:['Ravi','Shanmugam','Dinesh','Kumaran','Arjun','Prakash'],f:['Priyanka','Shanti','Deepa','Kavitha','Anushka','Lakshmi'],l:['Rajaratnam','Pillai','Subramaniam','Naidu','Menon']}]},
  my:{g:[
-   {m:['Amir','Hafiz','Ridzuan','Syafiq','Azlan','Faizal','Haikal','Zulkifli'],f:['Nurul','Aisyah','Farhana','Zuraida','Suraya','Nadia','Liyana','Shafiqah'],l:['Abdullah','Mohd Noor','Ismail','Yusof','Hassan','Bin Omar','Rahim']},
+   {m:['Amir','Hafiz','Ridzuan','Syafiq','Azlan','Faizal','Haikal','Zulkifli'],f:['Nurul','Aisyah','Farhana','Zuraida','Suraya','Nadia','Liyana','Shafiqah'],l:['Abdullah','Mohd Noor','Ismail','Yusof','Hassan','Omar','Rahim']},
    {m:['Wei Jian','Chee Keong','Jin Wei','Yong Han','Boon Siew','Kai Xuan'],f:['Mei Ling','Xiu Ying','Hui Wen','Li Fen','Shu Min','Pei Shan'],l:['Lim','Tan','Chong','Lee','Ooi','Teoh']},
    {m:['Kumaran','Thivakar','Suresh','Ganesan','Harish','Vijay'],f:['Shanti','Kavitha','Malini','Devi','Anjali','Revathi'],l:['Rajendran','Krishnan','Sivalingam','Muniandy','Perumal']}]},
- ph:{m:['Jomar','Paolo','Rico','Emilio','Kiko','Dante','Rafael','Bongbong','Andres','Marlon','Joselito','Enzo'],
+ ph:{m:['Jomar','Paolo','Rico','Emilio','Kiko','Dante','Rafael','Bong','Andres','Marlon','Joselito','Enzo'],
      f:['Maricel','Andrea','Liza','Corazon','Jasmine','Divina','Krisha','Angelica','Imelda','Bea','Rosario','Trina'],
-     l:['Dela Cruz','Reyes','Bautista','Villanueva','Mendoza','Santiago','Aquino','Pagdanganan','Magsaysay','Ocampo','Salcedo','Lacson']}
+     l:['Dela Cruz','Reyes','Bautista','Villanueva','Mendoza','Santiago','Garcia','Pagdanganan','Torres','Ocampo','Salcedo','Ramos']}
 };
 const nkey=k=>k==='in'?'ind':k;
 function namePool(ck){const n=NAMES[nkey(ck)];return n||null;}
@@ -341,7 +341,7 @@ const CAREERS={
  fin:{n:'Finance',bon:1,deg:'Business',sm:50,mba:1,t:[['Financial analyst',80000],['Associate',112000],['Vice president',175000],['Managing director',330000],['Chief financial officer',560000]]},
  tech:{n:'Software',bon:1,deg:'Computer Science',t:[['Junior developer',95000],['Software engineer',125000],['Senior engineer',172000],['Staff engineer',235000],['Chief technology officer',420000]]},
  law:{n:'Law',bon:1,deg:'Law',t:[['Associate attorney',145000],['Senior associate',192000],['Partner',410000],['Managing partner',720000]]},
- med:{n:'Medicine',deg:'Medicine',t:[['Resident doctor',65000],['Attending physician',215000],['Surgeon',330000],['Chief of surgery',490000]]},
+ med:{n:'Medicine',min:[4,5,7],deg:'Medicine',t:[['Resident doctor',65000],['Attending physician',215000],['Surgeon',330000],['Chief of surgery',490000]]},
 };
 const reqSm=(c,l)=>Math.min(92,(c.sm||(c.deg?45:0))+l*9-(c.mba&&S.edu.degrees.includes('MBA')?10:0));
 /* ================= Acting career ================= */
@@ -1049,8 +1049,8 @@ const EV=[
   ['Cram all night',()=>{S.st.smarts+=3;S.st.health-=2;return 'I survived on energy drinks and scraped a B.'}],
   ['Cheat',()=>{if(rnd()<.7){S.st.happy+=2;return 'Nobody noticed. I felt a little gross about it.'}S.st.happy-=10;return 'I got caught. Detention, and a call home.'}],
   ['Wing it',()=>{S.st.happy+=6;return 'I walked in cold and got an A. Teachers hate me.'},null,'genius']]},
-{id:'driving',min:16,max:17,auto:()=>{if(rnd()<.5+S.st.smarts/200){S.st.happy+=6;return 'I passed my driving test on the first try!'}return 'I failed my driving test. I may have driven over a cone. Several cones.'}},
-{id:'teenviral',min:13,max:17,w:.2,cls:'good',auto:()=>{S.st.happy+=10;S.st.looks+=3;return 'A silly dance video I posted got two million views. Strangers recognize me now.'}},
+{id:'driving',min:16,max:17,cond:()=>false,auto:()=>{if(rnd()<.5+S.st.smarts/200){S.st.happy+=6;return 'I passed my driving test on the first try!'}return 'I failed my driving test. I may have driven over a cone. Several cones.'}},
+{id:'teenviral',min:13,max:17,w:.05,cls:'good',auto:()=>{S.st.happy+=10;S.st.looks+=3;return 'A silly dance video I posted got two million views. Strangers recognize me now.'}},
 /* ---- adult life ---- */
 {id:'flu',rep:1,min:18,max:99,w:.6,cls:'bad',auto:()=>{S.st.health-=R(3,10);return 'I came down with a nasty flu.'}},
 {id:'scam',min:18,max:80,text:'A stranger online offered me a "guaranteed" crypto investment for $2,000.',ch:[
@@ -1081,7 +1081,7 @@ const EV=[
   ['Keep the cash',c=>{S.money+=200;remember('wallet',{name:c.n,kept:true});return 'I pocketed the $200.'}],
   ['Return it',c=>{S.money+=20;S.st.happy+=has('kind')?10:6;remember('wallet',{name:c.n});return 'The owner was so grateful they gave me $20.'}]]},
 {id:'checkup',rep:1,min:55,max:110,text:'My doctor recommended a full checkup.',ch:[['Go ($300)',()=>{S.money-=300;S.st.health+=8;return 'They caught a small issue early.'}],['Skip it',()=>{S.st.health-=3;return 'I skipped it.'}]]},
-{id:'hip',min:50,max:110,cls:'bad',auto:()=>{S.st.health-=R(5,15);return 'I slipped on ice and hurt my hip.'}},
+{id:'hip',min:50,max:110,cls:'bad',auto:()=>{S.st.health-=R(5,15);return S.born&&['us','uk','ca','de','ch','jp','ie'].includes(resKey())?'I slipped on ice and hurt my hip.':'I took a bad fall and hurt my hip.'}},
 {id:'phoneapp',min:65,max:100,text:'My grandkid is trying to teach me a new phone app.',ch:[['Learn it',()=>{S.st.smarts+=2;S.st.happy+=3;return 'I now send everyone way too many stickers.'}],['Absolutely not',()=>'I told them phones were for calling people.']]},
 {id:'midlife',min:40,max:50,text:'Midlife crisis! I suddenly feel like I need to...',ch:[
   ['Buy a sports car ($115,000)',()=>{S.money-=115000;S.assets.push({n:'Sports coupe',v:115000,k:'car',run:11500,age:0});S.st.happy+=joy(15);return 'I bought a red sports coupe. I feel 25 again.'},()=>S.money<115000],
@@ -1170,7 +1170,7 @@ const EV=[
   ['Go alone and network',c=>{S.fame=Math.min(100,(S.fame||0)+2);c.p.rel-=8;return 'I met useful people. My partner was not amused to be left at home.'}],
   ['Skip it',c=>'I stayed in and ordered takeout.']]},
 /* ---- illness storyline ---- */
-{id:'ill',min:35,max:80,w:.5,text:"I've felt dizzy and exhausted for weeks.",ch:[
+{id:'ill',min:35,max:80,w:.5,cond:()=>false,text:"I've felt dizzy and exhausted for weeks.",ch:[
   ['See a specialist ($2,000)',()=>{S.money-=2000;remember('ill',{early:true});return 'I booked tests right away.'}],
   ['Tough it out',()=>{remember('ill',{early:false});return 'I told myself it was just stress.'}]]},
 {id:'ill2',pri:1,min:36,max:99,cond:()=>mem('ill')&&!mem('ill').done&&S.age>=mem('ill').at+1,text:()=>mem('ill').early?'The specialist caught a heart condition early. A short treatment should fix it.':'It turned out to be a serious heart condition. Treatment costs $40,000.',
@@ -1191,7 +1191,7 @@ const EV=[
   ['Take time off',()=>{S.job.perf-=10;S.st.happy+=10;S.st.health+=5;return 'I took a few weeks off and recharged.'}],
   ['Push through',()=>{S.st.health-=8;S.st.happy-=8;S.job.perf+=4;return 'I kept grinding, but it took a toll.'}]]},
 {id:'romance',min:18,max:60,cond:()=>S.job&&!partner(),text:'A cute coworker keeps flirting with me.',ch:[
-  ['Ask them out',()=>{if(rnd()<.5+S.st.looks/300+(has('charming')?.15:0)){const g=S.gender==='M'?'F':'M';const c=person('Partner',rnd()<.85?g:S.gender,S.age+R(-4,4),lastN());S.rels.push(c);return `${fname(c.name)} and I started dating!`}S.job.perf-=5;return 'It got awkward. They were not interested.'}],
+  ['Ask them out',()=>{if(rnd()<.5+S.st.looks/300+(has('charming')?.15:0)){const g=S.gender==='M'?'F':'M';const c=person('Partner',rnd()<.85?g:S.gender,Math.max(18,S.age+R(-4,4)),lastN());S.rels.push(c);return `${fname(c.name)} and I started dating!`}S.job.perf-=5;return 'It got awkward. They were not interested.'}],
   ['Keep it professional',()=>'I kept things professional.']]},
 {id:'xmasparty',rep:1,min:18,max:70,cond:()=>S.job,text:"It's the company holiday party.",ch:[
   ['Go and have fun',()=>{S.st.happy+=5;if(rnd()<(has('reckless')?.35:.15)){S.job.perf-=8;return 'I had a few too many and did karaoke on a table in front of the CEO.'}S.job.perf+=3;return 'I had a great time and bonded with coworkers.'}],['Skip it',()=>'I stayed home in pajamas.']]},
@@ -1214,7 +1214,7 @@ const EV=[
 {id:'crush2',min:28,max:45,w:3,cond:()=>mem('crush')&&!partner()&&S.age>=mem('crush').at+10,init:()=>mem('crush'),text:c=>`At a school reunion, I ran into ${c.name}, my old crush. They're single.`,ch:[
   ['Ask them out',c=>{if(rnd()<(c.never?.5:.8)+(has('charming')?.1:0)){const g=S.gender==='M'?'F':'M';const p={id:uid(),type:'Partner',gender:g,name:c.name,age:S.age,rel:80,alive:true,crush:true};S.rels.push(p);return 'We talked all night. We are dating now!'}return 'They laughed kindly and said they were seeing someone.'}],
   ['Just catch up',()=>'We caught up and swapped numbers.']]},
-{id:'smoker2',min:45,max:65,w:3,cond:()=>mem('smoker'),text:'My doctor spotted something worrying on my lung scan. Those teenage cigarettes caught up with me.',ch:[
+{id:'smoker2',min:45,max:65,w:3,cond:()=>false,text:'My doctor spotted something worrying on my lung scan. Those teenage cigarettes caught up with me.',ch:[
   ['Follow the treatment ($8,000)',()=>{S.money-=8000;S.st.health+=5;return 'Treatment worked. Past me owes present me an apology.'}],['Ignore it',()=>{S.st.health-=15;return 'I ignored it. My breathing got worse.'}]]},
 {id:'blackmail',pri:1,min:25,max:90,cond:()=>mem('fraud')&&S.age>=mem('fraud').at+5,text:'An old coworker knows about the fraud cover-up. They want $25,000 to keep quiet.',ch:[
   ['Pay them',()=>{S.money-=25000;return 'I paid. They promised it was a one-time thing.'}],
@@ -1432,6 +1432,7 @@ function propertyYear(){
   if(rentIn){const ded=homes().filter(a=>a.rent).reduce((t,a)=>t+homeCarry(a)+(a.mort?Math.round(a.mort.bal*a.mort.rate):0),0),taxable=Math.max(0,rentIn-ded),tx=incomeTax((S.yOrd||0)+taxable)-incomeTax(S.yOrd||0);S.yOrd=(S.yOrd||0)+taxable;const net=Math.round(rentIn-tx);S.money+=net;line(`My rental properties brought in ${fmt(net)} after tax.`,'good');}
   const atHome=S.age<22&&living(['Mother','Father']).length&&!homes().length;
   if(S.age>=18&&!S.jail){const lc0=lifeCosts();S.money-=atHome?lc0.kids:lc0.total;}
+  if(S.flags.csup){if(kids().some(c=>c.alive&&c.age<18))S.money-=S.flags.csup;else S.flags.csup=0;}
   if(S.sloan>0){S.sloan=Math.round(S.sloan*1.055);if(S.job){const p=Math.min(S.sloan,Math.round(S.job.s*.1));S.sloan-=p;S.money-=p;if(S.sloan===0)line('I paid off my student loans!','good');}}
   if(S.flags.talentPay&&!S.jail&&S.age<70){S.money+=S.flags.talentPay;}
   // trustee protects minors
@@ -1586,7 +1587,8 @@ function workYear(){
 }
 function trackBest(){if(S.job){const x=cexp(S.job.c);x.lvl=Math.max(x.lvl,S.job.lvl);}if(S.job&&(!S.bestJob||S.job.s>S.bestJob.s))S.bestJob={t:title(S.job),s:S.job.s};}
 function cexp(c){S.cexp=S.cexp||{};if(!S.cexp[c])S.cexp[c]={yrs:S.careers.includes(c)&&!(S.job&&S.job.c===c)?1:0,lvl:0};return S.cexp[c];}
-function canPromote(j){const C=CAREERS[j.c];return j.lvl<C.t.length-1&&j.lvlYrs>=1&&S.st.smarts>=reqSm(C,j.lvl+1);}
+const promoYrs=(C,l)=>C.min?C.min[Math.min(l,C.min.length-1)]:[2,3,4,5,6][Math.min(4,l)];
+function canPromote(j){const C=CAREERS[j.c];return j.lvl<C.t.length-1&&j.lvlYrs>=promoYrs(C,j.lvl)&&S.st.smarts>=reqSm(C,j.lvl+1);}
 function promote(j){const C=CAREERS[j.c];j.lvl++;j.s=Math.max(Math.round(j.s*1.12),Math.round(C.t[j.lvl][1]*payF()));j.lvlYrs=0;j.perf=55;S.st.happy+=10;mile(`Promoted to ${title(j)}`);trackBest();sfx('good');return `I was promoted to ${title(j)}! New salary: ${fmt(j.s)}.`;}
 function hire(id,lvl=0,sal){const C=CAREERS[id];S.job={c:id,s:sal||Math.round(C.t[lvl][1]*payF()),perf:50,lvl,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[lvl][0]}`);}trackBest();}
 
@@ -1607,7 +1609,7 @@ function openings(){
   list.forEach(o=>{const base=CAREERS[o.c].t[o.lvl][1]*payF();o.pay=Math.round(base*(o.static?1:R(90,115)/100)/100)*100;o.id=uid();});
   S.jobOpen={age:S.age,list};return list;}
 function jobBlock(o){const C=CAREERS[o.c],dg=S.edu.degrees,need=C.sm||0;
-  return S.flags.hs===false&&need>0?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasCar()?'Needs a car':C.clean&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;}
+  return S.flags.hs===false&&need>0?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasLic()?'Needs a driving licence':C.car&&!hasCar()?'Needs a car':(C.clean||['law','med','nurse','teach','fin'].includes(o.c))&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;}
 function hireChance(o,bonus=0){const C=CAREERS[o.c],x=(S.cexp||{})[o.c],need=reqSm(C,o.lvl);
   let c=.5+(S.st.smarts-need)/200+(S.st.looks-50)/400+(S.st.happy-50)/250+(has('charming')?.05:0)+bonus;
   if(x&&x.yrs)c+=Math.min(.12,x.yrs*.015);
@@ -1615,6 +1617,7 @@ function hireChance(o,bonus=0){const C=CAREERS[o.c],x=(S.cexp||{})[o.c],need=req
   if(o.lvl>0)c-=o.lvl===(x?x.lvl:0)?.12:0;
   if(C.sm===0&&!C.deg)c+=.2;
   c*={boom:1.1,normal:1,recession:.85,crash:.7}[localPhase()];
+  if(S.flags.record)c-=C.pub||C.deg?.3:.2;
   return Math.max(.05,Math.min(.95,c));}
 const IVQ=[
   ['Tell us about a time you failed.',['Share an honest story and what I learned','happy'],['Turn it into a success story','looks'],['Walk through the root cause in detail','smarts']],
@@ -1636,15 +1639,23 @@ function annuity(P,r,n){return P*r/(1-Math.pow(1+r,-n));}
 function loanRate(){return Math.max(.005,{boom:.07,normal:.06,recession:.05,crash:.045}[localPhase()]+resC().rate+(S.age>=18?(700-creditScore())/12000:0));}
 
 /* ================= relationships ================= */
+const FERT_C={us:1,uk:.9,ca:.85,au:.95,nz:1,ie:1,de:.8,ch:.8,ae:1,ng:1.8,za:1.3,in:1.1,jp:.65,sg:.55,my:.9,ph:1.3};
+const kfert=()=>FERT_C[resKey()]||1;
+function fertP(p){const a=p.gender==='F'?p.age:S.gender==='F'?S.age:32;const b=a<=30?.5:a<=35?.38:a<=39?.22:a<=42?.09:.02;return b*Math.min(1,.5+kfert()/2)*(kids().filter(c=>c.alive).length>=3?.6:1);}
 function divorce(p){
   const fn=fname(p.name);S.rels=S.rels.filter(x=>x!==p);S.flags.exes++;S.exes.push(p.name);S.st.happy-=12;mile(`Divorced ${fn}`);
   if(p.prenup===true)return `${fn} and I divorced. The prenup kept my finances intact.`;
-  const pf=p.prenup==='shared'?.5:1;
-  const settle=Math.round((Math.max(0,propEquity()+landEquity()+colEquity()+clEquity()+medEquity())+stakeVal())*.5*pf);
+  const yrs=Math.max(0,S.age-(p.since||S.age)),share=yrs>=10?.5:Math.min(.5,.15+.035*yrs),pf=(p.prenup==='shared'?.5:1)*(share/.5);
+  const wealth=Math.max(0,propEquity()+landEquity()+colEquity()+clEquity()+medEquity())+stakeVal();
+  const settle=Math.round(wealth*.5*pf);
   if(S.money>0)S.money=Math.round(S.money*(1-.5*pf));
   TICK.forEach(t=>{if(S.hold[t.s]){S.hold[t.s]*=1-.5*pf;S.basis[t.s]=(S.basis[t.s]||0)*(1-.5*pf);}});
-  S.ret.bal=Math.round(S.ret.bal*(1-.5*pf));S.money-=settle;
-  return `${fn} and I divorced. They got half my cash, investments and retirement${settle?`, plus a ${fmt(settle)} settlement for property and business`:''}.`;
+  S.ret.bal=Math.round(S.ret.bal*(1-.5*pf));
+  let due=settle;const paid=Math.min(Math.max(0,S.money),due);S.money-=paid;due-=paid;
+  const sold=[];homes().filter(a=>!a.heirloom).sort((a,b)=>b.v-a.v).forEach(a=>{if(due>0){const g=Math.max(0,saleVal(a)-(a.mort?a.mort.bal:0));S.assets=S.assets.filter(x=>x!==a);S.money+=g;const pay=Math.min(g,due);S.money-=pay;due-=pay;sold.push(a.n.toLowerCase());}});
+  if(due>0)S.money-=due;
+  const kd=kids().filter(c=>c.alive&&c.age<18).length;if(kd){S.flags.csup=Math.round(Math.min(2,kd)*.1*Math.max(40000*payF(),S.job?S.job.s:0));}
+  return `${fn} and I divorced after ${yrs} year${yrs===1?'':'s'}. They got ${Math.round(share*100)}% of what we built together, including ${fmt(settle)} for property and business${sold.length?`, so I sold ${sold.join(' and ')}`:''}.${S.flags.csup?` I pay ${fmt(S.flags.csup)} a year in child support.`:''}`;
 }
 
 /* ================= events engine ================= */
@@ -1683,9 +1694,10 @@ let phaseErrs=[];
 function yrTick(){ S.age++;S.used={};S.eUsed=0;S.yOrd=0;addYear(); }
 function yrPeople(){
   S.rels.forEach(p=>{if(!p.alive)return;p.age++;p.rel-=R(0,4)-(['Partner','Spouse'].includes(p.type)?Math.round(((p.compat==null?50:p.compat)-50)/25):0);
-    const risk=p.type==='Pet'?(p.age>9?.22:.01):p.age>62?Math.pow((p.age-58)/45,3):.0015;
-    if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=R(8,22);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);}
-    else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.alive=false;p.left=true;S.flags.exes++;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');S.exes.push(p.name);S.st.happy-=15;}
+    const lim=/cat/.test(p.name)?15:12,risk=p.type==='Pet'?(p.age<lim-4?.01:p.age<lim?.06:p.age<lim+3?.25:.5):mortP(p.age,p.gender,1);
+    if(rnd()<risk){p.alive=false;line(`My ${p.type==='Pet'?'pet':p.type.toLowerCase()} ${p.name} died.`,'bad');S.st.happy-=p.type==='Pet'?R(4,10):['Spouse','Partner'].includes(p.type)?R(25,40):p.type==='Child'?R(30,50):['Mother','Father'].includes(p.type)?R(14,28):R(8,18);if(p.type!=='Pet')mile(`Lost my ${p.type.toLowerCase()}, ${fname(p.name)}`);
+      if(['Mother','Father'].includes(p.type)&&!S.flags.poor&&p.age>=55&&rnd()<.7&&S.age>=18){const sib=living(['Sibling']).length+1,amt=Math.round(R(15,220)*1000*payF()/sib);S.money+=amt;line(`I inherited ${fmt(amt)} from my ${p.type.toLowerCase()}'s estate.`,'good');}}
+    else if(['Partner','Spouse'].includes(p.type)&&p.rel<15&&rnd()<.4){p.left=true;line(`${fname(p.name)} left me. We'd grown too far apart.`,'bad');if(p.type==='Spouse')line(divorce(p),'bad');else{S.flags.exes++;S.exes.push(p.name);S.st.happy-=15;p.alive=false;}}
     if(p.type==='Child'&&p.alive&&p.age===18){line(`My kid ${fname(p.name)} moved out. The house is very quiet.`);S.st.happy-=3;}
     if(p.type==='Child'&&p.alive)kidYear(p);
     if(p.alive&&['Partner','Spouse'].includes(p.type))partnerYear(p);
@@ -1693,8 +1705,9 @@ function yrPeople(){
   S.rels=S.rels.filter(p=>!p.left);
 }
 function yrStats(){
-  S.st.happy+=R(-6,5)+(has('lazy')?2:0)-(has('anxious')?2:0)-(has('ambitious')&&S.age>=22&&!S.job&&!S.edu.major&&!S.biz.length&&!S.retired?4:0);
-  S.st.health+=S.age>45?-R(0,Math.floor(S.age/14))+(has('athletic')?1:0):R(-3,3);
+  if(S.flags.lic==null&&S.age>=AG().drive&&S.age<=40&&rnd()<.55){if(rnd()<.55+S.st.smarts/250){S.flags.lic=true;S.st.happy+=5;line('🚗 I passed my driving test.','good');}else line('🚗 I failed my driving test. I can try again next year.');}
+  S.st.happy+=Math.round(((S.age<18?72:S.age<30?66:S.age<55?58:S.age<75?64:60)-S.st.happy)*.05)+R(-6,5)+(has('lazy')?2:0)-(has('anxious')?2:0)-(has('ambitious')&&S.age>=22&&!S.job&&!S.edu.major&&!S.biz.length&&!S.retired?4:0);
+  S.st.health+=S.age>45?-R(0,Math.floor(S.age/20))+(has('athletic')?1:0):R(-3,3);
   if(S.age>30)S.st.looks-=R(0,2);
   if(S.age<23)S.st.smarts+=R(0,has('genius')?3:2);
 }
@@ -1807,6 +1820,8 @@ function yrSEC(){
 }
 function yrCollege(){
   if(S.edu.major&&!S.jail){S.edu.yrs++;if(!S.flags.scholarship||MAJORS[S.edu.major].grad)S.sloan+=tuitionOf(S.edu.major);
+    S.money+=netStack(Math.round(7000*payF()));
+    if(S.edu.yrs<MAJORS[S.edu.major].y&&rnd()<Math.max(.02,(52-S.st.smarts)/260)+(S.st.happy<30?.05:0)+(S.sloan>tuition()*4?.03:0)){const m=S.edu.major;S.edu.major=null;S.edu.yrs=0;S.st.happy-=8;line(`I dropped out of ${m}. The loans stayed.`,'bad');mile(`Dropped out of ${m}`);return;}
     if(S.edu.yrs>=MAJORS[S.edu.major].y){const m=S.edu.major;S.edu.degrees.push(m);line(`I graduated with a degree in ${m}!`,'good');mile(`Earned a ${m} degree`);S.edu.major=null;S.st.smarts+=6;S.st.happy+=10;}
     else line(`I finished year ${S.edu.yrs} of ${S.edu.major}.${S.flags.scholarship&&!MAJORS[S.edu.major].grad?' My scholarship covered tuition.':' Tuition went on my student loans.'}`);}
 }
@@ -1879,8 +1894,13 @@ function decadeReview(){
   return {review:true,text:`My ${from}s in review`,lines:ms.map(m=>`${m.t} (age ${m.age})`),nw:[nw0,netWorth()],ch:[['Continue',()=>'']]};
 }
 
+const MORT_C={us:1,uk:.9,ca:.85,au:.8,nz:.85,ie:.85,de:.9,ch:.75,ae:1.1,ng:2.8,za:2,in:1.7,jp:.7,sg:.7,my:1.3,ph:1.6};
+const mortC=()=>MORT_C[resKey()]||1;
+function mortP(age,g,cf){const cm=mortC(),f=g==='F'?.85:1;
+  if(age<=0)return Math.min(.2,.004*cm*cm);if(age<15)return .0003*cm;
+  return Math.min(.45,(.0006+.00003*Math.exp(.098*age)*(cf||1))*cm*f);}
 function checkDeath(){
-  let p=.0008;if(S.age>55)p+=Math.pow((S.age-55)/48,3)*(S.hl&&S.hl.clinic?.75:1);p+=hlDeathP();if(S.st.health<15)p+=(15-S.st.health)/55;if(S.st.health<=0||S.age>=115)p=1;
+  let p=mortP(S.age,S.gender,S.hl&&S.hl.clinic?.75:1);p+=hlDeathP();if(S.st.health<25)p+=(25-S.st.health)/120;if(S.st.health<=0||S.age>=115)p=1;
   if(rnd()<p){
     const rare=rnd()<.04;
     S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):hlCause()?hlCause():S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&rnd()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
@@ -2123,7 +2143,7 @@ function tabWorkContent(s){
   s.append(h('h3',{},'Work & school'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));
   if(!S.alive)return s.append(h('p',{className:'sub'},'This life has ended.'));
   if(S.jail){s.append(h('p',{className:'sub'},`I'm in prison with ${S.jail} year${S.jail>1?'s':''} left.`),
-    row('Attempt escape','20% chance. Getting caught adds 3 years.','',()=>{S.used.esc=true;if(rnd()<(has('reckless')?.3:.2)){S.jail=0;unlock('escape');mile('Escaped from prison');act('I escaped from prison!','good')}else{S.jail+=3;act('I was caught trying to escape. 3 years added.','bad')}},S.used.esc,1));return;}
+    row('Attempt escape','2% chance. Getting caught adds 3 years.','',()=>{S.used.esc=true;if(rnd()<(has('reckless')?.04:.02)){S.jail=0;S.flags.wanted=true;unlock('escape');mile('Escaped from prison');act('I escaped from prison! I am wanted now, and every job will check my record.','good')}else{S.jail+=3;act('I was caught trying to escape. 3 years added.','bad')}},S.used.esc,1));return;}
   if(S.age<5)return s.append(h('p',{className:'sub'},'Too young for school. Nap time.'));
   if(S.age<18){s.append(h('p',{className:'sub'},`I'm in ${S.age<11?'elementary':S.age<14?'middle':'high'} school.`),
     row('Study harder','Boost smarts','',()=>{S.used.study=true;S.st.smarts+=Math.round(R(2,6)*(has('genius')?1.5:1));stay('I hit the books hard this year.')},S.used.study,1),
@@ -2139,7 +2159,7 @@ function tabWorkContent(s){
     s.append(h('h4',{},'My job'),row(title(j),`${C.n}, level ${j.lvl+1} of ${C.t.length}. ${j.lvlYrs} yr in role.`,fmt(j.s),null,true));
     s.append(h('p',{className:'label'},`Performance ${j.perf}%`,j.warn?h('span',{className:'warn'},' On a formal warning'):j.perf<35?h('span',{className:'warn'},' Slipping'):null),h('div',{className:'bar',style:'margin:0 0 12px'},h('i',{style:`width:${j.perf}%;background:${j.perf<25?'var(--bad)':j.perf<60?'var(--sun)':'var(--health)'}`})));
     s.append(h('p',{className:'label'},'Work style (changes my yearly energy)'),seg([['slack','Slack off +⚡'],['normal','Normal'],['hustle','Hustle −⚡']],j.style||'normal',v=>{j.style=v;stay()}));
-    const next=j.lvl<C.t.length-1?C.t[j.lvl+1][0]:null;const minYrs=has('ambitious')?1:2;
+    const next=j.lvl<C.t.length-1?C.t[j.lvl+1][0]:null;const minYrs=Math.max(1,promoYrs(C,j.lvl)-(has('ambitious')?1:0));
     s.append(row('Work harder','Big performance boost, builds work ethic','',()=>{S.used.work=true;j.perf+=R(6,14);addEthic(2);S.st.happy-=2;stay('I put in extra hours at work.')},S.used.work,2),
       row('Network with leadership','Small boost, builds goodwill','',()=>{S.used.net=true;j.perf+=R(2,7)+(has('charming')?3:0)+Math.round(sk('ppl')/20);addSk('ppl',2);S.st.happy+=1;stay('I networked with the leadership team.')},S.used.net,1),
       row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(rnd()<j.perf/140+sk('ppl')/500){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
@@ -2150,6 +2170,7 @@ function tabWorkContent(s){
       row('Quit','Leave this job','',()=>{const t=title(j);S.job=null;stay(`I quit my job as a ${t}.`)}));
     if(S.age>=60)s.append(row('Retire',C.pub?'Public-sector pension: 2% of salary for each year served, up to 70%':'Live off savings, the retirement account and any state pension','',()=>{S.pension=C.pub?Math.round(j.s*Math.min(.7,.02*(S.py||0))):0;S.retired=true;const t=title(j);S.job=null;mile(`Retired as a ${t}`);stay(`I retired from being a ${t}.${S.pension?` Pension: ${fmt(S.pension)}/yr.`:''}`,'good')}));
   }
+  if(!j&&S.age>=60&&!S.retired)s.append(row('Retire','Live off savings, the retirement account and any state pension','',()=>{S.retired=true;mile('Retired');stay('I retired.','good');}));
   s.append(h('h4',{},'Side gig this year'));
   const gm=(has('hustler')?1.3:1)*payF();
   const gigs=[['Rideshare driving',()=>hasCar(),'Needs a car',[6000,14000],3],['Food delivery',()=>true,'',[3000,8000],2],['Tutoring',()=>S.st.smarts>=60,'Needs smarts 60+',[4000,10000],1],
@@ -2165,6 +2186,7 @@ function tabWorkContent(s){
       const tag=why?why:o.gone?'Filled. They went with someone else':`${o.co?o.co+'. ':''}${o.static?'Always hiring. ':''}${C.sm===0&&!C.deg?'No interview needed. ':''}${ch<.35?'🎯 Long shot':ch<.6?'⚖️ Fair chance':'✅ Strong fit'}`;
       s.append(row((o.lvl>0?'⭐ ':'')+t,tag,fmt(o.pay),()=>applyJob(o),!!why||o.gone||left<=0,1));});
   }
+  if(S.flags.hs===false&&S.age>=18)s.append(h('h4',{},'Diploma'),row('Study for a GED','About $600. A real second chance at a diploma','',()=>{S.money-=600;if(rnd()<.35+S.st.smarts/200){S.flags.hs=true;mile('Earned a GED');stay('I passed the GED and now have a diploma.','good');}else stay('I did not pass the GED this time. I can try again next year.','bad');},S.money<600||!!S.used.ged));
   if(!S.edu.major&&S.flags.hs){
     const opts=Object.entries(MAJORS).filter(([n,m])=>!dg.includes(n)&&(!m.grad||dg.some(d=>!MAJORS[d].grad)));
     if(opts.length){s.append(h('h4',{},dg.length?'More education':'University'));if(j)s.append(h('p',{className:'sub'},'Studying is full-time. Enrolling means quitting my job.'));
@@ -2485,7 +2507,7 @@ function tabProp(s){
     return;}
 
 }
-function buyCar(l){const p=l.price;choiceModal(l.n,`${fmt(p)}. ${l.age?`Used, ${l.age} years old.`:'Brand new.'} Running costs about ${fmt(carRun({v:p,run:l.run,age:l.age}))} a year.`,[
+function buyCar(l){if(!hasLic())return toast('I need a driving licence first.');const p=l.price;choiceModal(l.n,`${fmt(p)}. ${l.age?`Used, ${l.age} years old.`:'Brand new.'} Running costs about ${fmt(carRun({v:p,run:l.run,age:l.age}))} a year.`,[
   ['Buy it',()=>{S.money-=p;S.assets.push({n:l.n,v:p,k:'car',age:l.age,run:l.run});S.st.happy+=joy(p>=80000?10:6);if(p>=80000)S.st.looks+=2;S.mkList.cars=S.mkList.cars.filter(x=>x!==l);stay(`I bought a ${l.age?'used ':''}${l.n.toLowerCase()} for ${fmt(p)}.`,'good')},()=>S.money<p],['Cancel',()=>{}]]);}
 function buyHome(l){const p=l.price,r=loanRate()+(l.kind?.0075:0),loan=Math.round(p*(l.kind?.75:.8)),pay=Math.round(annuity(loan,r,30)),close=Math.round(p*.02);
   const canMort=S.job&&pay<=S.job.s*.4&&!badCredit();
@@ -2560,7 +2582,8 @@ function kidYear(p){const L=kidLife(p),fn=fname(p.name),a=p.age,sg=L.sugg,mk=S.m
   if(!L.partner&&a>=19&&a<=50&&rnd()<.24+(L.st.looks-50)/300){const g=pick(['M','F']);L.partner={name:fullName(g),g,appr:null};line(`💕 ${fn} is dating ${L.partner.name}.`);}
   else if(L.partner&&!L.married&&a>=21&&rnd()<(L.partner.appr===false?.12:L.partner.appr?.4:.25)){L.married=true;line(`💍 ${fn} married ${L.partner.name}!`,'good');S.st.happy+=4;}
   else if(L.partner&&!L.married&&rnd()<(L.partner.appr===false?.2:.08)){line(`💔 ${fn} and ${fname(L.partner.name)} broke up.`);L.partner=null;}
-  if(L.married&&a>=23&&a<=44&&L.nkids<4){const want=take('kids');if(want===false){}else if(rnd()<(want?.4:.15)){L.nkids++;const g=pick(['M','F']);const gk=person('Grandchild',g,0,p.name.split(' ').slice(1).join(' '));gk.rel=70;gk.par=p.id;S.rels.push(gk);line(`👶 ${fn} had a baby, ${fname(gk.name)}. I'm a grandparent!`,'good');S.st.happy+=8;unlock&&0;}}
+  if(L.married&&a>=23&&a<=44&&L.nkids<4){const want=take('kids');if(want===false){}else if(rnd()<(want?.3:.09)*kfert()){L.nkids++;const g=pick(['M','F']);const gk=person('Grandchild',g,0,p.name.split(' ').slice(1).join(' '));gk.rel=70;gk.par=p.id;S.rels.push(gk);line(`👶 ${fn} had a baby, ${fname(gk.name)}. I'm a grandparent!`,'good');S.st.happy+=8;unlock&&0;}}
+  if(L.married&&a>=24&&rnd()<.015){L.married=false;const ex=L.partner&&L.partner.name;L.partner=null;line(`💔 ${fn} and ${ex?fname(ex):'their spouse'} divorced.`);}
   // trouble
   if((kHas(L,'hothead')||kHas(L,'reckless')||L.rebel)&&rnd()<.02){const x=R(2000,20000);L.cash-=x;p.rel-=5;line(`🚨 ${fn} got into trouble and paid ${fmt(x)} in fines.`,'bad');}
 }
@@ -2609,7 +2632,7 @@ function personSheet(p){openSheet(s=>{
   if(p.type==='Spouse')s.append(row('Divorce',p.prenup?'The prenup protects my money':'They get half of my cash, investments, retirement, property and business stakes','',()=>act(divorce(p),'bad')));
   if(['Partner','Spouse'].includes(p.type))coupleRows(s,p);
   if(['Partner','Spouse'].includes(p.type)){const fertile=S.age>=18&&S.age<=(S.gender==='F'?45:65)&&(p.gender==='F'?p.age<=45:true)&&p.gender!==S.gender;
-    s.append(row('Try for a baby',fertile?'':p.gender===S.gender?'Try adopting from the People screen':'Not possible right now','',()=>{mark('b');if(p.kids===false&&rnd()<.7){p.rel-=6;stay(`${fn} does not want children and we argued about it.`,'bad');return;}if(rnd()<.45){const g=pick(['M','F']);const kid=person('Child',g,0,lastName());kid.rel=90;S.rels.push(kid);S.st.happy+=15;mile(`Welcomed baby ${fname(kid.name)}`);stay(`We welcomed a baby ${g==='M'?'boy':'girl'}, ${fname(kid.name)}!`,'good')}else stay('No baby news this year.')},k('b')||!fertile,1));
+    s.append(row('Try for a baby',fertile?'':p.gender===S.gender?'Try adopting from the People screen':'Not possible right now','',()=>{mark('b');if(p.kids===false&&rnd()<.7){p.rel-=6;stay(`${fn} does not want children and we argued about it.`,'bad');return;}if(rnd()<fertP(p)){const g=pick(['M','F']);const kid=person('Child',g,0,lastName());kid.rel=90;S.rels.push(kid);S.st.happy+=15;mile(`Welcomed baby ${fname(kid.name)}`);stay(`We welcomed a baby ${g==='M'?'boy':'girl'}, ${fname(kid.name)}!`,'good')}else stay('No baby news this year.')},k('b')||!fertile,1));
     if(S.age>=18&&p.age>=18)s.append(row('Spend an intimate evening together','Just the two of us','',()=>{mark('i');p.rel=Math.min(100,p.rel+R(4,9));sparkUp(p,15);S.st.happy=Math.min(100,S.st.happy+R(3,7));stay(`${fn} and I spent a romantic evening together.`,'good')},k('i'),1));}
 });}
 
@@ -2621,14 +2644,14 @@ function actSheet(){openSheet(s=>{
     ['🏋️','Gym',12,true,1,()=>{S.st.health+=R(2,7)*(has('athletic')?2:1);S.st.looks+=R(0,3);S.st.happy+=2;return 'I worked out hard at the gym.'}],
     ['📚','Library',5,true,1,()=>{S.st.smarts+=Math.round(R(1,5)*(has('genius')?1.5:1));return 'I spent hours reading at the library.'}],
     ['🧘','Meditate',8,true,1,()=>{S.st.happy+=R(4,9)*(has('anxious')?2:1);return 'I meditated and felt calmer.'}],
-    ['🩺','Doctor',0,false,1,()=>{if(S.age>=18)S.money-=150;S.st.health+=R(5,14);return `I saw a doctor${S.age>=18?' ($150)':''}.`}],
+    ['🩺','Doctor',0,false,1,()=>{const dc=Math.round(180*cpiF()*(.4+.6*resC().pp));if(S.age>=18)S.money-=dc;const sick=S.hl&&S.hl.c.some(c=>!c.cured);S.st.health+=sick?R(3,8):R(0,3);return `I saw a doctor${S.age>=18?` (${fmt(dc)})`:''}.${sick?' My conditions are being watched.':' A routine check found nothing.'}`}],
     ['🤝','Volunteer',12,false,1,()=>{S.st.happy+=R(3,8)*(has('kind')?2:1);if(has('kind')&&rnd()<.2){S.money+=2000;return 'I volunteered at the shelter. A grateful donor sent me $2,000 for my trouble.'}return 'I volunteered at the local shelter.'}],
     ['🏖️','Vacation',18,false,2,()=>{const vc=Math.round(3000*cpiF()*(.4+.6*resC().pp));S.money-=vc;S.st.happy+=joy(R(10,20));return `I took a vacation (${fmt(vc)}). Much needed.`},S.money<Math.round(3000*cpiF()*(.4+.6*resC().pp))],
-    ['🎟️','Lottery',18,false,0,lottery,S.money<10],
-    ['🎰','Casino',18,false,1,()=>{CV={net:0};casinoSheet();},S.money<10],
-    ['💉','Plastic surgery',18,false,1,()=>{S.money-=9000;if(rnd()<.7){S.st.looks+=R(8,20);return 'My plastic surgery ($9,000) went great.'}S.st.looks-=R(5,15);return 'My surgery ($9,000) was botched.'},S.money<9000],
+    ['🎟️','Lottery',AG().gamble,false,0,lottery,S.money<10],
+    ['🎰','Casino',AG().gamble,false,1,()=>{CV={net:0};casinoSheet();},S.money<10],
+    ['💉','Plastic surgery',18,false,1,()=>{const pc=Math.round(9000*cpiF());S.money-=pc;const n=S.flags.surg||0;S.flags.surg=n+1;if(rnd()<Math.max(.3,.72-.1*n)){S.st.looks+=Math.max(2,Math.round(R(8,20)/(1+n*.6)));return `My plastic surgery (${fmt(pc)}) went well.`}S.st.looks-=R(5,15);S.st.health-=R(1,4);return `My surgery (${fmt(pc)}) had complications.`},S.money<Math.round(9000*cpiF())],
     ['🎭','Acting class',14,false,1,()=>{if(S.age>=18)S.money-=500;S.act.cls++;S.st.looks+=R(0,2);const newly=S.act.cls===3&&!(S.st.looks-R(0,2)>=80);return `I took an acting class${S.age>=18?' ($500)':''}.${actUnlocked()&&newly?' I can audition for roles now.':''}`},S.age>=18&&S.money<500],
-    ['🔓','Burglary',16,false,1,()=>crime(.45,[1000,15000],'burglary',[2,5])],
+    ['🔓','Burglary',16,false,1,()=>crime(.2,[500,6000],'burglary',[2,5])],
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
@@ -4044,7 +4067,7 @@ function rentEquityLoan(a,ch){
 }
 /* ================= health and mortality: conditions, lifestyle, care, insurance, longevity ================= */
 const HC_PUB={uk:.85,ca:.85,au:.85,nz:.85,ie:.8,de:.9,ch:.7,jp:.8,sg:.6,my:.6,ae:.4,us:.1,ng:.05,za:.2,in:.15,ph:.15};
-const HC_INS=[['none','No insurance',0,0],['basic','Basic cover (pays 60%)',1800,.6],['premium','Premium cover (pays 90%)',6000,.9]];
+const HC_INS=[['none','No insurance',0,0],['basic','Basic cover (pays 60%)',4200,.6],['premium','Premium cover (pays 90%)',8800,.9]];
 const HC_LIFE={
   diet:['Poor diet','Balanced diet','Healthy diet, cooked fresh'],
   ex:['No exercise','Regular exercise','Serious training'],
@@ -4052,29 +4075,36 @@ const HC_LIFE={
   smoke:['Non-smoker','Smoker'],
   alc:['No alcohol','Social drinker','Heavy drinker']};
 const HCD={
-  diabetes:{n:'Type 2 diabetes',ic:'🩸',chr:1,b:.00315,a0:30,ar:.05,cost:4500,sp:.8,d3:.025,pain:2.2},
-  hyper:{n:'High blood pressure',ic:'💢',chr:1,b:.0084,a0:30,ar:.045,cost:1800,sp:.85,d3:.015,pain:1.5},
-  heart:{n:'Heart disease',ic:'🫀',chr:1,b:.00154,a0:35,ar:.07,cost:22000,sp:.7,d3:.15,pain:3},
-  cancer:{n:'Cancer',ic:'🎗️',chr:0,b:.00133,a0:30,ar:.07,cost:65000,sp:.55,d3:.22,pain:4},
-  lung:{n:'Lung disease',ic:'🫁',chr:1,b:.00175,a0:35,ar:.06,cost:6000,sp:.65,d3:.08,pain:3},
-  liver:{n:'Liver disease',ic:'🍷',chr:1,b:.00112,a0:35,ar:.06,cost:9000,sp:.65,d3:.09,pain:3},
+  diabetes:{n:'Type 2 diabetes',ic:'🩸',chr:1,b:.00315,a0:30,ar:.05,cost:4500,sp:.8,d3:.01875,pain:2.2},
+  hyper:{n:'High blood pressure',ic:'💢',chr:1,b:.0084,a0:30,ar:.045,cost:1800,sp:.85,d3:.01125,pain:1.5},
+  heart:{n:'Heart disease',ic:'🫀',chr:1,b:.00154,a0:35,ar:.07,cost:22000,sp:.7,d3:.1125,pain:3},
+  cancer:{n:'Cancer',ic:'🎗️',chr:0,b:.00133,a0:30,ar:.07,cost:65000,sp:.55,d3:.165,pain:4},
+  lung:{n:'Lung disease',ic:'🫁',chr:1,b:.00175,a0:35,ar:.06,cost:6000,sp:.65,d3:.06,pain:3},
+  liver:{n:'Liver disease',ic:'🍷',chr:1,b:.00112,a0:35,ar:.06,cost:9000,sp:.65,d3:.0675,pain:3},
   back:{n:'Chronic back pain',ic:'🦴',chr:1,b:.0084,a0:25,ar:.02,cost:2500,sp:.8,d3:0,pain:1.2},
   arthritis:{n:'Arthritis',ic:'🦵',chr:1,b:.0035,a0:40,ar:.06,cost:3000,sp:.8,d3:0,pain:1.5},
-  depress:{n:'Depression',ic:'🌧️',chr:1,b:.021,a0:12,ar:0,cost:2500,sp:.75,d3:.01,pain:2}
+  stroke:{n:'Stroke',ic:'🧠',chr:1,b:.0009,a0:45,ar:.085,cost:30000,sp:.65,d3:.135,pain:3.5},
+  dementia:{n:'Dementia',ic:'🧩',chr:1,b:.001,a0:60,ar:.12,cost:35000,sp:.4,d3:.075,pain:2.5},
+  depress:{n:'Depression',ic:'🌧️',chr:1,b:.021,a0:12,ar:0,cost:2500,sp:.75,d3:.0075,pain:2}
 };
 const HC_TIERS=[['Public system',.25,0,'public'],['Standard care',1,.1,'std'],['Private specialist',2.4,.2,'priv']];
 const hcScale=()=>.4+.6*resC().pp;
+const AGES={us:[21,21,21,16],uk:[18,18,18,17],ca:[19,19,19,16],au:[18,18,18,17],nz:[18,18,20,16],ie:[18,18,18,17],de:[16,18,18,18],ch:[16,18,18,18],ae:[99,21,99,18],ng:[18,18,18,18],za:[18,18,18,18],in:[21,18,21,18],jp:[20,20,20,18],sg:[18,21,21,18],my:[21,18,21,17],ph:[18,18,21,17]};
+const AG=()=>{const a=AGES[resKey()]||[18,18,18,17];return {drink:a[0],smoke:a[1],gamble:a[2],drive:a[3]};};
+const hasLic=()=>S.flags.lic===true||(S.flags.lic==null&&S.age>=Math.max(AG().drive+3,22));
 function hlEnsure(){if(!S.hl)S.hl={c:[],diet:1,ex:1,sleep:1,smoke:(typeof mem==='function'&&mem('smoker'))?1:0,alc:0,ins:'none',check:false,clinic:false,smokeYrs:0,drinkYrs:0,last:0,hist:[]};return S.hl;}
 function hlHas(id){return S.hl&&S.hl.c.find(x=>x.id===id&&!x.cured);}
-function hlCover(tier){const H=hlEnsure(),ins=HC_INS.find(x=>x[0]===H.ins)[3],pub=HC_PUB[resKey()]||.2;return tier==='public'?pub:Math.max(ins,tier==='std'?0:ins);}
-function hlCost(c,tier){const T=HC_TIERS.find(x=>x[3]===tier),d=HCD[c.id],price=d.cost*T[1]*hcScale()*(1+.25*(c.sev-1));return {price:Math.round(price),oop:Math.round(price*(1-hlCover(tier)))};}
+function hlCover(tier){const H=hlEnsure(),ins=HC_INS.find(x=>x[0]===H.ins)[3],pub=Math.max(HC_PUB[resKey()]||.2,resKey()==='us'&&S.age>=65?.8:0);return tier==='public'?pub:Math.max(ins,tier==='std'?0:ins);}
+function hlCost(c,tier){const T=HC_TIERS.find(x=>x[3]===tier),d=HCD[c.id],price=d.cost*T[1]*hcScale()*cpiF()*(1+.25*(c.sev-1));return {price:Math.round(price),oop:Math.min(Math.round(price*(1-hlCover(tier))),Math.round((tier==='public'?1e9:resKey()==='us'?12000:30000)*cpiF()*(d.chr?1:3)))};}
 function hlOdds(c,tier){const T=HC_TIERS.find(x=>x[3]===tier),d=HCD[c.id];return Math.max(.2,Math.min(.97,d.sp+T[2]-.09*(c.sev-1)+(S.st.health-50)/450+(S.hl.clinic?.05:0)));}
 function hlRisk(id){const H=hlEnsure(),m=(id==='diabetes')?[1.8,1,.6][H.diet]*[1.7,1,.6][H.ex]:
   id==='hyper'?[1.5,1,.8][H.diet]*[1.5,1,.7][H.ex]*[1.3,1,.9][H.sleep]*(1+H.smoke*.3)*[1,1.2,1.8][H.alc]:
   id==='heart'?[1.5,1,.8][H.diet]*[1.7,1,.6][H.ex]*(1+H.smoke*1.2)*[1,1.1,1.6][H.alc]*[1.2,1,.9][H.sleep]:
   id==='cancer'?(1+H.smoke*1.3)*[1,1.05,1.4][H.alc]*[1.2,1,.85][H.diet]*[1.1,1,.9][H.ex]:
-  id==='lung'?(H.smoke?7:.12):id==='liver'?[.1,1,4.5][H.alc]:
+  id==='lung'?(H.smoke?5:.12):id==='liver'?[.1,1,4.5][H.alc]:
   id==='back'?[1.4,1,1.3][H.ex]*(S.spt&&S.spt.seasons>8?1.8:1):id==='arthritis'?(S.spt&&S.spt.seasons>8?1.7:1)*[1.1,1,1.15][H.ex]:
+  id==='stroke'?[1.4,1,.8][H.diet]*[1.4,1,.75][H.ex]*(1+H.smoke*1.1)*[1,1,1.5][H.alc]*(hlHas('hyper')?2:1):
+  id==='dementia'?[1.3,1,.85][H.ex]*[1.2,1,.9][H.sleep]*(S.st.happy<35?1.3:1)*(H.alc===2?1.5:1):
   id==='depress'?(S.st.happy<30?4:S.st.happy<50?1.6:.7)*[1.4,1,.8][H.sleep]:1;
   return m*(H.clinic?.55:1);}
 function hlOnset(id,age){const d=HCD[id];return Math.min(.25,d.b*Math.exp(d.ar*Math.max(0,age-d.a0)));}
@@ -4124,7 +4154,7 @@ function yrHealth(){
   H.c.forEach(c=>{
     if(c.cured)return;const d=HCD[c.id];
     if(c.tx==='managed'){S.money-=c.tcost||0;if(rnd()<.06)c.sev=Math.min(3,c.sev+1);if(S.st.health>60&&rnd()<.1)c.sev=Math.max(1,c.sev-1);S.st.health=clamp(S.st.health-.12*c.sev);}
-    else{if(rnd()<(c.tx==='active'?.35:.3)+c.sev*.05)c.sev=Math.min(3,c.sev+1);S.st.health=clamp(S.st.health-d.pain*c.sev*(c.dx?1:.8)*.2);if(c.id==='depress')S.st.happy=clamp(S.st.happy-c.sev*3);}
+    else{if(rnd()<(c.tx==='active'?.35:.3)+c.sev*.05)c.sev=Math.min(3,c.sev+1);S.st.health=clamp(S.st.health-d.pain*c.sev*(c.dx?1:.8)*.2);if(c.id==='depress')S.st.happy=clamp(S.st.happy-c.sev*3);if(c.id==='dementia'){S.st.smarts=clamp(S.st.smarts-c.sev*3);S.st.happy=clamp(S.st.happy-c.sev*2);}}
     if(!c.dx&&((H.check&&rnd()<.9)||c.sev>=2||rnd()<.18)){hlDiagnose(c);}
     else if(c.dx&&c.tx==='none'&&c.sev>=2&&rnd()<.5)Q.push({text:`${d.ic} My ${d.n.toLowerCase()} has got worse. Treatment would help.`,ch:hlTreatChoices(c)});
     else if(c.dx&&c.tx==='active'&&!d.chr)Q.push({text:`${d.ic} My ${d.n.toLowerCase()} is still there. Do I try another round of treatment?`,ch:hlTreatChoices(c)});
@@ -4134,12 +4164,12 @@ function yrHealth(){
     Q.push({text:'🩹 I fell at home and broke my hip.',ch:[[`Have surgery (${fmt(sur)})`,()=>{S.money-=sur;S.st.health=clamp(S.st.health-8);return 'The surgery went well and I am walking again with a frame.';},()=>S.money<sur],['Rest and manage it',()=>{S.st.health=clamp(S.st.health-22);return 'It healed badly. I am much weaker now.';}]]});}
   if(H.check&&adult&&H.last!==age){H.last=age;if(!H.c.some(c=>!c.cured&&!c.dx)&&rnd()<.5)S.st.health=clamp(S.st.health+1);}
 }
-function hlDrift(H){return [-.6,0,.7][H.diet]+[-.7,0,.9][H.ex]+[-.4,0,.5][H.sleep]-H.smoke*.9-[0,-.1,.9][H.alc]*(H.alc?1:0)+(H.clinic?2.5:0);}
+function hlDrift(H){return [-.6,0,.7][H.diet]+[-.7,0,.9][H.ex]+[-.4,0,.5][H.sleep]-H.smoke*.55-[0,-.1,.55][H.alc]*(H.alc?1:0)+(H.clinic?2.5:0);}
 function hlLifeExp(){
   let surv=1,tot=0,h=S.st.health;const H=hlEnsure();
   const drift=hlDrift(H);
   for(let a=S.age;a<116&&surv>.003;a++){
-    let p=.0008;if(a>55)p+=Math.pow((a-55)/48,3)*(H.clinic?.75:1);if(h<15)p+=(15-h)/55;p+=hlDeathP();
+    let p=mortP(a,S.gender,H.clinic?.75:1);if(h<25)p+=(25-h)/120;p+=hlDeathP();
     if(a>=115)p=1;p=Math.min(1,p);tot+=surv*(1-p*.5);surv*=1-p;
     h=cl(h+(a>45?-a/28:0)+drift*.6,0,100);}
   return Math.round(S.age+tot);}
@@ -4157,8 +4187,9 @@ function drawHealth(s){
   s.append(h('h4',{},'Lifestyle'));
   if(S.age<18)s.append(h('p',{className:'sub'},'My parents choose most of this until I am 18.'));
   [['diet','Diet'],['ex','Exercise'],['sleep','Sleep']].forEach(([k,l])=>{s.append(h('p',{className:'label'},l),seg(HC_LIFE[k].map((t,i)=>[i,t.split(',')[0]]),H[k],v=>{H[k]=v;stay();}));});
-  s.append(tog('🚬 Smoking',H.smoke?'Costs money and raises the risk of lung disease, heart disease and cancer':'I do not smoke',H.smoke,()=>{H.smoke=H.smoke?0:1;stay(H.smoke?'I started smoking.':'I quit smoking. My lungs will thank me.',H.smoke?'bad':'good');},S.age<16));
-  s.append(h('p',{className:'label'},'Alcohol'),seg(HC_LIFE.alc.map((t,i)=>[i,t]),H.alc,v=>{H.alc=v;stay();}));
+  s.append(tog('🚬 Smoking',H.smoke?'Costs money and raises the risk of lung disease, heart disease and cancer':'I do not smoke',H.smoke,()=>{H.smoke=H.smoke?0:1;stay(H.smoke?'I started smoking.':'I quit smoking. My lungs will thank me.',H.smoke?'bad':'good');},S.age<AG().smoke));
+  if(S.age<AG().drink){H.alc=0;s.append(h('p',{className:'sub'},`I am under the legal drinking age here (${AG().drink}).`));}
+  else s.append(h('p',{className:'label'},'Alcohol'),seg(HC_LIFE.alc.map((t,i)=>[i,t]),H.alc,v=>{H.alc=v;stay();}));
   s.append(h('h4',{},'Care'));
   s.append(h('p',{className:'label'},'Health insurance'),seg(HC_INS.map(([k,l])=>[k,l.split(' (')[0]]),H.ins,v=>{H.ins=v;stay();}));
   s.append(h('p',{className:'sub'},HC_INS.map(x=>x[2]?`${x[1]}: ${fmt(Math.round(x[2]*hcScale()))} a year`:null).filter(Boolean).join('. ')+'.'));
@@ -4172,7 +4203,7 @@ function hlDeathSummary(){
   if(H.ex===2)bits.push('kept training to the end');else if(H.ex===0)bits.push('rarely exercised');
   const cs=H.c.filter(c=>!c.cured).map(c=>HCD[c.id].n.toLowerCase());
   return `${bits.length?'I '+bits.join(' and ')+'. ':''}${cs.length?'I lived with '+cs.join(', ')+'.':''}`;}
-function hlCause(){if(!S.hl||hlDeathP()<.05)return null;let best=null,bv=0;S.hl.c.forEach(c=>{if(c.cured||c.sev<3)return;const v=HCD[c.id].d3;if(v>bv){bv=v;best=c;}});return best?({cancer:'cancer',heart:'heart disease',lung:'lung disease',liver:'liver disease',diabetes:'complications of diabetes',hyper:'a stroke',depress:'depression'}[best.id]||HCD[best.id].n.toLowerCase()):null;}
+function hlCause(){if(!S.hl||hlDeathP()<.05)return null;let best=null,bv=0;S.hl.c.forEach(c=>{if(c.cured||c.sev<3)return;const v=HCD[c.id].d3;if(v>bv){bv=v;best=c;}});return best?({stroke:'a stroke',dementia:'complications of dementia',cancer:'cancer',heart:'heart disease',lung:'lung disease',liver:'liver disease',diabetes:'complications of diabetes',hyper:'a stroke',depress:'depression'}[best.id]||HCD[best.id].n.toLowerCase()):null;}
 /* ================= media and entertainment ownership: film studio, record label, streaming service ================= */
 const MED={film:{n:'Film studio',ic:'🎬',found:3e6,buy:15e6,mult:1.4,blurb:'Greenlight films, pick directors and stars, and chase box office and awards'},
   music:{n:'Record label',ic:'🎵',found:1.5e6,buy:8e6,mult:3,blurb:'Sign artists, fund albums and tours, and build a catalogue'},
@@ -4483,11 +4514,12 @@ function dEstate(k){
   const total=Math.max(0,netWorth()+dTrustAtRisk());
   const charity=Math.max(0,Math.min(Math.max(0,liq),Math.round(Math.max(0,liq)*W.charity/100)));
   const trust=Math.max(0,Math.round((Math.max(0,liq)-charity)*W.trustPct/100));
-  const base=Math.max(0,total-charity-trust-ex[0]*cpiF()),tax=Math.round(base*ex[1]*(S.fo?.9:1));
+  const spw=spouse(),spPct=spw?(W.spouse==null?50:W.spouse):0,spCash=Math.round(Math.max(0,liq-charity-trust)*spPct/100);
+  const base=Math.max(0,total-charity-trust-spCash-ex[0]*cpiF()),tax=Math.round(base*ex[1]*(S.fo?.9:1));
   const cost=Math.round(Math.max(0,liq)*.05);
-  const net=liq+ins-charity-trust-tax-cost;
+  const net=liq+ins-charity-trust-spCash-tax-cost;
   const sh=dShares(),share=k&&sh[k.id]!=null?sh[k.id]:1;
-  return {liq,ins,total,charity,trust,tax,cost,net,share,cash:Math.max(0,Math.round(net*share)),short:Math.max(0,-net),rate:ex[1],exempt:ex[0]};}
+  return {liq,ins,total,charity,trust,spCash,tax,cost,net,share,cash:Math.max(0,Math.round(net*share)),short:Math.max(0,-net),rate:ex[1],exempt:ex[0]};}
 function dDesignate(k){
   const W=dWill(),H=W.heir||{},out={};
   const kidOf=id=>id&&id!==k.id?kids().find(x=>x.id===id&&x.alive):null;
@@ -4598,6 +4630,7 @@ function dyEstate(s,ro){
   s.append(h('p',{className:'sub'},`If I died today: estate about ${fmt(E.total)}. ${E.tax?`Estate tax ${fmt(E.tax)} (${Math.round(E.rate*100)}% over ${fmt(E.exempt)}). `:'No estate tax to pay. '}${E.charity?`Charity ${fmt(E.charity)}. `:''}${E.trust?`Into the family trust ${fmt(E.trust)}. `:''}${E.ins?`Life insurance adds ${fmt(E.ins)}. `:''}Cash for heirs ${fmt(Math.max(0,E.net))}.${E.short?` Short by ${fmt(E.short)}, so property would be sold.`:''}`));
   s.append(h('p',{className:'label'},'How to divide the cash'),seg([['equal','Equal shares'],['custom','Custom shares']],W.mode,v=>{W.mode=v;stay();}));
   if(W.mode==='custom'){const sh=dShares();kd.forEach(k=>s.append(row(k.name,`Share ${Math.round((sh[k.id]||0)*100)}%. Tap to raise, wraps around`,'',()=>{W.pct[k.id]=((W.pct[k.id]!=null?W.pct[k.id]:10)%50)+10;stay();},ro)));}
+  if(spouse())s.append(h('p',{className:'label'},'To my spouse (no estate tax)'),seg([[0,'0%'],[25,'25%'],[50,'50%'],[100,'100%']],W.spouse==null?50:W.spouse,v=>{W.spouse=v;stay();}));
   s.append(h('p',{className:'label'},'To charity'),seg([[0,'0%'],[5,'5%'],[10,'10%'],[25,'25%']],W.charity,v=>{W.charity=v;stay();}));
   s.append(h('p',{className:'label'},'Into the family trust'),seg([[0,'0%'],[10,'10%'],[25,'25%'],[50,'50%']],W.trustPct,v=>{W.trustPct=v;stay();}));
   s.append(h('p',{className:'label'},'Life insurance'),seg([[0,'None'],[250000,'$250k'],[1000000,'$1M'],[5000000,'$5M']],S.lifeIns||0,v=>{S.lifeIns=v;stay();}));
@@ -5281,12 +5314,12 @@ function pkFinish(st,win,showdown){
     ['Next hand',()=>pkHand(),()=>S.money<PK.bb*2],['Change table or blinds',()=>poker()],['Leave the table',()=>{}]],pkTable(st,'end'));}
 
 function crime(catchP,[lo,hi],what,[jmin,jmax]){
-  S.flags.crimes++;if(has('reckless'))catchP-=.1;
+  S.flags.crimes++;if(has('reckless'))catchP-=.1;catchP+=Math.min(.3,(S.flags.crimes-1)*.04);
   if(rnd()>catchP){const g=R(lo,hi);S.money+=g;if(what==='burglary')remember('burglary');return `I got away with ${what} and pocketed ${fmt(g)}.`}
   if(S.age<18){S.st.happy-=10;const p=parent();if(p)p.rel-=15;return `I was caught ${what}. My parents grounded me for months.`}
   S.flags.record=true;const yrs=R(jmin,jmax);
   if(!yrs){S.money-=800;return `I was caught ${what} and fined $800.`}
-  S.jail=yrs;S.st.happy-=15;mile(`Went to prison for ${what}`);if(S.job){line(`I lost my job as a ${title(S.job)}.`,'bad');S.job=null;}S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});return `I was caught ${what} and sentenced to ${yrs} years in prison.`}
+  S.jail=Math.max(1,Math.round(yrs*R(55,75)/100));S.st.happy-=15;mile(`Went to prison for ${what}`);if(S.job){line(`I lost my job as a ${title(S.job)}.`,'bad');S.job=null;}S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});return `I was caught ${what} and sentenced to ${yrs} years in prison.`}
 
 /* ================= Death ================= */
 function showDeath(){
