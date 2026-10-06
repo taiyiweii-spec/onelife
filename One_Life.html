@@ -983,6 +983,7 @@ function newLife(o={}){
 /* ================= events ================= */
 const parent=()=>living(['Mother','Father'])[0];
 const sibling=()=>living(['Sibling'])[0];
+const usd=n=>Math.round(n*cpiF()*(.4+.6*resC().pp)/10)*10;
 const EV=[
 /* ---- early childhood ---- */
 {id:'firstword',min:1,max:2,auto:()=>`My first word was "${pick(['mama','dada','no','cookie','doggy','uh-oh','taxes','why'])}". My parents cried a little.`},
@@ -1030,8 +1031,8 @@ const EV=[
 {id:'talent3',pri:1,min:15,max:18,cond:()=>S.talent&&S.talent.lvl===2&&S.age>=S.talent.at+3,text:()=>`A scout saw me ${S.talent.k==='soccer'?'play':S.talent.k==='music'?'perform':'exhibit my work'} and offered me a university scholarship.`,ch:[
   ['Accept the scholarship',()=>{S.talent.lvl=3;S.talent.at=S.age;S.flags.scholarship=true;S.st.happy+=15;mile(`Earned a ${S.talent.k} scholarship`);return 'Free tuition! My parents screamed.'}],
   ['Turn it down',()=>{S.talent.lvl=3;S.talent.at=S.age;return 'I turned it down to keep my options open.'}]]},
-{id:'talent4',pri:1,min:21,max:45,cond:()=>S.talent&&S.talent.lvl===3&&S.age>=S.talent.at+4,text:()=>({music:'Someone who heard me play years ago wants me to perform at weddings on weekends.',soccer:'A local club asked me to coach their youth team on weekends.',drawing:'A café owner who saw my old art show wants to commission murals.'})[S.talent.k],ch:[
-  ['Say yes',()=>{S.talent.lvl=4;S.flags.talentPay=Math.round(R(8000,22000)*payF());unlock('prodigy');mile(`Turned a childhood love of ${S.talent.k} into paid work`);S.st.happy+=10;return `I said yes. It pays about ${fmt(S.flags.talentPay)} a year and I love it.`}],
+{id:'talent4',pri:1,min:21,max:45,cond:()=>S.talent&&S.talent.lvl===3&&S.age>=S.talent.at+4,text:()=>({music:'Someone who heard me play years ago wants me to perform at weddings on weekends.',soccer:'A local club asked me to coach their youth team on weekends.',drawing:'A café owner who saw my old art show wants to commission murals.'})[S.talent.k],ch:()=>[
+  ['Say yes',()=>{S.talent.lvl=4;S.flags.talentPay=Math.round(usd(R(8000,22000))*payF());unlock('prodigy');mile(`Turned a childhood love of ${S.talent.k} into paid work`);S.st.happy+=10;return `I said yes. It pays about ${fmt(S.flags.talentPay)} a year and I love it.`}],
   ['I\'m too busy',()=>{S.talent.lvl=0;return 'I said no. Sometimes I still wonder.'}]]},
 {id:'sciencefair',min:9,max:13,text:'The school science fair is coming up.',ch:[
   ['Build a baking-soda volcano',()=>{S.st.smarts+=2;S.st.happy+=3;return 'It erupted all over the judge. Honorable mention.'}],
@@ -1047,7 +1048,7 @@ const EV=[
   ['Ask them out',c=>{if(rnd()<S.st.looks/120+(has('charming')?.3:.15)){remember('crush',{name:c.n});S.st.happy+=12;return 'They said yes! We went for milkshakes and held hands.'}S.st.happy-=8;return 'They laughed and said no. I replayed it in my head for years.'}],
   ['Play it cool',c=>{remember('crush',{name:c.n,never:true});return 'I smiled back and kept walking.'}]]},
 {id:'tutor',min:15,max:17,text:'My teacher offered me free after-school tutoring.',ch:[['Accept',()=>{S.st.smarts+=has('genius')?10:7;return 'My grades went up.'}],['Decline',()=>'I had better things to do.']]},
-{id:'uncle',min:14,max:17,text:'My uncle offered to explain how investing works.',ch:[['Sure',()=>{S.st.smarts+=4;S.money+=500;return 'He explained index funds and gave me $500 to start with.'}],['Sounds boring',()=>'I passed on the finance lesson.']]},
+{id:'uncle',min:14,max:17,text:'My uncle offered to explain how investing works.',ch:()=>[['Sure',()=>{S.st.smarts+=4;S.money+=usd(500);return `He explained index funds and gave me ${fmt(usd(500))} to start with.`}],['Sounds boring',()=>'I passed on the finance lesson.']]},
 {id:'party',min:14,max:17,text:'My friends are sneaking out to a party tonight.',ch:[
   ['Sneak out too',()=>{S.st.happy+=6;if(rnd()<.25){const p=parent();if(p)p.rel-=10;return 'I had a blast, then got caught climbing back in the window.'}return 'Best night of the year. Nobody found out.'}],
   ['Stay home',()=>'I stayed home and heard all about it on Monday.'],
@@ -1060,41 +1061,41 @@ const EV=[
 {id:'teenviral',min:13,max:17,w:.05,cls:'good',auto:()=>{S.st.happy+=10;S.st.looks+=3;return 'A silly dance video I posted got two million views. Strangers recognize me now.'}},
 /* ---- adult life ---- */
 {id:'flu',rep:1,min:18,max:99,w:.6,cls:'bad',auto:()=>{S.st.health-=R(3,10);return 'I came down with a nasty flu.'}},
-{id:'scam',min:18,max:80,text:'A stranger online offered me a "guaranteed" crypto investment for $2,000.',ch:[
-  ['Invest',()=>{S.money-=2000;if(rnd()<.1){S.money+=6000;return 'Somehow it tripled. I made $4,000!'}return 'The website vanished the next day, along with my $2,000.'}],['Block them',()=>'I blocked them.']]},
-{id:'speeding',rep:1,min:18,max:95,cond:hasCar,text:'I got pulled over for speeding.',ch:[
-  ['Pay the $250 ticket',()=>{S.money-=250;return 'I paid the ticket.'}],
-  ['Fight it in court',()=>{if(rnd()<.5)return 'The judge dismissed it!';S.money-=600;return 'I lost and paid $600 with court fees.'}],
-  ['Charm the officer',()=>{if(rnd()<.7)return 'We chatted about their dog. They let me off with a warning.';S.money-=250;return 'They were immune to my charm. $250 ticket.'},null,'charming']]},
-{id:'wedding',rep:1,min:20,max:65,text:'An old friend invited me to their wedding.',ch:[['Go',()=>{S.money-=300;S.st.happy+=7;return 'Great party. I danced until my shoes gave out.'}],['Skip it',()=>'I sent a card instead.']]},
-{id:'raffle',rep:1,min:18,max:99,w:.5,cls:'good',auto:()=>{const w=R(50,500);S.money+=w;return `I won ${fmt(w)} in a grocery store raffle.`}},
-{id:'coat',min:18,max:99,w:.5,cls:'good',auto:()=>{S.money+=40;return 'I found $40 in an old coat pocket. Past me is a hero.'}},
-{id:'toilet',min:18,max:80,w:.5,cls:'bad',auto:()=>{S.money-=800;return 'My phone fell in the toilet. $800 for a new one.'}},
-{id:'refund',rep:1,min:22,max:99,w:.4,cls:'good',auto:()=>{const r=R(300,3000);S.money+=r;return `I got a tax refund of ${fmt(r)}.`}},
+{id:'scam',min:18,max:80,text:()=>`A stranger online offered me a "guaranteed" crypto investment for ${fmt(usd(2000))}.`,ch:()=>[
+  ['Invest',()=>{S.money-=usd(2000);if(rnd()<.1){S.money+=usd(6000);return `Somehow it tripled. I made ${fmt(usd(4000))}!`}return `The website vanished the next day, along with my ${fmt(usd(2000))}.`}],['Block them',()=>'I blocked them.']]},
+{id:'speeding',rep:1,min:18,max:95,cond:hasCar,text:'I got pulled over for speeding.',ch:()=>[
+  [`Pay the ${fmt(usd(250))} ticket`,()=>{S.money-=usd(250);return 'I paid the ticket.'}],
+  ['Fight it in court',()=>{if(rnd()<.5)return 'The judge dismissed it!';S.money-=usd(600);return `I lost and paid ${fmt(usd(600))} with court fees.`}],
+  ['Charm the officer',()=>{if(rnd()<.7)return 'We chatted about their dog. They let me off with a warning.';S.money-=usd(250);return `They were immune to my charm. ${fmt(usd(250))} ticket.`},null,'charming']]},
+{id:'wedding',rep:1,min:20,max:65,text:'An old friend invited me to their wedding.',ch:()=>[['Go',()=>{S.money-=usd(300);S.st.happy+=7;return 'Great party. I danced until my shoes gave out.'}],['Skip it',()=>'I sent a card instead.']]},
+{id:'raffle',rep:1,min:18,max:99,w:.5,cls:'good',auto:()=>{const w=usd(R(50,500));S.money+=w;return `I won ${fmt(w)} in a grocery store raffle.`}},
+{id:'coat',min:18,max:99,w:.5,cls:'good',auto:()=>{S.money+=usd(40);return `I found ${fmt(usd(40))} in an old coat pocket. Past me is a hero.`}},
+{id:'toilet',min:18,max:80,w:.5,cls:'bad',auto:()=>{S.money-=usd(800);return `My phone fell in the toilet. ${fmt(usd(800))} for a new one.`}},
+{id:'refund',rep:1,min:22,max:99,w:.4,cls:'good',auto:()=>{const r=usd(R(300,3000));S.money+=r;return `I got a tax refund of ${fmt(r)}.`}},
 {id:'jury',min:21,max:75,auto:()=>{S.st.happy-=2;return 'I got jury duty. The case was about a stolen lawn gnome. Riveting.'}},
-{id:'idtheft',min:20,max:80,text:'Someone stole my identity and opened credit cards in my name.',ch:[
-  ['Freeze my credit ($200)',()=>{S.money-=200;return 'I locked everything down quickly.'}],['Hope it sorts itself out',()=>{const l=R(2000,8000);S.money-=l;return `It did not. I lost ${fmt(l)}.`}]]},
-{id:'gymsales',min:20,max:70,text:'A gym salesperson cornered me with a "lifetime" membership for $1,200.',ch:[
-  ['Sign up',()=>{S.money-=1200;S.st.health+=has('athletic')?8:4;return 'I actually went. Mostly.'}],['Run away',()=>'I faked a phone call and fled.']]},
-{id:'trip',rep:1,min:22,max:75,cond:partner,text:'My partner wants to go on a trip together.',ch:[
-  ['Plan something ($2,000)',()=>{S.money-=2000;partner().rel+=relGain(15);S.st.happy+=joy(8);return 'We had an amazing week away.'}],['Stay home',()=>{partner().rel-=8;return 'They were disappointed.'}]]},
-{id:'cousin',min:22,max:80,cond:()=>S.money>5000,text:'My cousin asked to borrow $2,000.',ch:[
-  ['Lend it',()=>{if(rnd()<.5)return 'They paid me back a few months later.';S.money-=2000;remember('cousin');return 'I never saw that money again.'}],
+{id:'idtheft',min:20,max:80,text:'Someone stole my identity and opened credit cards in my name.',ch:()=>[
+  [`Freeze my credit (${fmt(usd(200))})`,()=>{S.money-=usd(200);return 'I locked everything down quickly.'}],['Hope it sorts itself out',()=>{const l=usd(R(2000,8000));S.money-=l;return `It did not. I lost ${fmt(l)}.`}]]},
+{id:'gymsales',min:20,max:70,text:()=>`A gym salesperson cornered me with a "lifetime" membership for ${fmt(usd(1200))}.`,ch:()=>[
+  ['Sign up',()=>{S.money-=usd(1200);S.st.health+=has('athletic')?8:4;return 'I actually went. Mostly.'}],['Run away',()=>'I faked a phone call and fled.']]},
+{id:'trip',rep:1,min:22,max:75,cond:partner,text:'My partner wants to go on a trip together.',ch:()=>[
+  [`Plan something (${fmt(usd(2000))})`,()=>{S.money-=usd(2000);partner().rel+=relGain(15);S.st.happy+=joy(8);return 'We had an amazing week away.'}],['Stay home',()=>{partner().rel-=8;return 'They were disappointed.'}]]},
+{id:'cousin',min:22,max:80,cond:()=>S.money>usd(5000),text:()=>`My cousin asked to borrow ${fmt(usd(2000))}.`,ch:()=>[
+  ['Lend it',()=>{if(rnd()<.5)return 'They paid me back a few months later.';S.money-=usd(2000);remember('cousin');return 'I never saw that money again.'}],
   ['Refuse',()=>'I said no. Family dinner was awkward.']]},
-{id:'cousin2',pri:1,min:25,max:99,cond:()=>mem('cousin')&&S.age>=mem('cousin').at+6,cls:'good',auto:()=>{S.money+=6000;return 'Out of nowhere, my cousin hit it big in Vegas and paid back that old $2,000 loan... as $6,000.'}},
+{id:'cousin2',pri:1,min:25,max:99,cond:()=>mem('cousin')&&S.age>=mem('cousin').at+6,cls:'good',auto:()=>{S.money+=usd(6000);return `Out of nowhere, my cousin hit it big in Vegas and paid back that old ${fmt(usd(2000))} loan... as ${fmt(usd(6000))}.`}},
 {id:'cat',min:5,max:100,text:'A stray cat followed me home.',ch:[
   ['Adopt it',()=>{S.rels.push({id:uid(),type:'Pet',gender:'F',name:pick(PETS)+' the cat',age:R(1,4),rel:80,alive:true});S.st.happy+=8;return 'I adopted the cat. It now owns me.'}],['Shoo it away',()=>'It gave me a judgmental look and wandered off.']]},
-{id:'wallet',min:8,max:90,init:()=>({n:fullName(pick(['M','F']))}),text:c=>`I found a wallet on the sidewalk with $200 inside. The ID says ${c.n}.`,ch:[
-  ['Keep the cash',c=>{S.money+=200;remember('wallet',{name:c.n,kept:true});return 'I pocketed the $200.'}],
-  ['Return it',c=>{S.money+=20;S.st.happy+=has('kind')?10:6;remember('wallet',{name:c.n});return 'The owner was so grateful they gave me $20.'}]]},
-{id:'checkup',rep:1,min:55,max:110,text:'My doctor recommended a full checkup.',ch:[['Go ($300)',()=>{S.money-=300;S.st.health+=8;return 'They caught a small issue early.'}],['Skip it',()=>{S.st.health-=3;return 'I skipped it.'}]]},
+{id:'wallet',min:8,max:90,init:()=>({n:fullName(pick(['M','F']))}),text:c=>`I found a wallet on the sidewalk with ${fmt(usd(200))} inside. The ID says ${c.n}.`,ch:()=>[
+  ['Keep the cash',c=>{S.money+=usd(200);remember('wallet',{name:c.n,kept:true});return `I pocketed the ${fmt(usd(200))}.`}],
+  ['Return it',c=>{S.money+=usd(20);S.st.happy+=has('kind')?10:6;remember('wallet',{name:c.n});return `The owner was so grateful they gave me ${fmt(usd(20))}.`}]]},
+{id:'checkup',rep:1,min:55,max:110,text:'My doctor recommended a full checkup.',ch:()=>[[`Go (${fmt(usd(300))})`,()=>{S.money-=usd(300);S.st.health+=8;return 'They caught a small issue early.'}],['Skip it',()=>{S.st.health-=3;return 'I skipped it.'}]]},
 {id:'hip',min:50,max:110,cls:'bad',auto:()=>{S.st.health-=R(5,15);return S.born&&['us','uk','ca','de','ch','jp','ie'].includes(resKey())?'I slipped on ice and hurt my hip.':'I took a bad fall and hurt my hip.'}},
 {id:'phoneapp',min:65,max:100,text:'My grandkid is trying to teach me a new phone app.',ch:[['Learn it',()=>{S.st.smarts+=2;S.st.happy+=3;return 'I now send everyone way too many stickers.'}],['Absolutely not',()=>'I told them phones were for calling people.']]},
-{id:'midlife',min:40,max:50,text:'Midlife crisis! I suddenly feel like I need to...',ch:[
-  ['Buy a sports car ($115,000)',()=>{S.money-=115000;S.assets.push({n:'Sports coupe',v:115000,k:'car',run:11500,age:0});S.st.happy+=joy(15);return 'I bought a red sports coupe. I feel 25 again.'},()=>S.money<115000],
+{id:'midlife',min:40,max:50,text:'Midlife crisis! I suddenly feel like I need to...',ch:()=>[
+  [`Buy a sports car (${fmt(usd(115000))})`,()=>{S.money-=usd(115000);S.assets.push({n:'Sports coupe',v:115000,k:'car',run:11500,age:0});S.st.happy+=joy(15);return 'I bought a red sports coupe. I feel 25 again.'},()=>S.money<usd(115000)],
   ['Take up surfing',()=>{S.st.health+=6;S.st.happy+=6;return 'I wiped out a lot. Then I caught one wave. Worth it.'}],
   ['Get a dramatic haircut',()=>{S.st.looks+=R(-8,10);S.st.happy+=4;return 'Bold choice. People have opinions.'}],
-  ['Quit everything and travel ($10,000)',()=>{S.money-=10000;S.st.happy+=15;if(S.job){const t=title(S.job);S.job=null;return `I quit my job as a ${t} and backpacked across three continents.`}return 'I backpacked across three continents.'},null,'reckless']]},
+  [`Quit everything and travel (${fmt(usd(10000))})`,()=>{S.money-=usd(10000);S.st.happy+=15;if(S.job){const t=title(S.job);S.job=null;return `I quit my job as a ${t} and backpacked across three continents.`}return 'I backpacked across three continents.'},null,'reckless']]},
 {id:'grandkid',rep:1,min:45,max:100,w:.6,cond:()=>kids().some(k=>k.alive&&k.age>=25&&k.age<=40),init:()=>({k:pick(kids().filter(k=>k.alive&&k.age>=25&&k.age<=40))}),cls:'good',auto:c=>{S.st.happy+=12;mile('Became a grandparent');return `My child ${fname(c.k.name)} had a baby. I'm a grandparent!`}},
 /* ---- neighbor storyline ---- */
 {id:'neighbor',min:25,max:70,cond:()=>homes().some(a=>!a.rent),init:()=>({n:first(pick(['M','F']))}),text:c=>`My new neighbor ${c.n} complained that my music is too loud.`,ch:[
@@ -1104,31 +1105,31 @@ const EV=[
 {id:'neighbor2',pri:1,min:27,max:99,cond:()=>mem('neighbor')&&S.age>=mem('neighbor').at+2,init:()=>mem('neighbor'),
   text:c=>c.good?`${c.n}, the neighbor I apologized to, turns out to be a retired stockbroker. Over coffee they whispered: "Nimbus Tech. Trust me."`:`My feud with ${c.n} next door escalated. They're suing me over a "property line issue".`,
   ch:c=>c.good?[['Thank them',()=>{S.tip='NMBS';remember('tipNMBS');return 'I made a note. Maybe I should buy some Nimbus Tech.'}]]:[
-    ['Fight it in court ($5,000)',()=>{S.money-=5000;if(rnd()<(c.war?.35:.5))return 'I won! The fence stays where it is.';const d=R(10000,40000);S.money-=d;return `I lost and paid ${fmt(d)} in damages.`}],
-    ['Settle for $8,000',()=>{S.money-=8000;return `I paid ${c.n} to go away. We still don't wave.`}]]},
+    [`Fight it in court (${fmt(usd(5000))})`,()=>{S.money-=usd(5000);if(rnd()<(c.war?.35:.5))return 'I won! The fence stays where it is.';const d=usd(R(10000,40000));S.money-=d;return `I lost and paid ${fmt(d)} in damages.`}],
+    [`Settle for ${fmt(usd(8000))}`,()=>{S.money-=usd(8000);return `I paid ${c.n} to go away. We still don't wave.`}]]},
 /* ---- sibling storyline ---- */
-{id:'sib',min:25,max:60,cond:()=>sibling()&&S.money>=15000,init:()=>({p:sibling()}),text:c=>`My ${c.p.gender==='M'?'brother':'sister'} ${fname(c.p.name)} is drowning in debt and asked me for $15,000.`,ch:[
-  ['Lend it',c=>{S.money-=15000;remember('sib',{id:c.p.id,how:'lent'});c.p.rel+=10;return 'I lent them the money and made them promise to pay it back.'}],
+{id:'sib',min:25,max:60,cond:()=>sibling()&&S.money>=usd(15000),init:()=>({p:sibling()}),text:c=>`My ${c.p.gender==='M'?'brother':'sister'} ${fname(c.p.name)} is drowning in debt and asked me for ${fmt(usd(15000))}.`,ch:()=>[
+  ['Lend it',c=>{S.money-=usd(15000);remember('sib',{id:c.p.id,how:'lent'});c.p.rel+=10;return 'I lent them the money and made them promise to pay it back.'}],
   ['Refuse',c=>{remember('sib',{id:c.p.id,how:'refused'});c.p.rel-=25;return 'I said no. They hung up on me.'}],
-  ['Give it as a gift',c=>{S.money-=15000;remember('sib',{id:c.p.id,how:'gift'});c.p.rel+=30;S.st.happy+=6;return 'I told them it was a gift, no strings attached. They cried.'},null,'kind']]},
+  ['Give it as a gift',c=>{S.money-=usd(15000);remember('sib',{id:c.p.id,how:'gift'});c.p.rel+=30;S.st.happy+=6;return 'I told them it was a gift, no strings attached. They cried.'},null,'kind']]},
 {id:'sib2',pri:1,min:28,max:99,cond:()=>mem('sib')&&S.age>=mem('sib').at+3&&S.rels.some(p=>p.id===mem('sib').id&&p.alive),init:()=>({m:mem('sib'),p:S.rels.find(p=>p.id===mem('sib').id)}),
-  text:c=>c.m.how==='refused'?`${fname(c.p.name)} and I haven't talked in years. They just texted: "can we talk?"`:c.m.how==='gift'?`${fname(c.p.name)} used my gift to start a bakery. It's doing great.`:`${fname(c.p.name)} called about the $15,000 I lent them.`,
+  text:c=>c.m.how==='refused'?`${fname(c.p.name)} and I haven't talked in years. They just texted: "can we talk?"`:c.m.how==='gift'?`${fname(c.p.name)} used my gift to start a bakery. It's doing great.`:`${fname(c.p.name)} called about the ${fmt(usd(15000))} I lent them.`,
   ch:c=>c.m.how==='refused'?[['Reconnect',()=>{c.p.rel+=35;S.st.happy+=8;return 'We talked for three hours. It felt like old times.'}],['Leave it on read',()=>{c.p.rel-=10;return 'I left it on read.'}]]
-   :c.m.how==='gift'?[['Visit the bakery',()=>{S.money+=5000;S.st.happy+=8;c.p.rel+=10;return 'They handed me $5,000 and a lifetime supply of croissants.'}]]
-   :rnd()<.6?[['Answer',()=>{S.money+=20000;c.p.rel+=15;return 'They paid me back $20,000, with interest, and a hug.'}]]
+   :c.m.how==='gift'?[['Visit the bakery',()=>{S.money+=usd(5000);S.st.happy+=8;c.p.rel+=10;return `They handed me ${fmt(usd(5000))} and a lifetime supply of croissants.`}]]
+   :rnd()<.6?[['Answer',()=>{S.money+=usd(20000);c.p.rel+=15;return `They paid me back ${fmt(usd(20000))} with interest, and a hug.`}]]
    :[['Answer',()=>{c.p.rel-=15;S.st.happy-=6;return 'They lost it all again and asked for more. I said no this time.'}]]},
 /* ---- marriage storyline ---- */
-{id:'marr',rep:1,min:22,max:90,w:2,cond:()=>spouse()&&spouse().rel<45&&!mem('marr'),init:()=>({p:spouse()}),text:c=>`${fname(c.p.name)} and I keep fighting about everything.`,ch:[
-  ['Couples counseling ($3,000)',c=>{S.money-=3000;c.p.rel+=20;remember('marr',{id:c.p.id});return 'We started counseling. It was awkward and it helped.'}],
+{id:'marr',rep:1,min:22,max:90,w:2,cond:()=>spouse()&&spouse().rel<45&&!mem('marr'),init:()=>({p:spouse()}),text:c=>`${fname(c.p.name)} and I keep fighting about everything.`,ch:()=>[
+  [`Couples counseling (${fmt(usd(3000))})`,c=>{S.money-=usd(3000);c.p.rel+=20;remember('marr',{id:c.p.id});return 'We started counseling. It was awkward and it helped.'}],
   ['Plan a date night',c=>{c.p.rel+=relGain(8);remember('marr',{id:c.p.id});return 'We had a nice dinner. It helped a little.'}],
   ['Ignore it',c=>{c.p.rel-=10;remember('marr',{id:c.p.id});return 'I buried myself in other things.'}]]},
 {id:'marr2',pri:1,min:24,max:99,cond:()=>mem('marr')&&S.age>=mem('marr').at+2&&spouse()&&spouse().id===mem('marr').id,init:()=>({p:spouse()}),
   text:c=>c.p.rel>=55?`${fname(c.p.name)} surprised me by asking to renew our vows.`:`${fname(c.p.name)} sat me down and said they want a separation.`,
-  ch:c=>{const done=()=>{delete S.mem.marr;};return c.p.rel>=55?[['Say yes',()=>{done();S.money-=5000;S.st.happy+=15;c.p.rel+=10;return 'We renewed our vows on a beach. Everyone cried.'}]]
+  ch:c=>{const done=()=>{delete S.mem.marr;};return c.p.rel>=55?[['Say yes',()=>{done();S.money-=usd(5000);S.st.happy+=15;c.p.rel+=10;return 'We renewed our vows on a beach. Everyone cried.'}]]
    :[['Fight for us',()=>{done();if(rnd()<.5+(has('charming')?.2:0)){c.p.rel+=30;return 'We worked through it. We\'re stronger now.'}return divorce(c.p)}],['Agree to divorce',()=>{done();return divorce(c.p)}]]}},
 /* ---- relationship storylines ---- */
-{id:'anniv',rep:1,min:22,max:90,w:1.4,cond:()=>partner()&&partner().rel>=40,init:()=>({p:partner()}),text:c=>`My anniversary with ${fname(c.p.name)} is coming up.`,ch:[
-  ['Plan something special ($500)',c=>{S.money-=500;c.p.rel+=relGain(12);sparkUp(c.p,15);S.st.happy+=5;return 'I planned a surprise. They loved it.'},()=>S.money<500],
+{id:'anniv',rep:1,min:22,max:90,w:1.4,cond:()=>partner()&&partner().rel>=40,init:()=>({p:partner()}),text:c=>`My anniversary with ${fname(c.p.name)} is coming up.`,ch:()=>[
+  [`Plan something special (${fmt(usd(500))})`,c=>{S.money-=usd(500);c.p.rel+=relGain(12);sparkUp(c.p,15);S.st.happy+=5;return 'I planned a surprise. They loved it.'},()=>S.money<usd(500)],
   ['A quiet dinner at home',c=>{c.p.rel+=5;sparkUp(c.p,5);return 'We had a simple dinner and talked about old times.'}],
   ['Forget about it',c=>{c.p.rel-=14;sparkUp(c.p,-10);S.st.happy-=3;return 'I forgot. The silence at breakfast said everything.'}]]},
 {id:'tempt',rep:1,min:22,max:65,w:1.1,cond:()=>partner()&&S.job,init:()=>({p:partner()}),text:c=>`Someone at work keeps flirting with me, and I am with ${fname(c.p.name)}.`,ch:[
@@ -1139,26 +1140,26 @@ const EV=[
   ['Yes, let us try',c=>{remember('pkids');c.p.rel+=8;S.st.happy+=6;return 'We agreed to start trying for a baby. It feels exciting and a little scary.'}],
   ['Not yet',c=>{remember('pkids');c.p.rel-=5;return 'I asked for more time. They understood, mostly.'}],
   ['I do not want children',c=>{remember('pkids');c.p.rel-=18;return 'It was a hard conversation. They had hoped for a different answer.'}]]},
-{id:'pjob',min:25,max:55,cond:()=>partner()&&partner().rel>=55,init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} was offered a great job in another city and hopes I will come along.`,ch:[
-  ['Move with them ($6,000)',c=>{S.money-=6000;const cs=resC().cities.filter(x=>!S.city.startsWith(x));if(cs.length)S.city=`${pick(cs)}, ${resC().n}`;if(S.job){S.job=null;}c.p.rel+=15;return `We moved to ${S.city.split(',')[0]} together. I gave up my job, but we are closer.`},()=>S.money<6000],
+{id:'pjob',min:25,max:55,cond:()=>partner()&&partner().rel>=55,init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} was offered a great job in another city and hopes I will come along.`,ch:()=>[
+  [`Move with them (${fmt(usd(6000))})`,c=>{S.money-=usd(6000);const cs=resC().cities.filter(x=>!S.city.startsWith(x));if(cs.length)S.city=`${pick(cs)}, ${resC().n}`;if(S.job){S.job=null;}c.p.rel+=15;return `We moved to ${S.city.split(',')[0]} together. I gave up my job, but we are closer.`},()=>S.money<usd(6000)],
   ['Stay where I am',c=>{c.p.rel-=22;S.st.happy-=5;return 'I stayed. They took the job, and things between us grew distant.'}],
   ['Ask them to stay',c=>{if(rnd()<.5){c.p.rel+=4;return 'They turned it down for me. I hope I never make them regret it.'}c.p.rel-=20;return 'They resented being asked and took the job anyway.'}]]},
 {id:'cheated',rep:1,min:24,max:80,w:.8,cond:()=>partner()&&partner().rel<38,init:()=>({p:partner()}),text:c=>`I found messages on ${fname(c.p.name)}'s phone. They have been seeing someone else.`,ch:[
   ['Confront them',c=>{if(rnd()<.5){c.p.rel+=10;S.st.happy-=4;return 'They broke down and apologised. I do not know if I can trust them again.'}return c.p.type==='Spouse'?divorce(c.p):breakUp(c.p);}],
   ['Forgive them',c=>{c.p.rel-=5;S.st.happy-=8;return 'I chose to forgive. The hurt has not gone away.'}],
   ['End it',c=>c.p.type==='Spouse'?divorce(c.p):breakUp(c.p)]]},
-{id:'bored',rep:1,min:22,max:90,w:1.5,cond:()=>partner()&&sparkOf(partner())<25,init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} says things have become predictable. They miss the way we used to be.`,ch:[
-  ['Plan a surprise weekend away ($1,500)',c=>{S.money-=1500;sparkUp(c.p,30);c.p.rel+=8;S.st.happy+=5;return 'I whisked them away for the weekend. The old spark is back.'},()=>S.money<1500],
+{id:'bored',rep:1,min:22,max:90,w:1.5,cond:()=>partner()&&sparkOf(partner())<25,init:()=>({p:partner()}),text:c=>`${fname(c.p.name)} says things have become predictable. They miss the way we used to be.`,ch:()=>[
+  [`Plan a surprise weekend away (${fmt(usd(1500))})`,c=>{S.money-=usd(1500);sparkUp(c.p,30);c.p.rel+=8;S.st.happy+=5;return 'I whisked them away for the weekend. The old spark is back.'},()=>S.money<usd(1500)],
   ['Try a new hobby together',c=>{sparkUp(c.p,15);c.p.rel+=4;return 'We signed up for a dance class. We were terrible and had a great time.'}],
   ['Tell them it is just a phase',c=>{sparkUp(c.p,-5);c.p.rel-=10;return 'I brushed it off. They went quiet.'}]]},
 {id:'exret',rep:1,min:22,max:80,w:.9,cond:()=>partner()&&S.exes.length>0,init:()=>({p:partner(),ex:fname(pick(S.exes))}),text:c=>`${c.ex}, my ex, texted me out of nowhere: "I have been thinking about you."`,ch:[
   ['Ignore it',c=>{c.p.rel+=2;return 'I left it unanswered and deleted the message.'}],
   ['Show it to my partner and delete it',c=>{c.p.rel+=5;return `${fname(c.p.name)} was touched that I told them.`}],
   ['Reply and meet for coffee',c=>{if(rnd()<.5){c.p.rel-=30;addKarma(-3);return `${fname(c.p.name)} found out about the coffee. They were furious.`}S.st.happy+=2;addKarma(-2);return 'It was a strange, nostalgic coffee. Nothing happened, but I did not tell anyone.'}]]},
-{id:'rival',rep:1,min:22,max:70,w:.9,cond:()=>partner(),init:()=>({p:partner()}),text:c=>`Someone new at ${fname(c.p.name)}'s work keeps texting them. I feel a knot of jealousy.`,ch:[
+{id:'rival',rep:1,min:22,max:70,w:.9,cond:()=>partner(),init:()=>({p:partner()}),text:c=>`Someone new at ${fname(c.p.name)}'s work keeps texting them. I feel a knot of jealousy.`,ch:()=>[
   ['Trust them',c=>{if(rnd()<.8){c.p.rel+=4;return 'I trusted them, and it was exactly what it looked like: nothing.'}c.p.rel-=8;return 'I trusted them, but I have started to notice small things.'}],
   ['Confront them',c=>{c.p.rel-=12;sparkUp(c.p,-4);return 'I asked too many questions. They felt watched and hurt.'},null,'hothead'],
-  ['Plan a surprise date ($300)',c=>{S.money-=300;sparkUp(c.p,18);c.p.rel+=6;return 'I turned jealousy into a surprise dinner. They were delighted.'},()=>S.money<300]]},
+  [`Plan a surprise date (${fmt(usd(300))})`,c=>{S.money-=usd(300);sparkUp(c.p,18);c.p.rel+=6;return 'I turned jealousy into a surprise dinner. They were delighted.'},()=>S.money<usd(300)]]},
 {id:'exback',min:20,max:65,w:.9,cond:()=>!partner()&&S.exes.length>0,init:()=>({ex:pick(S.exes)}),text:c=>`${fname(c.ex)}, my ex, got in touch. ${pick(['They just started a company.','They say they have changed.','They saw my name in the news.'])} They would like to talk.`,ch:[
   ['Meet them',c=>{if(rnd()<.45){const q=suitor('night');q.name=c.ex;q.chem=100;q.gd=false;makeOfficial(q,true);return `We met, talked for hours, and rekindled things with ${fname(c.ex)}.`}S.st.happy-=2;return 'We met, and it was awkward. There is a reason we ended it.'}],
   ['Reply politely and leave it there',c=>{S.st.happy+=1;return 'I wished them well and nothing more.'}],
@@ -1168,21 +1169,21 @@ const EV=[
   [`Go for ${fname(c.b.name)}`,()=>{c.b.chem=100;makeOfficial(c.b,true);return `${fname(c.b.name)} and I are together now.`}],
   ['See both for a while',()=>{if(rnd()<.45){S.st.happy-=6;return 'They found out about each other. Both walked away, and I felt awful.'}c.a.chem=55;c.b.chem=55;poolAdd([c.a,c.b]);return 'I kept seeing both. They are waiting on my Dating screen, but this cannot last.'}],
   ['Neither, I want to be single',()=>'I decided to enjoy being single for now.']]},
-{id:'gossip',rep:1,min:22,max:90,w:.8,cond:()=>partner()&&((S.fame||0)>=25||netWorth()>3e6),init:()=>({p:partner()}),text:c=>`A tabloid ran photos of me with ${fname(c.p.name)} under an unflattering headline.`,ch:[
+{id:'gossip',rep:1,min:22,max:90,w:.8,cond:()=>partner()&&((S.fame||0)>=25||netWorth()>3e6),init:()=>({p:partner()}),text:c=>`A tabloid ran photos of me with ${fname(c.p.name)} under an unflattering headline.`,ch:()=>[
   ['Ignore it',c=>{c.p.rel-=2;return 'The story faded in a week.'}],
   ['Issue a warm statement about us',c=>{c.p.rel+=5;S.fame=Math.min(100,(S.fame||0)+1);return 'My statement turned the story into a love story.'}],
-  ['Pay to have it buried ($50,000)',c=>{S.money-=50000;return 'A lawyer made the story disappear. It was expensive.'},()=>S.money<50000]]},
-{id:'gala',rep:1,min:22,max:90,w:.8,cond:()=>partner()&&(netWorth()>2e6||(S.fame||0)>=30),init:()=>({p:partner()}),text:c=>'I was invited to a glittering charity gala.',ch:[
-  ['Bring my partner as my date ($1,000)',c=>{S.money-=1000;c.p.rel+=6;sparkUp(c.p,15);S.fame=Math.min(100,(S.fame||0)+1);return `${fname(c.p.name)} and I turned heads all night.`},()=>S.money<1000],
+  [`Pay to have it buried (${fmt(usd(50000))})`,c=>{S.money-=usd(50000);return 'A lawyer made the story disappear. It was expensive.'},()=>S.money<usd(50000)]]},
+{id:'gala',rep:1,min:22,max:90,w:.8,cond:()=>partner()&&(netWorth()>2e6||(S.fame||0)>=30),init:()=>({p:partner()}),text:c=>'I was invited to a glittering charity gala.',ch:()=>[
+  [`Bring my partner as my date (${fmt(usd(1000))})`,c=>{S.money-=usd(1000);c.p.rel+=6;sparkUp(c.p,15);S.fame=Math.min(100,(S.fame||0)+1);return `${fname(c.p.name)} and I turned heads all night.`},()=>S.money<usd(1000)],
   ['Go alone and network',c=>{S.fame=Math.min(100,(S.fame||0)+2);c.p.rel-=8;return 'I met useful people. My partner was not amused to be left at home.'}],
   ['Skip it',c=>'I stayed in and ordered takeout.']]},
 /* ---- illness storyline ---- */
-{id:'ill',min:35,max:80,w:.5,cond:()=>false,text:"I've felt dizzy and exhausted for weeks.",ch:[
-  ['See a specialist ($2,000)',()=>{S.money-=2000;remember('ill',{early:true});return 'I booked tests right away.'}],
+{id:'ill',min:35,max:80,w:.5,cond:()=>false,text:"I've felt dizzy and exhausted for weeks.",ch:()=>[
+  [`See a specialist (${fmt(usd(2000))})`,()=>{S.money-=usd(2000);remember('ill',{early:true});return 'I booked tests right away.'}],
   ['Tough it out',()=>{remember('ill',{early:false});return 'I told myself it was just stress.'}]]},
-{id:'ill2',pri:1,min:36,max:99,cond:()=>mem('ill')&&!mem('ill').done&&S.age>=mem('ill').at+1,text:()=>mem('ill').early?'The specialist caught a heart condition early. A short treatment should fix it.':'It turned out to be a serious heart condition. Treatment costs $40,000.',
-  ch:()=>{const m=mem('ill');m.done=true;return m.early?[['Get treated',()=>{S.st.health+=6;S.money-=3000;return 'Treatment went smoothly. I feel better than I have in years.'}]]
-   :[['Pay for treatment',()=>{S.money-=40000;S.st.health+=10;return 'It was expensive and scary, but it worked.'}],['Try a cheaper option ($5,000)',()=>{S.money-=5000;if(rnd()<.5){S.st.health-=25;return 'It didn\'t work. My health took a serious hit.'}return 'Somehow the cheaper option worked.'}]]}},
+{id:'ill2',pri:1,min:36,max:99,cond:()=>mem('ill')&&!mem('ill').done&&S.age>=mem('ill').at+1,text:()=>mem('ill').early?'The specialist caught a heart condition early. A short treatment should fix it.':`It turned out to be a serious heart condition. Treatment costs ${fmt(usd(40000))}.`,
+  ch:()=>{const m=mem('ill');m.done=true;return m.early?[['Get treated',()=>{S.st.health+=6;S.money-=usd(3000);return 'Treatment went smoothly. I feel better than I have in years.'}]]
+   :[['Pay for treatment',()=>{S.money-=usd(40000);S.st.health+=10;return 'It was expensive and scary, but it worked.'}],[`Try a cheaper option (${fmt(usd(5000))})`,()=>{S.money-=usd(5000);if(rnd()<.5){S.st.health-=25;return 'It didn\'t work. My health took a serious hit.'}return 'Somehow the cheaper option worked.'}]]}},
 /* ---- work ---- */
 {id:'credit',rep:1,min:18,max:70,cond:()=>S.job,text:'A coworker took credit for my work in a meeting.',ch:[
   ['Confront them',()=>{if(rnd()<(has('hothead')?.65:.5)){S.job.perf+=10;return 'I set the record straight and my boss noticed.'}S.job.perf-=8;return 'It turned into a shouting match. My boss was not impressed.'}],
@@ -1190,8 +1191,8 @@ const EV=[
 {id:'headhunter',rep:1,min:20,max:65,cond:()=>S.job&&S.job.lvlYrs>=1,text:()=>`A headhunter called. Another company wants me as a ${title(S.job)} for about 18% more pay.`,ch:[
   ['Take the new job',()=>{remember('oldboss',{c:S.job.c});S.job.s=Math.round(S.job.s*1.18);S.job.lvlYrs=0;S.job.perf=50;S.st.happy+=5;return `I switched companies. New salary: ${fmt(S.job.s)}.`}],
   ['Stay where I am',()=>{S.job.perf+=5;return 'I stayed loyal. My boss seemed to appreciate it.'}]]},
-{id:'fraud',min:22,max:65,cond:()=>S.job&&S.job.lvl>=1,text:'My boss quietly asked me to help hide some accounting fraud.',ch:[
-  ['Go along with it',()=>{const g=R(5000,20000);S.money+=g;remember('fraud');return `I kept quiet and got a ${fmt(g)} "bonus". I sleep a little worse now.`}],
+{id:'fraud',min:22,max:65,cond:()=>S.job&&S.job.lvl>=1,text:'My boss quietly asked me to help hide some accounting fraud.',ch:()=>[
+  ['Go along with it',()=>{const g=usd(R(5000,20000));S.money+=g;remember('fraud');return `I kept quiet and got a ${fmt(g)} "bonus". I sleep a little worse now.`}],
   ['Report it',()=>{if(rnd()<(has('kind')?.75:.6)){S.job.perf+=25;S.st.happy+=10;remember('whistle');unlock('whistle');mile('Blew the whistle on fraud at work');return 'I blew the whistle. My boss was fired and I was praised.'}const t=title(S.job);S.job=null;S.st.happy-=10;return `I reported it, but leadership retaliated. I lost my job as a ${t}.`}],
   ['Stay out of it',()=>{S.st.happy-=5;return 'I pretended not to hear and felt uneasy about it.'}]]},
 {id:'burnout',rep:1,min:18,max:70,cond:()=>S.job&&S.job.style==='hustle',w:2,text:'I feel completely burned out from work.',ch:[
@@ -1208,7 +1209,7 @@ const EV=[
   ['Suck it up',()=>{S.st.happy-=6;return 'They scheduled a meeting about meetings. I survived.'}],
   ['Complain to HR',()=>{if(rnd()<.4){S.job.perf+=5;return 'HR agreed. The kid was moved to a "special projects" role.'}S.job.perf-=10;return 'HR sided with the family. I am now on thin ice.'}],
   ['Quit on the spot',()=>{const t=title(S.job);S.job=null;S.st.happy+=5;return `I quit my job as a ${t}. Dramatic, but satisfying.`}]]},
-{id:'acquired',min:22,max:65,cond:()=>S.job&&!CAREERS[S.job.c].pub,auto:()=>{if(rnd()<.5){const b=R(5000,40000);S.money+=b;return `My company was acquired and my stock options paid out ${fmt(b)}.`}S.job.perf-=5;S.st.happy-=4;return 'My company was acquired. Everyone is nervous about layoffs.'}},
+{id:'acquired',min:22,max:65,cond:()=>S.job&&!CAREERS[S.job.c].pub,auto:()=>{if(rnd()<.5){const b=usd(R(5000,40000));S.money+=b;return `My company was acquired and my stock options paid out ${fmt(b)}.`}S.job.perf-=5;S.st.happy-=4;return 'My company was acquired. Everyone is nervous about layoffs.'}},
 /* ---- callbacks ---- */
 {id:'bullyboss',min:25,max:50,w:3,cond:()=>mem('bully')&&S.job&&S.age>=mem('bully').at+12,init:()=>mem('bully'),
   text:c=>c.how==='friend'?`My new manager is ${c.name}, the "bully" I befriended back in grade school. They remembered.`:`My new manager is ${c.name}... the kid who ${c.how==='won'?'I beat in a schoolyard fight':'bullied me'} in school.`,
@@ -1217,31 +1218,31 @@ const EV=[
     ['Remind them who won',()=>{S.job.perf-=5;S.st.happy+=10;return 'I mentioned the fight in our first one-on-one. Worth it.'},()=>c.how!=='won','hothead'],
     ['Quit',()=>{const t=title(S.job);S.job=null;return `Nope. I quit my job as a ${t}.`}]]},
 {id:'walletback',min:22,max:50,w:3,cond:()=>mem('wallet')&&!mem('wallet').kept&&S.age>=mem('wallet').at+8,init:()=>mem('wallet'),cls:'good',auto:c=>{const g=has('kind')?10000:5000;S.money+=g;return `${c.name}, whose wallet I returned years ago, tracked me down. They run a company now and sent a ${fmt(g)} "late reward".`}},
-{id:'walletkarma',min:20,max:60,w:2,cond:()=>mem('wallet')&&mem('wallet').kept&&S.age>=mem('wallet').at+5,cls:'bad',auto:()=>{S.money-=300;return 'Karma: I lost my own wallet with $300 in it. Nobody returned it.'}},
+{id:'walletkarma',min:20,max:60,w:2,cond:()=>mem('wallet')&&mem('wallet').kept&&S.age>=mem('wallet').at+5,cls:'bad',auto:()=>{S.money-=usd(300);return `Karma: I lost my own wallet with ${fmt(usd(300))} in it. Nobody returned it.`}},
 {id:'crush2',min:28,max:45,w:3,cond:()=>mem('crush')&&!partner()&&S.age>=mem('crush').at+10,init:()=>mem('crush'),text:c=>`At a school reunion, I ran into ${c.name}, my old crush. They're single.`,ch:[
   ['Ask them out',c=>{if(rnd()<(c.never?.5:.8)+(has('charming')?.1:0)){const g=S.gender==='M'?'F':'M';const p={id:uid(),type:'Partner',gender:g,name:c.name,age:S.age,rel:80,alive:true,crush:true};S.rels.push(p);return 'We talked all night. We are dating now!'}return 'They laughed kindly and said they were seeing someone.'}],
   ['Just catch up',()=>'We caught up and swapped numbers.']]},
-{id:'smoker2',min:45,max:65,w:3,cond:()=>false,text:'My doctor spotted something worrying on my lung scan. Those teenage cigarettes caught up with me.',ch:[
-  ['Follow the treatment ($8,000)',()=>{S.money-=8000;S.st.health+=5;return 'Treatment worked. Past me owes present me an apology.'}],['Ignore it',()=>{S.st.health-=15;return 'I ignored it. My breathing got worse.'}]]},
-{id:'blackmail',pri:1,min:25,max:90,cond:()=>mem('fraud')&&S.age>=mem('fraud').at+5,text:'An old coworker knows about the fraud cover-up. They want $25,000 to keep quiet.',ch:[
-  ['Pay them',()=>{S.money-=25000;return 'I paid. They promised it was a one-time thing.'}],
-  ['Refuse',()=>{if(rnd()<.5)return 'They were bluffing. Nothing happened.';S.flags.record=true;let out='They went to the press. ';if(S.job){out+=`I was fired as a ${title(S.job)}. `;S.job=null;}if(rnd()<.4){S.jail=R(1,3);out+=`I was sentenced to ${S.jail} years.`}else{S.money-=15000;out+='I paid $15,000 in fines.'}return out}]]},
-{id:'book',pri:1,min:26,max:90,cond:()=>mem('whistle')&&S.age>=mem('whistle').at+4,text:'A publisher wants my whistleblower story. Advance: $80,000.',ch:[
-  ['Write the book',()=>{S.money+=80000;S.st.happy+=10;mile('Published a whistleblower memoir');return 'I wrote it. It was a modest bestseller.'}],['Keep it private',()=>'Some stories are better left alone.']]},
-{id:'coldcase',pri:1,min:20,max:90,cond:()=>mem('burglary')&&S.age>=mem('burglary').at+4&&!S.jail,text:'Detectives reopened an old burglary case. They have new DNA evidence.',ch:[
-  ['Hire a lawyer ($20,000)',()=>{S.money-=20000;if(rnd()<.8)return 'My lawyer got the evidence thrown out.';S.jail=3;S.flags.record=true;return 'Even my lawyer couldn\'t save me. 3 years.'}],
+{id:'smoker2',min:45,max:65,w:3,cond:()=>false,text:'My doctor spotted something worrying on my lung scan. Those teenage cigarettes caught up with me.',ch:()=>[
+  [`Follow the treatment (${fmt(usd(8000))})`,()=>{S.money-=usd(8000);S.st.health+=5;return 'Treatment worked. Past me owes present me an apology.'}],['Ignore it',()=>{S.st.health-=15;return 'I ignored it. My breathing got worse.'}]]},
+{id:'blackmail',pri:1,min:25,max:90,cond:()=>mem('fraud')&&S.age>=mem('fraud').at+5,text:()=>`An old coworker knows about the fraud cover-up. They want ${fmt(usd(25000))} to keep quiet.`,ch:()=>[
+  ['Pay them',()=>{S.money-=usd(25000);return 'I paid. They promised it was a one-time thing.'}],
+  ['Refuse',()=>{if(rnd()<.5)return 'They were bluffing. Nothing happened.';S.flags.record=true;let out='They went to the press. ';if(S.job){out+=`I was fired as a ${title(S.job)}. `;S.job=null;}if(rnd()<.4){S.jail=R(1,3);out+=`I was sentenced to ${S.jail} years.`}else{S.money-=usd(15000);out+=`I paid ${fmt(usd(15000))} in fines.`}return out}]]},
+{id:'book',pri:1,min:26,max:90,cond:()=>mem('whistle')&&S.age>=mem('whistle').at+4,text:()=>`A publisher wants my whistleblower story. Advance: ${fmt(usd(80000))}.`,ch:()=>[
+  ['Write the book',()=>{S.money+=usd(80000);S.st.happy+=10;mile('Published a whistleblower memoir');return 'I wrote it. It was a modest bestseller.'}],['Keep it private',()=>'Some stories are better left alone.']]},
+{id:'coldcase',pri:1,min:20,max:90,cond:()=>mem('burglary')&&S.age>=mem('burglary').at+4&&!S.jail,text:'Detectives reopened an old burglary case. They have new DNA evidence.',ch:()=>[
+  [`Hire a lawyer (${fmt(usd(20000))})`,()=>{S.money-=usd(20000);if(rnd()<.8)return 'My lawyer got the evidence thrown out.';S.jail=3;S.flags.record=true;return 'Even my lawyer couldn\'t save me. 3 years.'}],
   ['Wing it',()=>{if(rnd()<.4)return 'The lab mixed up the samples. Case dropped.';S.jail=R(3,5);S.flags.record=true;if(S.job)S.job=null;return `I was convicted and sentenced to ${S.jail} years.`}]]},
 {id:'oldboss',pri:1,min:23,max:70,cond:()=>mem('oldboss')&&S.age>=mem('oldboss').at+3&&S.job,text:'My old boss wants me back, offering 25% more than I make now.',ch:[
   ['Go back',()=>{delete S.mem.oldboss;S.job.s=Math.round(S.job.s*1.25);S.job.perf=60;return `I went back for ${fmt(S.job.s)}. Nice to be wanted.`}],['Stay put',()=>{delete S.mem.oldboss;return 'I thanked them and stayed.'}]]},
-{id:'bizback',pri:1,min:20,max:80,cond:()=>mem('bizfail')&&S.age>=mem('bizfail').at+2&&S.biz.length<3&&S.age>=18,init:()=>mem('bizfail'),text:c=>`A loyal customer of my old business, ${c.name}, begged me to reopen it and offered $50,000 to help.`,ch:[
+{id:'bizback',pri:1,min:20,max:80,cond:()=>mem('bizfail')&&S.age>=mem('bizfail').at+2&&S.biz.length<3&&S.age>=18,init:()=>mem('bizfail'),text:c=>`A loyal customer of my old business, ${c.name}, begged me to reopen it and offered ${fmt(usd(50000))} to help.`,ch:()=>[
   ['Reopen it',c=>{delete S.mem.bizfail;const b=newBiz(c.type,c.name,{own:.75,inv:.25,cash:50000,rep:60});S.biz.push(b);mile(`Reopened ${c.name}`);return `${c.name} is back! The customer owns 25%.`}],
   ['No thanks',()=>{delete S.mem.bizfail;return 'That chapter is closed.'}]]},
-{id:'angel',min:21,max:75,cond:()=>S.money>=10000,init:()=>({co:pick(BIZ.tech.names)}),text:c=>`My friend is launching a startup called ${c.co} and asked me to invest.`,ch:[
-  ['Invest $10,000',c=>{S.money-=10000;S.angels.push({amt:10000,yrs:0,co:c.co});return 'I became an angel investor.'}],
-  ['Invest $25,000',c=>{S.money-=25000;S.angels.push({amt:25000,yrs:0,co:c.co});return 'I went big on my friend\'s startup.'},()=>S.money<25000],
+{id:'angel',min:21,max:75,cond:()=>S.money>=usd(10000),init:()=>({co:pick(BIZ.tech.names)}),text:c=>`My friend is launching a startup called ${c.co} and asked me to invest.`,ch:()=>[
+  [`Invest ${fmt(usd(10000))}`,c=>{S.money-=usd(10000);S.angels.push({amt:10000,yrs:0,co:c.co});return 'I became an angel investor.'}],
+  [`Invest ${fmt(usd(25000))}`,c=>{S.money-=usd(25000);S.angels.push({amt:25000,yrs:0,co:c.co});return 'I went big on my friend\'s startup.'},()=>S.money<usd(25000)],
   ['Pass',()=>'I wished them luck but kept my money.']]},
-{id:'angel2',pri:1,min:22,max:99,cond:()=>S.angels.some(a=>a.yrs===2&&!a.asked&&S.money>=10000),init:()=>({a:S.angels.find(a=>a.yrs===2&&!a.asked)}),text:c=>`${c.a.co} is struggling and needs one more round. They asked if I'd put in another $10,000.`,ch:[
-  ['Double down',c=>{c.a.asked=true;S.money-=10000;c.a.amt+=10000;c.a.boost=.1;return 'I doubled down. Fingers crossed.'}],
+{id:'angel2',pri:1,min:22,max:99,cond:()=>S.angels.some(a=>a.yrs===2&&!a.asked&&S.money>=usd(10000)),init:()=>({a:S.angels.find(a=>a.yrs===2&&!a.asked)}),text:c=>`${c.a.co} is struggling and needs one more round. They asked if I'd put in another ${fmt(usd(10000))}.`,ch:()=>[
+  ['Double down',c=>{c.a.asked=true;S.money-=usd(10000);c.a.amt+=10000;c.a.boost=.1;return 'I doubled down. Fingers crossed.'}],
   ['Hold',c=>{c.a.asked=true;c.a.boost=-.05;return 'I kept my stake as it is.'}]]},
 {id:'marriedbiz',rep:1,min:22,max:90,w:2,cond:()=>spouse()&&S.biz.some(b=>b.life==='hands')&&spouse().rel<60,init:()=>({p:spouse()}),text:c=>`${fname(c.p.name)} says I'm married to my business.`,ch:[
   ['Step back',c=>{S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});c.p.rel+=15;return 'I stepped back from the day-to-day. We have dinner together again.'}],
@@ -1249,13 +1250,13 @@ const EV=[
   ['The business comes first',c=>{c.p.rel-=15;return 'I said the business comes first. The silence was deafening.'}]]},
 /* ---- rare ---- */
 {id:'lightning',min:10,max:95,w:.04,cls:'bad',auto:()=>{S.st.health-=20;unlock('lightning');mile('Got struck by lightning and lived');return 'I was struck by lightning. I survived, and my hair has never been the same.'}},
-{id:'treasure',min:20,max:95,w:.05,cond:()=>homes().length,auto:()=>{const v=R(5000,60000);S.money+=v;mile('Found buried treasure in the garden');return `Digging in my garden, I found a rusty box of old coins. A dealer paid ${fmt(v)}.`},cls:'good'},
-{id:'gameshow',min:21,max:80,w:.05,text:'I got picked to be a contestant on a TV game show!',ch:[
-  ['Play it safe',()=>{S.money+=10000;return 'I walked away with $10,000 and a sensible haircut.'}],
-  ['Go for the big prize',()=>{if(rnd()<.3+(has('genius')?.2:0)){S.money+=250000;unlock('gameshow');mile('Won $250,000 on a game show');return 'Final answer... CORRECT! I won $250,000!'}return 'I got the last question wrong and went home with a toaster.'}]]},
+{id:'treasure',min:20,max:95,w:.05,cond:()=>homes().length,auto:()=>{const v=usd(R(5000,60000));S.money+=v;mile('Found buried treasure in the garden');return `Digging in my garden, I found a rusty box of old coins. A dealer paid ${fmt(v)}.`},cls:'good'},
+{id:'gameshow',min:21,max:80,w:.05,text:'I got picked to be a contestant on a TV game show!',ch:()=>[
+  ['Play it safe',()=>{S.money+=usd(10000);return `I walked away with ${fmt(usd(10000))} and a sensible haircut.`}],
+  ['Go for the big prize',()=>{if(rnd()<.3+(has('genius')?.2:0)){S.money+=usd(250000);unlock('gameshow');mile(`Won ${fmt(usd(250000))} on a game show`);return `Final answer... CORRECT! I won ${fmt(usd(250000))}!`}return 'I got the last question wrong and went home with a toaster.'}]]},
 {id:'doppel',min:15,max:80,w:.04,text:'I met a stranger who looks exactly like me. Same face, same laugh.',ch:[
   ['Chat with them',()=>{S.st.happy+=6;return 'We were born on the same day in different hospitals. We still email.'}],['Run',()=>'I ran. Some mysteries should stay mysteries.']]},
-{id:'greataunt',min:18,max:80,w:.04,cls:'good',auto:()=>{const v=R(20000,200000);S.money+=v;return `A lawyer called: a great-aunt I never met left me ${fmt(v)}. Rest in peace, Aunt ${first('F')}.`}},
+{id:'greataunt',min:18,max:80,w:.04,cls:'good',auto:()=>{const v=usd(R(20000,200000));S.money+=v;return `A lawyer called: a great-aunt I never met left me ${fmt(v)}. Rest in peace, Aunt ${first('F')}.`}},
 {id:'ufo',min:12,max:90,w:.04,auto:()=>{S.st.happy+=R(-5,10);unlock('ufo');mile('Lost three hours to strange lights in the sky');return 'I saw strange lights over a field and lost three hours. I have a new freckle shaped like a triangle.'}},
 {id:'timetravel',min:16,max:80,w:.04,auto:()=>{S.tip='VLTR';remember('tipVLTR');return 'A man in shiny clothes said he was from 2091, whispered "Voltra Motors," and vanished into a crowd.'}},
 {id:'celeb',min:10,max:90,w:.05,auto:()=>{S.st.happy+=6;return `I bumped into ${pick(['Dex Marlowe','Sienna Vale','Jax Okoro'])}, the movie star, at the airport. They were nice about the selfie.`}},
