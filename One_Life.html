@@ -350,12 +350,12 @@ const actTier=()=>{const r=S.act.rep;for(let i=ACT_TIERS.length-1;i>=0;i--)if(r>
 const actUnlocked=()=>S.st.looks>=80||(S.act.cls>=3&&S.st.looks>=55);
 const ACT_PROJECTS={
   indie:{n:'Indie film',payR:[3000,25000],rep:[3,10],risk:.18,prestige:1.3},
-  studio:{n:'Studio movie',payR:[50000,600000],rep:[5,18],risk:.4,prestige:1},
-  tv:{n:'TV series',payR:[25000,180000],rep:[3,12],risk:.15,prestige:.85},
+  studio:{n:'Studio movie',payR:[20000,200000],rep:[5,18],risk:.4,prestige:1},
+  tv:{n:'TV series',payR:[15000,120000],rep:[3,12],risk:.15,prestige:.85},
   ad:{n:'Commercial',payR:[4000,40000],rep:[1,3],risk:.05,prestige:.3},
 };
 function genActOffers(){const tier=actTier(),n=R(2,3),opts=Object.keys(ACT_PROJECTS),out=[];
-  for(let i=0;i<n;i++){const k=pick(opts),P=ACT_PROJECTS[k],scale=1+tier*.7;
+  for(let i=0;i<n;i++){const k=pick(opts),P=ACT_PROJECTS[k],scale=(1+tier*1.6)*cpiF();
     out.push({id:uid(),k,pay:Math.round(R(P.payR[0],P.payR[1])*scale/100)*100});}
   return out;}
 function actQuality(){return clamp(S.st.looks*.4+S.st.smarts*.2+S.act.rep*.4+R(-10,10));}
@@ -371,7 +371,7 @@ function takeRole(o){
     S.act.films.push({n:filmName(),k:o.k,age:S.age,hit:true,eligible:o.k!=='ad'});socBoost(.06,'📱 The hit film brought me new followers.');}
   else{msg=`Wrapped a ${P.n.toLowerCase()}. Paid ${fmt(pay)}.`;
     S.act.films.push({n:filmName(),k:o.k,age:S.age,hit:false,eligible:o.k!=='ad'});}
-  S.money+=netStack(pay);S.act.rep=clamp(S.act.rep+rep);S.fame=Math.min(100,(S.fame||0)+Math.round(rep/4));
+  S.money+=netStack(Math.round(pay*.8));S.act.rep=clamp(S.act.rep+rep);S.fame=Math.min(100,(S.fame||0)+Math.round(rep/4));
   S.act.offers=null;
   mile(`${outcome==='hit'?'Starred in a hit':outcome==='flop'?'Appeared in':'Worked on'} ${P.n.toLowerCase()}`);
   stay(msg,outcome==='flop'?'bad':'good');}
@@ -1447,10 +1447,10 @@ function propertyYear(){
    S.dev holds every parcel. d.st runs land, rezone, build, done. Equity (sale value minus loan) counts in net worth. */
 const LAND_PSM=380;
 const DEV_TYPES={
-  warehouse:{n:'Warehouse park',ic:'🏭',psm:750,rent:165,yrs:1,cap:.08,risk:.04},
-  retail:{n:'Retail strip',ic:'🏬',psm:1800,rent:300,yrs:1,cap:.075,risk:.08},
-  office:{n:'Office block',ic:'🏢',psm:2600,rent:385,yrs:2,cap:.065,risk:.10},
-  mixed:{n:'Mixed-use tower',ic:'🏙️',psm:3600,rent:480,yrs:3,cap:.06,risk:.14}};
+  warehouse:{n:'Warehouse park',ic:'🏭',psm:1250,rent:165,yrs:1,cap:.072,risk:.04},
+  retail:{n:'Retail strip',ic:'🏬',psm:2300,rent:300,yrs:1,cap:.071,risk:.08},
+  office:{n:'Office block',ic:'🏢',psm:3300,rent:385,yrs:2,cap:.065,risk:.10},
+  mixed:{n:'Mixed-use tower',ic:'🏙️',psm:4500,rent:480,yrs:3,cap:.058,risk:.14}};
 const DEV_ZONE={commercial:'Commercial',residential:'Residential',farm:'Farmland'};
 const DEV_AREA={city:1.2,suburb:1,out:.85};
 const DEV_NAMES=['Harbour Plot','Junction Lot','Old Mill Site','Ridge Parcel','Market Square Lot','Airport Road Plot','Canal Yard','Station Parcel'];
@@ -2875,13 +2875,13 @@ function lottery(){S.money-=10;const r=rnd(),m=has('lucky')?1.5:1;
   if(r<.06*m){S.money+=25;return 'I bought a $10 lottery ticket and won $25.'}return 'I bought a $10 lottery ticket. Nothing.'}
 /* ================= collectibles and auctions ================= */
 /* S.col is my collection. S.cm is the market index for each category (1 = today's price when I started). S.cmHot is the category collectors are chasing.
-   S.auc is this year's sale catalogue. Buyers pay a 12% premium on the hammer price, sellers pay 10% commission. */
+   S.auc is this year's sale catalogue. Buyers pay a 20% premium on the hammer price, sellers pay 10% commission. */
 const COL_CATS={
   art:{n:'Art',ic:'🖼️',drift:3,vol:10},watch:{n:'Watches',ic:'⌚',drift:4,vol:8},wine:{n:'Fine wine',ic:'🍷',drift:2.5,vol:7},
   coin:{n:'Rare coins',ic:'🪙',drift:2.5,vol:6},memo:{n:'Memorabilia',ic:'🎞️',drift:3,vol:11},guitar:{n:'Guitars',ic:'🎸',drift:3,vol:9}};
 const COL_RAR=['Common','Uncommon','Rare','Epic','Legendary'],COL_GROW=[.003,.006,.012,.018,.025];
 const colTier=v=>v<5e3?0:v<5e4?1:v<5e5?2:v<5e6?3:4;
-const COL_PREM=.12,COL_COMM=.10;
+const COL_PREM=.20,COL_COMM=.10;
 const AUC_NAMES=['Paddle 12','Lady Ashcroft','Mr. Tanaka','The Duchess','A phone bidder','Baron von Riel','Dealer Moreau','Ms. Okonkwo','Sir Percival','Paddle 88'];
 const AUC_HOUSES={
   local:{n:'Corner Saleroom',ic:'🏚️',lo:300,hi:2e4,cnt:6,bid:[2,4]},
@@ -2905,7 +2905,7 @@ function aucInc(p){const u=Math.pow(10,Math.max(1,Math.floor(Math.log10(Math.max
 function aucLot(hk){
   const H=AUC_HOUSES[hk],cat=pick(Object.keys(COL_CATS)),fair=sig2(H.lo*Math.pow(H.hi/H.lo,rnd()));
   let shown=fair*R(88,112)/100,flag='';const x=rnd();
-  if(x<.03){shown=fair/R(8,25);flag='sleeper';}else if(x<.11){shown=fair*R(140,200)/100;flag='hype';}
+  if(x<.003){shown=fair/R(2,4);flag='sleeper';}else if(x<.083){shown=fair*R(140,200)/100;flag='hype';}
   return {id:uid(),cat,name:colName(cat),fair,shown:sig2(shown),flag,fake:flag!=='sleeper'&&rnd()<.04,done:null,exp:null};}
 function aucCat(){
   if(S.auc&&S.auc.age===S.age)return S.auc;
@@ -3067,9 +3067,9 @@ function yrCollect(){
    (the NBA, elite football clubs). Tennis is solo: level comes from the world ranking. Fame is the shared S.fame.
    Teams are real-world team names (no players, no logos). S.spl holds every team's current strength, which drifts each year, plus the latest champions. */
 const SP={
-  basketball:{n:'Basketball',ic:'🏀',peak:28,stages:['High school and youth teams','College basketball','Pro leagues (G League and overseas)','The NBA'],stat:'points a game',sal:[0,45e3,900e3,7e6],teams:['Hawks','Titans','Stingers','Comets','Wolves','Storm','Kings','Rockets'],blurb:'Fast, physical and team-driven. College, the NBA draft, trades and huge contracts.'},
-  soccer:{n:'Football (soccer)',ic:'⚽',peak:29,stages:['Youth academy','Lower-league club','Top-flight club','Elite club'],stat:'goals',sal:[0,35e3,700e3,6e6],teams:['United','City','Athletic','Rovers','Wanderers','Albion','Rangers','Sporting'],blurb:'The world game. Climb from an academy to the Premier League and Europe\'s giants, with transfers and the Champions League.'},
-  tennis:{n:'Tennis',ic:'🎾',peak:27,solo:true,stages:['Junior circuit','Challenger tour','The pro tour','World top 20'],stat:'wins',sal:[0,0,0,0],blurb:'A solo tour. Climb the world ranking and chase the four majors.'}};
+  basketball:{n:'Basketball',ic:'🏀',peak:27,ret:34,stop:40,stages:['High school and youth teams','College basketball','Pro leagues (G League and overseas)','The NBA'],stat:'points a game',sal:[0,45e3,350e3,3e6],teams:['Hawks','Titans','Stingers','Comets','Wolves','Storm','Kings','Rockets'],blurb:'Fast, physical and team-driven. College, the NBA draft, trades and huge contracts.'},
+  soccer:{n:'Football (soccer)',ic:'⚽',peak:27,ret:35,stop:40,stages:['Youth academy','Lower-league club','Top-flight club','Elite club'],stat:'goals',sal:[0,35e3,700e3,6e6],teams:['United','City','Athletic','Rovers','Wanderers','Albion','Rangers','Sporting'],blurb:'The world game. Climb from an academy to the Premier League and Europe\'s giants, with transfers and the Champions League.'},
+  tennis:{n:'Tennis',ic:'🎾',peak:26,ret:33,stop:38,solo:true,stages:['Junior circuit','Challenger tour','The pro tour','World top 20'],stat:'wins',sal:[0,0,0,0],blurb:'A solo tour. Climb the world ranking and chase the four majors.'}};
 const SP_REQ=[0,30,52,72],SP_AGE=[0,15,17,18];
 const SP_BRANDS=['Stride Athletics','Hydra Sport','Aurelian Watches','Nova Mobile','Veltrin Motors','Pulse Energy','Halo Headphones','Summit Apparel'];
 const COMP={nba:'NBA',eu:'EuroLeague',pl:'Premier League',liga:'La Liga',sa:'Serie A',bl:'Bundesliga',l1:'Ligue 1',cl:'Champions League'};
@@ -3092,7 +3092,7 @@ GL_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:2,lg:'G League',c
 EU_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:2,lg:'EuroLeague',comp:'eu',base:b,mk:m}));
 COL_T.forEach(([n,b,m])=>SP_TEAMS.push({n,sport:'basketball',lv:1,lg:'College basketball',comp:null,base:b,mk:m,kind:'college'}));
 SOC_T.forEach(([n,c,b,m])=>SP_TEAMS.push({n,sport:'soccer',lv:b>=78?3:2,lg:c?COMP[c]:'Other leagues',comp:c,base:b,mk:m}));
-const spSal=(k,st,skill)=>Math.round(SP[k].sal[st]*(.6+skill/100*1.4)*(st>=3&&skill>=92?2:1)/1000)*1000;
+const spSal=(k,st,skill)=>{const c=cpiF(),sup=st>=3&&skill>=92?2:1;if(k==='basketball'&&st>=3)return Math.round(Math.max(1.2e6,3e6*Math.exp((skill-72)*.0757))*sup*c/1000)*1000;return Math.round(SP[k].sal[st]*(.6+skill/100*1.4)*sup*c/1000)*1000;};
 const spStageTennis=r=>r<=20?3:r<=120?2:r<=350?1:0;
 const spTeamName=(k,st)=>SP[k].solo?'Independent':(st>=3?pick(CITIES).split(',')[0]:pick(resC().cities))+' '+pick(SP[k].teams)+(st===0?' Juniors':'');
 const spNeed=t=>30+t.base*.55;
@@ -3116,7 +3116,7 @@ function spRecord(st,exclude){
   return {n:spTeamName(k,st),lg:st===0?'Youth teams':'Lower leagues',base:R(30,53),mk:1,comp:null};}
 function spOffer(st,exclude){
   const T=S.spt,t=spRecord(st,exclude===undefined?T.team:exclude),college=t.kind==='college',mkF=[1,1,1.12,1.3][t.mk||1],cur=splStr(t.n),str=cur==null?t.base:cur;
-  const sal=college?0:Math.round(spSal(T.sport,st,T.skill)*(.8+str/250)*mkF*R(90,115)/100/1000)*1000;
+  const sal=college?0:Math.round(spSal(T.sport,st,T.skill)*(.8+str/250)*mkF*R(90,115)/100*(t.lg==='G League'?.2:1)/1000)*1000;
   const fee=T.sport==='soccer'&&st>=1?Math.min(220e6,Math.round(sal*R(3,7)*(st>=2?1:.2)/1000)*1000):0;
   return {team:t.n,st,sal,yrs:college?Math.max(1,Math.min(4,22-S.age)):R(1,4),lg:t.lg,mk:t.mk||1,str,kind:college?'college':'',fee,bonus:Math.round(fee*.05)};}
 const SP_ATTR={basketball:['Shooting','Defence','Athleticism','Playmaking'],soccer:['Attack','Defence','Passing','Physical'],tennis:['Serve','Return','Groundstrokes','Stamina']};
@@ -3198,19 +3198,19 @@ function spRetire(forced,why){
   const T=S.spt;if(!T||T.retired)return;
   T.retired=true;T.con=null;T.offers=[];T.eo=[];
   const score=T.titles*4+T.champs*4+T.awards*2+T.acc*.5+(S.fame||0)/10;
-  T.hof=score>=22;T.legacy=Math.round((S.fame||0)*6000*(T.hof?2:1));
+  T.hof=score>=22;T.legacy=(S.fame||0)>=50?Math.round((S.fame||0)*2000*(T.hof?2:1)):0;T.rAge=S.age;
   mile(`Retired from ${SP[T.sport].n.toLowerCase()}`);
   line(`${SP[T.sport].ic} ${forced?why:'I retired from professional sport.'} I played ${T.seasons} season${T.seasons===1?'':'s'}, winning ${T.titles+T.champs} title${T.titles+T.champs===1?'':'s'} and ${T.awards} award${T.awards===1?'':'s'}.${T.legacy?` Media and coaching work will pay about ${fmt(T.legacy)} a year.`:''}`,'good');
   if(T.hof){unlock('shof');S.fame=Math.min(100,(S.fame||0)+5);line(`🏛️ I was inducted into the ${SP[T.sport].n} hall of fame!`,'good');}spLegacyQueue(T);}
 function yrSports(){
   const T=S.spt;if(!T)return;
-  if(T.retired){if(S.age<70&&T.legacy>0)S.money+=T.legacy;return;}
+  if(T.retired){const fr=Math.max(0,1-(S.age-(T.rAge||S.age))/15);if(S.age<70&&T.legacy>0&&fr>0)S.money+=netStack(Math.round(T.legacy*fr*cpiF()));return;}
   if(S.age<14||S.jail)return;
   const K=SP[T.sport],age=S.age;T.seasons++;T.tried=false;T.shop=false;spEnsure(T);
   splYear();
   if(T.con&&T.con.exp){const o=T.offers[0]||spOffer(T.st,'');spAccept(o,true);}
   // training and ageing
-  let gain=age<20?R(2,5):age<25?R(1,3):age<K.peak?R(0,2):-(R(1,3)+(age>K.peak+4?1:0)+(age>K.peak+8?1:0));
+  let gain=age<20?R(2,5):age<25?R(1,3):age<K.peak?R(0,2):-(R(2,4)+(age>K.peak+3?1:0)+(age>K.peak+6?1:0));
   const rg={light:.6,normal:1,hard:1.3,elite:1.6}[T.reg]||1;
   if(gain>0)gain=gain*rg*Math.max(.15,1.15-T.skill/100)+(has('athletic')?1:0)*Math.max(.2,1-T.skill/100)-(has('lazy')?1:0)+(T.extra?1:0)*Math.max(.2,1-T.skill/100);else gain=gain*(T.reg==='light'?1.2:T.reg==='elite'?.7:1);
   spAdj(T,Math.round(gain),T.focus);T.extra=false;
@@ -3234,8 +3234,8 @@ function yrSports(){
     T.rank=Math.max(1,Math.round(T.rank*.5+target*.5));const ns=spStageTennis(T.rank);
     if(ns>T.st){T.st=ns;if(ns>=2)unlock('spro');if(ns>=3)unlock('sbig');mile(`Reached world number ${T.rank}`);}else T.st=ns;
     if(T.st>=1&&S.job&&age>=18){line(`I left my job as a ${title(S.job)} to play full time.`);S.job=null;}
-    pay=T.st>=1?Math.round(12e6*Math.exp(-T.rank/25)+15000):0;
-    const sp=T.rank<=1?.22:T.rank<=5?.12:T.rank<=20?.05:T.rank<=50?.012:0;const won=[];for(let i=0;i<4;i++)if(rnd()<sp)won.push(SLAMS[i]);
+    pay=T.st>=1?Math.round((15e6/Math.pow(Math.max(1,T.rank),.85)+30000)*cpiF()):0;
+    const sp=T.rank<=1?.25:T.rank<=3?.1:T.rank<=10?.03:T.rank<=20?.005:0;const won=[];for(let i=0;i<4;i++)if(rnd()<sp)won.push(SLAMS[i]);
     if(won.length){T.titles+=won.length;T.acc+=won.length*6;extra+=won.length*1.8e6;gainFame+=won.length*8;unlock('schamp');mile(`Won ${won.join(' and ')}`);line(`🏆 I won ${won.join(' and ')}!`,'good');socBoost(.15,'📱 My following exploded after the Grand Slam.');}
     if(T.rank===1&&rnd()<.8){T.awards++;T.acc+=4;unlock('smvp');line('⭐ I finished the year ranked world number one!','good');}
     const w=Math.max(0,Math.round(perf/100*55+R(-4,4)));
@@ -3282,7 +3282,7 @@ function yrSports(){
     if(T.eo.length)line(`🤝 ${T.eo.length===1?'A brand wants':'Brands want'} me for an endorsement deal.`,'good');}
   S.fame=Math.max(0,Math.min(100,(S.fame||0)+Math.round(gainFame)));
   if(T.hist.length>6)T.hist.shift();
-  if(age>=42)spRetire(true,'At my age it was time to hang up my boots.');
+  if(age>=K.stop||(age>=K.ret&&rnd()<.15+(age-K.ret)*.05))spRetire(true,'At my age it was time to hang up my boots.');
   else if(age>K.peak+3&&T.skill<22)spRetire(true,'My skills faded and nobody offered me another contract.');
 }
 let spTab='play';
@@ -3369,7 +3369,7 @@ const socDealMax=()=>Math.min(4,1+Math.floor(Math.max(0,Math.log10(Math.max(1,so
 function socBoost(p,msg){if(!S.soc)return;socScale(p);if(msg)line(msg,'good');}
 function socRev(){
   const O=S.soc;let ads=0;
-  Object.entries(SOC_PLATS).forEach(([k,P])=>{const pl=O.pl[k];if(pl.f>=10000)ads+=pl.f*.09*(pl.e/.04)*P.rate*(O.ver?1.15:1);});
+  Object.entries(SOC_PLATS).forEach(([k,P])=>{const pl=O.pl[k];if(k==='clip'&&pl.f>=10000)ads+=pl.f*.04*(pl.e/.04)*P.rate*(O.ver?1.15:1);});
   const fakeShare=O.fake?Math.min(.8,O.fake/Math.max(1,socTotal())):0;
   ads*=1-fakeShare*.6;
   const subs=O.sub&&socTotal()>=50000?Math.round(socTotal()*.004*(.6+(S.fame||0)/100)):0;
@@ -3630,8 +3630,9 @@ function clFin(C,res){
   if(res){
     if(soc){if(res.champ)prize+=C.bc0*.18;prize+=({group:.12,semi:.25,final:.35,won:.6}[res.cl]||0)*C.bc0;if(res.cup!=null)prize+=C.bc0*(.01*res.cup+(res.cup>=6?.06:0));}
     else{if(res.champ)prize+=C.R0*.06;else if(res.pos<=16)prize+=C.R0*.02*(res.pos<=4?2:1);}}
-  const other=C.R0*.03,rev=matchday+bcst+sponsor+merch+prize+other;
-  const wages=clPayroll(C),staff=clStaffCost(C),ops=C.R0*.11,fac=(C.fac.train+C.fac.acad+C.fac.med)*C.R0*.004+C.fac.acad*C.R0*.004,admin=C.R0*.06,interest=C.loan*C.lrate;
+  const para=C.parachute&&C.parachute.yrs>0?Math.round(C.parachute.amt*C.parachute.yrs/3):0;
+  const other=C.R0*.03+para,rev=matchday+bcst+sponsor+merch+prize+other;
+  const wages=clPayroll(C),staff=clStaffCost(C),ops=C.R0*(C.nba?.25:soc?.19:.11),fac=(C.fac.train+C.fac.acad+C.fac.med)*C.R0*.004+C.fac.acad*C.R0*.004,admin=C.R0*(C.nba?.1:.06),interest=C.loan*C.lrate;
   const taxLine=170e6,floor=126e6,lux=C.nba&&wages>taxLine?Math.round(1.5*(wages-taxLine)):0,top=C.nba&&wages<floor?floor-wages:0;
   const cost=wages+top+staff+ops+fac+admin+interest+lux,pre=rev-cost,tax=pre>0?pre*.21:0;
   return {att,matchday,bcst,sponsor,merch,prize,other,rev,wages:wages+top,staff,ops,fac,admin,interest,lux,top,pre,tax,net:pre-tax,price:C.p0*C.pIdx};}
@@ -3734,9 +3735,9 @@ function yrClub(){
   clDevelop(C,res);
   // moving between divisions
   if(res.promo){if(C.home&&C.div===2){C.gen=false;C.div=0;C.lg=C.home.lg;C.comp=C.home.comp;C.bc0=C.home.bc0;C.brand=clamp(C.brand+8);line(`🎉 ${C.team} won promotion back to the ${C.lg}!`,'good');unlock('clubprom');}
-    else{C.div--;C.lg=CL_DIV[C.div];C.opp=clOpp(C.div);C.R0*=1.8;C.bc0*=1.8;C.mk0*=1.4;C.brand=clamp(C.brand+6);line(`🎉 ${C.team} won promotion to the ${C.lg}!`,'good');unlock('clubprom');}}
+    else{C.div--;C.lg=CL_DIV[C.div];C.opp=clOpp(C.div);C.R0*=(C.div===0?2.4:1.8);C.bc0*=(C.div===0?3:1.8);C.mk0*=1.4;C.brand=clamp(C.brand+6);line(`🎉 ${C.team} won promotion to the ${C.lg}!`,'good');unlock('clubprom');}}
   else if(res.rel){
-    if(!C.gen){C.home={lg:C.lg,comp:C.comp,bc0:C.bc0};C.gen=true;C.div=2;C.lg=CL_DIV[2];C.opp=clOpp(2);C.bc0*=.3;C.brand=clamp(C.brand-12);line(`📉 ${C.team} was relegated from the ${C.home.lg}.`,'bad');}
+    if(!C.gen){C.home={lg:C.lg,comp:C.comp,bc0:C.bc0};C.parachute={yrs:3,amt:Math.round(C.bc0*.5)};C.gen=true;C.div=2;C.lg=CL_DIV[2];C.opp=clOpp(2);C.bc0*=.3;C.brand=clamp(C.brand-12);line(`📉 ${C.team} was relegated from the ${C.home.lg}.`,'bad');}
     else{C.div++;C.lg=CL_DIV[C.div];C.opp=clOpp(C.div);C.R0*=.55;C.bc0*=.55;C.mk0*=.7;C.brand=clamp(C.brand-8);line(`📉 ${C.team} was relegated to the ${C.lg}.`,'bad');}}
   clInjectOrBorrow(C);
   if(!S.club)return;
@@ -4205,7 +4206,7 @@ function hlDeathSummary(){
   return `${bits.length?'I '+bits.join(' and ')+'. ':''}${cs.length?'I lived with '+cs.join(', ')+'.':''}`;}
 function hlCause(){if(!S.hl||hlDeathP()<.05)return null;let best=null,bv=0;S.hl.c.forEach(c=>{if(c.cured||c.sev<3)return;const v=HCD[c.id].d3;if(v>bv){bv=v;best=c;}});return best?({stroke:'a stroke',dementia:'complications of dementia',cancer:'cancer',heart:'heart disease',lung:'lung disease',liver:'liver disease',diabetes:'complications of diabetes',hyper:'a stroke',depress:'depression'}[best.id]||HCD[best.id].n.toLowerCase()):null;}
 /* ================= media and entertainment ownership: film studio, record label, streaming service ================= */
-const MED={film:{n:'Film studio',ic:'🎬',found:3e6,buy:15e6,mult:1.4,blurb:'Greenlight films, pick directors and stars, and chase box office and awards'},
+const MED={film:{n:'Film studio',ic:'🎬',found:3e6,buy:35e6,mult:1.4,blurb:'Greenlight films, pick directors and stars, and chase box office and awards'},
   music:{n:'Record label',ic:'🎵',found:1.5e6,buy:8e6,mult:3,blurb:'Sign artists, fund albums and tours, and build a catalogue'},
   stream:{n:'Streaming service',ic:'📺',found:12e6,buy:150e6,mult:4,blurb:'Set prices, commission originals, and grow subscribers against rivals'}};
 const MEDN={film:['Silver Lantern','Northlight','Harbor Gate','Red Kite','Paper Sun','Blue Anchor','Golden Hour','Ironwood'].map(x=>x+' Pictures'),
@@ -4215,7 +4216,7 @@ const MED_GEN={drama:{n:'Drama',m:1.4,v:.45},comedy:{n:'Comedy',m:1.6,v:.5},horr
 const MED_BUD=[['Indie',1.5e6],['Mid-budget',12e6],['Blockbuster',90e6]];
 const MED_STAR=[['No big names',0,0],['Rising stars',.08,6],['A-list cast',.2,14]];
 const MED_DIR=[['Emerging director',.05,48],['Established director',.12,64],['Acclaimed auteur',.2,78]];
-const MED_MK=[['Light',.1,.85],['Standard',.25,1],['Massive',.45,1.25]];
+const MED_MK=[['Light',.25,.9],['Standard',.5,1],['Massive',1,1.4]];
 const MED_GENRE_NAMES=['Rock','Pop','Hip hop','Indie','Country','Electronic'];
 const MED_ALB=[['Demo sessions',2e5,0],['Studio album',8e5,8],['Superstar production',3e6,18]];
 const medEquity=()=>S.med?Math.round(medValue(S.med)+S.med.cash*.9):0;
@@ -4225,7 +4226,7 @@ function medValue(m){const K=MED[m.type];
 function medNew(type,buy){
   const K=MED[type],price=buy?K.buy:K.found,m={type,name:pick(MEDN[type]),cash:Math.round(price*.2),brand:buy?42:15,since:S.age,hist:[],trophies:0,hits:0,rev:buy?Math.round(K.buy/K.mult/2):0,cost:buy?Math.round(K.buy/K.mult/2*.9):0,auto:false,lastLine:''};
   if(type==='film'){m.slate=[];m.lib=[];m.trend=pick(Object.keys(MED_GEN));m.bo=0;
-    if(buy)for(let i=0;i<3;i++)m.lib.push({n:filmName(),age:S.age-R(1,4),g:R(40,120)*1e6});}
+    if(buy)for(let i=0;i<3;i++)m.lib.push({n:filmName(),age:S.age-R(1,3),g:R(15,60)*1e6});}
   if(type==='music'){m.artists=[];m.pool=medPool(m);m.cat=0;if(buy){m.artists.push(medArtist(R(55,75),R(30,55)),medArtist(R(50,70),R(20,45)));}}
   if(type==='stream'){m.subs=buy?1.2e6:40e3;m.price=12;m.lib=buy?45:20;m.content=buy?85e6:3e6;m.mkt=buy?15e6:1.5e6;m.rq=55;m.peak=m.subs;}
   return m;}
@@ -4239,7 +4240,7 @@ function yrMedia(){const m=S.med;if(!m||!S.alive)return;
   const r0=m.rev,res={rev:0,cost:0,ln:[]};
   if(m.auto)medAuto(m);
   if(m.type==='film')medYearFilm(m,res);else if(m.type==='music')medYearMusic(m,res);else medYearStream(m,res);
-  const K=MED[m.type],ovh=Math.round((m.type==='film'?500000:m.type==='music'?300000+60000*m.artists.length:2e6+m.subs*2)+res.rev*.02);
+  const K=MED[m.type],ovh=Math.round((m.type==='film'?3e6:m.type==='music'?300000+60000*m.artists.length:2e6+m.subs*2)+res.rev*.02);
   res.cost+=ovh;
   if(m.cash<0){const int=Math.round(-m.cash*.12);res.cost+=int;res.ln.push(`interest on overdraft ${fmt(int)}`);}
   if(m.acq)res.rev=Math.round(res.rev*(1+.2*m.acq));
@@ -4267,7 +4268,7 @@ function medYearFilm(m,res){
     let q=MED_DIR[f.dir][2]+gauss()*10+m.brand*.12+MED_STAR[f.star][2]*.3;
     if(f.self&&S.act){q+=Math.round(actQuality()/9);}
     q=clamp(q);const crit=clamp(q+gauss()*6);
-    let gr=b*G[f.genre].m*(.35+q/60*.8)*MED_MK[f.mk][2]*(f.genre===m.trend?1.3:1)*eco*(1+MED_STAR[f.star][2]/100)*Math.exp(gauss()*G[f.genre].v);
+    let gr=b*G[f.genre].m*[1.15,1,.74][f.bud]*(.35+q/60*.8)*MED_MK[f.mk][2]*(f.genre===m.trend?1.3:1)*eco*(1+MED_STAR[f.star][2]/100)*Math.exp(gauss()*G[f.genre].v*[.9,1,1.4][f.bud]);
     if(f.self&&S.act)gr*=1+S.act.rep/300;
     let fest=false;if(f.bud===0&&crit>=78){fest=true;gr*=1.6;}
     gr=Math.round(gr);const rec=Math.round(gr*.5*(f.pre?.85:1)),profit=rec-f.cost-mk;
@@ -4286,8 +4287,8 @@ function medYearFilm(m,res){
   });
   m.slate=[];
   // library and streaming rights income
-  m.lib=m.lib.filter(f=>S.age-f.age<=8);
-  const li=Math.round(m.lib.filter(f=>f.age<S.age).reduce((t,f)=>t+f.g*.035,0));res.rev+=li;if(li)res.ln.push(`Library and streaming rights earned ${fmt(li)}.`);
+  m.lib=m.lib.filter(f=>S.age-f.age<=4);
+  const li=Math.round(m.lib.filter(f=>f.age<S.age).reduce((t,f)=>t+f.g*([.08,.04,.02,.01][S.age-f.age-1]||0),0));res.rev+=li;if(li)res.ln.push(`Library and streaming rights earned ${fmt(li)}.`);
   m.trend=rnd()<.4?pick(Object.keys(MED_GEN)):m.trend;
   res.ln.push(`Audiences are asking for ${G[m.trend].n.toLowerCase()} next year. The industry's biggest film was "${filmName()}" from ${pick(MEDN.film)}.`);
 }
@@ -4323,7 +4324,7 @@ function medYearStream(m,res){
   m.lib=clamp(m.lib*.8+eff*18+(m.rights||[]).reduce((t,r)=>t+r.b,0));
   m.rq=clamp(m.rq+R(-3,4));
   const appeal=m.lib*1.1+m.brand*.2-(m.price-12)*4-m.rq*.6;
-  const churn=Math.max(.08,Math.min(.5,.3-appeal/220+(ph==='recession'?.03:0)));
+  const churn=Math.max(.2,Math.min(.6,.45-appeal/260+(ph==='recession'?.03:0)));
   const adds=Math.round(m.mkt/CAC*(1-m.subs/MARKET)*(.6+appeal/120));
   let subs=Math.round(m.subs*(1-churn)+adds);
   if(rnd()<.1+m.lib/400){const b=R(115,160)/100;subs=Math.round(subs*b);m.brand=clamp(m.brand+6);res.ln.push(`🔥 One of ${m.name}'s originals became a global hit and subscribers surged.`);m.hits++;}
@@ -4663,11 +4664,11 @@ function dyOffice(s,ro){
 const POL_HEAD={us:'President',uk:'Prime Minister',ca:'Prime Minister',au:'Prime Minister',nz:'Prime Minister',ie:'Taoiseach',de:'Chancellor',ch:'Federal President',ae:'Minister of the Cabinet',ng:'President',za:'President',in:'Prime Minister',jp:'Prime Minister',sg:'Prime Minister',my:'Prime Minister',ph:'President'};
 const POL_T=[
   {k:'council',n:'City councillor',min:21,sal:48e3,cost:60e3,opp:22,pow:1,ic:'🏘️'},
-  {k:'mayor',n:'Mayor',min:25,sal:110e3,cost:400e3,opp:36,pow:2,ic:'🏙️'},
-  {k:'state',n:'State legislator',min:25,sal:95e3,cost:300e3,opp:38,pow:2,ic:'🏛️'},
-  {k:'gov',n:'Governor',min:30,sal:190e3,cost:3e6,opp:52,pow:3,ic:'🏢'},
-  {k:'natl',n:'National legislator',min:25,sal:175e3,cost:1.5e6,opp:48,pow:3,ic:'🏛️'},
-  {k:'head',n:'Head of government',min:35,sal:400e3,cost:30e6,opp:72,pow:5,ic:'👑'}];
+  {k:'mayor',n:'Mayor',min:25,sal:110e3,cost:600e3,opp:36,pow:2,ic:'🏙️'},
+  {k:'state',n:'State legislator',min:25,sal:95e3,cost:150e3,opp:38,pow:2,ic:'🏛️'},
+  {k:'gov',n:'Governor',min:30,sal:190e3,cost:15e6,opp:52,pow:3,ic:'🏢'},
+  {k:'natl',n:'National legislator',min:25,sal:175e3,cost:2.5e6,opp:48,pow:3,ic:'🏛️'},
+  {k:'head',n:'Head of government',min:35,sal:400e3,cost:600e6,opp:72,pow:5,ic:'👑'}];
 const polTitle=t=>t===5?(POL_HEAD[resKey()]||'President'):POL_T[t].n;
 const POL_PARTY={left:{n:'Progressive Party',ideo:-55},centre:{n:'Centre Alliance',ideo:0},right:{n:'Conservative Party',ideo:55},ind:{n:'Independent',ideo:0}};
 const POL_POLICY=[
@@ -4679,7 +4680,7 @@ const POL_POLICY=[
   {id:'green',n:'Green investment',ideo:-20,cap:16,fav:['boom','normal'],d:'Wins young voters, costs money and enemies in industry'},
   {id:'house',n:'Build affordable housing',ideo:-5,cap:14,fav:['normal','boom','recession'],d:'Helps renters and fills the news with ribbon cuttings'},
   {id:'clean',n:'Anti-corruption drive',ideo:0,cap:15,fav:['normal','boom','recession','crash'],d:'Raises integrity and makes powerful enemies'}];
-const polCost=t=>Math.round(POL_T[t].cost*(.4+.6*resC().pp));
+const polCost=t=>Math.round(POL_T[t].cost*(.4+.6*resC().pp)*cpiF());
 const polSal=t=>Math.round(POL_T[t].sal*payF());
 function polEnsure(){if(!S.pol)S.pol={party:null,ideo:0,tier:-1,best:-1,term:0,pop:45,integ:Math.min(90,Math.max(30,S.ethic||50)+10),cap:20,fund:0,hid:0,staff:{mgr:0,poll:0,speech:0},agenda:[],camp:0,run:null,lvl:0,laws:0,wins:0,losses:0,rec:[],mood:R(-25,25),since:S.age,exFee:0,mem:false,lib:false,sc:0};return S.pol;}
 function polRecog(P){return clamp(Math.round(10+(S.fame||0)*.55+(P.best+1)*7+(S.pres||0)*.3+(S.soc&&typeof socTotal==='function'?Math.min(15,Math.log10(1+socTotal())*2.2):0)));}
@@ -4703,7 +4704,7 @@ function polHold(P,t,note){
   if(S.soc)socBoost(.04+.01*t,'📱 The win brought new followers.');}
 function polLeave(P,why){
   if(P.tier<0)return;const t=P.tier;P.rec.push({age:S.age,t:`Left office as ${polTitle(t)}${why?' ('+why+')':''}`});
-  P.exFee=Math.round([0,0,0,60e3,120e3,350e3][P.best>=0?P.best:0]*(P.pop>50?1:.5));
+  P.exFee=Math.round([0,0,0,150e3,250e3,1.2e6][P.best>=0?P.best:0]*(P.pop>50?1:.5)*cpiF());
   line(`🏛️ I left office as ${polTitle(t)}${why?' ('+why+')':''}.`);P.tier=-1;P.term=0;P.agenda=[];}
 function polElection(P){
   const t=P.run.t,sp=P.run.sp,inc=P.tier===t;
@@ -4768,7 +4769,7 @@ function yrPolitics(){
   if(P.tier>=0){
     if(S.jail||S.age>85){polLeave(P,S.jail?'jailed':'retired');}
     else{
-      S.money+=Math.round(polSal(P.tier)*.78);
+      S.money+=netStack(polSal(P.tier));
       P.cap=Math.min(100,P.cap+R(8,14)+(P.pop>=60?3:0));
       P.pop+=(ph==='boom'?2:ph==='recession'?-3:ph==='crash'?-6:0)+R(-3,3)+(P.integ>=70?1:P.integ<40?-2:0)+Math.round((50-P.pop)*.12);
       P.pop=Math.max(5,Math.min(100,P.pop));
@@ -4795,8 +4796,8 @@ function yrPolitics(){
   if(P.tier>=0&&P.term<=0)polLeave(P,'term ended');
   // after-office income and legacy
   P.pop=Math.max(5,Math.min(100,Math.round(P.pop)));
-  if(P.tier<0&&P.best>=3&&S.age<=80&&P.exFee){S.money+=Math.round(P.exFee*.8);if(rnd()<.25)line(`🎤 Speaking fees paid me ${fmt(Math.round(P.exFee*.8))} this year.`,'good');S.fame=Math.max(0,(S.fame||0)-(rnd()<.2?1:0));}
-  if(P.tier<0&&P.best>=4&&!P.mem&&rnd()<.5){P.mem=true;const adv=Math.round(P.exFee*3+200000);S.money+=adv;S.pres=Math.min(100,(S.pres||0)+2);S.fame=Math.min(100,(S.fame||0)+3);line(`📖 My political memoir earned a ${fmt(adv)} advance and sold well.`,'good');unlock('polstate');}
+  if(P.tier<0&&P.best>=3&&S.age<=80&&P.exFee){const sf=netStack(Math.round(P.exFee*.8));S.money+=sf;if(rnd()<.25)line(`🎤 Speaking fees paid me ${fmt(sf)} this year.`,'good');S.fame=Math.max(0,(S.fame||0)-(rnd()<.2?1:0));}
+  if(P.tier<0&&P.best>=4&&!P.mem&&rnd()<.5){P.mem=true;const adv=Math.round((P.best>=5?8e6:P.best>=4?1.5e6:P.exFee*3+200000)*cpiF());S.money+=adv;S.pres=Math.min(100,(S.pres||0)+2);S.fame=Math.min(100,(S.fame||0)+3);line(`📖 My political memoir earned a ${fmt(adv)} advance and sold well.`,'good');unlock('polstate');}
   if(P.tier>=0&&P.tier<5)P.fund=Math.round(P.fund*1.0);
 }
 /* ---------- screen ---------- */
@@ -4832,7 +4833,7 @@ function polRun(s,P,ro){
     const odds=P.staff.poll>=1?`, odds about ${Math.round(Math.max(1,Math.min(99,est(t)*100+R(-12,12)/(1+P.staff.poll))))}%`:'';
     s.append(row(`${T.ic} ${polTitle(t)}`,why==='limit'?'Two terms is the limit':why==='age'?`Needs age ${T.min}`:why==='rank'?`Needs a ${polTitle(Math.max(0,t-1))} seat first`:why==='seated'?'Already in this seat':`Campaign about ${fmt(polCost(t))}${odds}`,P.tier===t?'In office':'',()=>polDeclare(P,t),ro||!!why||!!P.run));});
   s.append(h('h4',{},'Campaign actions'));
-  s.append(row('🤝 Host a fundraiser','Raises money from supporters','',()=>{const x=Math.round(polCost(Math.max(0,P.tier,P.best,0))*.12*(1+polRecog(P)/100));P.fund+=x;stay(`The fundraiser raised ${fmt(x)}.`,'good');},ro||false,2));
+  s.append(row('🤝 Host a fundraiser','Raises money from supporters','',()=>{const x=Math.round(polCost(Math.max(0,P.tier,P.best,0))*.05*(1+polRecog(P)/100));P.fund+=x;stay(`The fundraiser raised ${fmt(x)}.`,'good');},ro||false,2));
   s.append(row('📣 Hold a rally','Builds support and name recognition','',()=>{P.camp+=R(6,12);P.pop=Math.min(100,P.pop+R(1,3));S.fame=Math.min(100,(S.fame||0)+(rnd()<.3?1:0));stay('The rally drew a big crowd.');},ro,1));
   s.append(row('📺 Buy advertising','Spend $100,000 or more from the fund or my own money','',()=>amountModal({title:'Advertising budget',sub:`Fund ${fmt(P.fund)}, my cash ${fmt(S.money)}.`,min:100000,max:Math.max(100000,P.fund+S.money),init:Math.min(500000,P.fund+S.money),btn:a=>`Spend ${fmt(a)}`,onOk:a=>{const f=Math.min(P.fund,a);P.fund-=f;S.money-=a-f;P.camp+=Math.min(40,a/polCost(Math.max(1,P.tier,0))*30);stay(`I bought ${fmt(a)} of advertising.`);}}),ro||P.fund+S.money<100000));
   s.append(row('💵 Put my own money in the fund','','',()=>amountModal({title:'Self-fund the campaign',sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,250000),btn:a=>`Add ${fmt(a)}`,onOk:a=>{S.money-=a;P.fund+=a;stay();}}),ro||S.money<10000));
@@ -4863,7 +4864,7 @@ function polTeam(s,P,ro){
   s.append(row('Switch parties','Voters remember, and approval drops a little','',()=>choiceModal('Switch party',`Changing sides costs 8 approval.`,[...Object.entries(POL_PARTY).filter(([k])=>k!==P.party).map(([k,v])=>[v.n,()=>{P.party=k;P.ideo=v.ideo;P.pop=Math.max(5,P.pop-8);stay(`I joined the ${v.n}.`);}]),['Stay',()=>{}]]),ro));
 }
 /* ================= sports depth: coaching, agents, tournaments, rehab, rivals, legacy ================= */
-const CO_T=[['Youth coach',45e3],['Assistant coach',90e3],['Head coach',250e3],['Manager',900e3],['Director of football',2.5e6]];
+const CO_T=[['Youth coach',60e3],['Assistant coach',150e3],['Head coach',600e3],['Manager',2.5e6],['Director of football',4e6]];
 const CO_ATTR=[['tac','Tactics'],['man','Man-management'],['youth','Youth development'],['disc','Discipline'],['media','Media handling']];
 const CO_NEED=[25,45,65,82];
 const NAT_STR={soccer:{us:55,uk:82,ca:50,au:52,nz:35,ie:55,de:84,ch:65,ae:35,ng:62,za:45,in:30,jp:62,sg:30,my:32,ph:30},basketball:{us:95,uk:50,ca:72,au:75,nz:45,ie:35,de:70,ch:40,ae:30,ng:62,za:35,in:30,jp:50,sg:25,my:25,ph:48},tennis:{}};
@@ -4898,7 +4899,7 @@ function yrCoach(){
   else{n=14;rank=Math.max(1,Math.min(n,Math.round(n/2-(str0+b-45)/4*noise+gauss()*2.5)));champ=rank===1&&str0+b>=48;}
   const top=rank<=Math.ceil(n*.25),bottom=rank>Math.ceil(n*.7),ws=Math.round(Math.max(0,(n-rank)/(n-1))*(c.sport==='basketball'?60:26)+R(0,6)),gs=c.sport==='basketball'?82:38;
   c.w+=Math.min(gs,ws);c.l+=Math.max(0,gs-ws);
-  const pay=Math.round(CO_T[c.tier][1]*[1,1,1.12,1.3][T.mk||1]*(.8+Math.min(1,c.rep/100)*.5));S.money+=pay;
+  const pay=Math.round(CO_T[c.tier][1]*[1,1,1.12,1.3][T.mk||1]*(.8+Math.min(1,c.rep/100)*.5)*cpiF());S.money+=netStack(pay);
   c.rep=Math.max(0,Math.min(100,c.rep+(champ?9:top?4:bottom?-3:1)+(c.a.media>=70?1:0)));
   S.fame=Math.min(100,(S.fame||0)+(champ?3:top?1:0));
   if(champ){c.tit++;S.pres=Math.min(100,(S.pres||0)+.8);unlock('cotitle');mile(`Won the ${T.lg||'league'} with ${c.team}`);line(`🏆 ${c.team} won the title under my management!`,'good');}
@@ -4935,13 +4936,13 @@ function drawCoach(s){
   if(S.club&&S.club.sport===c.sport)s.append(tog('🏟️ Manage my own club',`Replaces my hired coach at ${S.club.team} with me`,c.own,()=>{c.own=!c.own;stay(c.own?`I took charge of ${S.club.team}'s dressing room.`:`I handed ${S.club.team} back to a coach.`);},ro));
   if(!c.team){s.append(h('h4',{},'Job offers'));
     if(!c.offers.length)c.offers=coOffers();
-    c.offers.forEach(o=>s.append(row(o.n,`${o.lg}. Pay about ${fmt(Math.round(CO_T[c.tier][1]*[1,1,1.12,1.3][o.mk||1]))}`,'Accept',()=>{coAccept(o);stay();},ro)));}
+    c.offers.forEach(o=>s.append(row(o.n,`${o.lg}. Pay about ${fmt(Math.round(CO_T[c.tier][1]*[1,1,1.12,1.3][o.mk||1]*cpiF()))}`,'Accept',()=>{coAccept(o);stay();},ro)));}
   else s.append(row('Resign from my post',`Leave ${c.team} and look elsewhere`,'',()=>choiceModal('Resign?','I would lose my current job.',[['Resign',()=>{c.team=null;c.tm=null;c.offers=coOffers();stay();}],['Stay',()=>{}]]),ro));
   if(c.hist.length){s.append(h('h4',{},'Seasons'));c.hist.slice(-6).reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.team}, ${ord(x.rank)} of ${x.n}${x.champ?' (champions)':''}`)));}
 }
 /* ---------- agent career ---------- */
 function agEnsure(){if(!S.agent)S.agent={rep:15,cl:[],pool:[],hist:[],inc:0,sc:0};return S.agent;}
-function agWage(k,skill){const st=skill>=85?3:skill>=70?2:skill>=50?1:0;return spSal(k,st,skill);}
+function agWage(k,skill){if(k==='tennis'){const rank=Math.max(1,Math.round(Math.pow(100-skill,2)/8));return Math.round((15e6/Math.pow(rank,.85)+30000)*cpiF());}const st=skill>=85?3:skill>=70?2:skill>=50?1:0;return spSal(k,st,skill);}
 function agProspect(){const k=pick(['soccer','basketball','tennis']),age=R(16,24),pot=clamp(R(45,95)),sk=clamp(Math.round(pot*R(55,80)/100));
   return {id:uid(),n:fullName(pick(['M','F']),pick(Object.keys(COUNTRIES))),sport:k,age,skill:sk,pot,team:'Youth ranks',wage:agWage(k,sk),yrs:2,loy:60,fame:0,comm:.06};}
 function yrAgent(){
@@ -4959,11 +4960,11 @@ function yrAgent(){
       Q.push({text:`${c.n} is in the headlines for the wrong reasons.`,ch:[[`Manage the PR (${fmt(cost)})`,()=>{if(S.money<cost)return 'I could not afford it.';S.money-=cost;c.loy+=5;A.rep=Math.min(100,A.rep+1);return 'The story died down and they were grateful.';}],['Distance myself',()=>{c.loy-=25;return `${c.n} noticed.`;}]]});}
     if(c.yrs<=0&&canManage()){const cn=c.n;
       Q.push({text:`${cn}'s contract is up. Time to negotiate. Current pay ${fmt(c.wage)} a year.`,ch:[
-        ['Push hard for a huge deal',()=>{if(rnd()<.55){c.wage=Math.round(c.wage*1.3);c.yrs=R(2,5);const b=Math.round(c.wage*c.yrs*.04);S.money+=b;A.rep=Math.min(100,A.rep+3);c.loy+=5;return `A big deal: ${fmt(c.wage)} a year. My bonus was ${fmt(b)}.`;}c.loy-=15;A.rep=Math.max(0,A.rep-2);c.yrs=1;return 'The talks stalled and the club pushed back. We settled for a short contract.';}],
-        ['Negotiate a fair deal',()=>{c.wage=Math.round(c.wage*1.1);c.yrs=R(2,4);const b=Math.round(c.wage*c.yrs*.03);S.money+=b;A.rep=Math.min(100,A.rep+1);return `A fair deal at ${fmt(c.wage)} a year. My bonus was ${fmt(b)}.`;}],
+        ['Push hard for a huge deal',()=>{if(rnd()<.55){c.wage=Math.round(c.wage*1.3);c.yrs=R(2,5);const b=Math.round(c.wage*c.yrs*.04);S.money+=netStack(b);A.rep=Math.min(100,A.rep+3);c.loy+=5;return `A big deal: ${fmt(c.wage)} a year. My bonus was ${fmt(b)}.`;}c.loy-=15;A.rep=Math.max(0,A.rep-2);c.yrs=1;return 'The talks stalled and the club pushed back. We settled for a short contract.';}],
+        ['Negotiate a fair deal',()=>{c.wage=Math.round(c.wage*1.1);c.yrs=R(2,4);const b=Math.round(c.wage*c.yrs*.03);S.money+=netStack(b);A.rep=Math.min(100,A.rep+1);return `A fair deal at ${fmt(c.wage)} a year. My bonus was ${fmt(b)}.`;}],
         ['Quick renewal',()=>{c.yrs=R(1,3);c.loy+=2;return 'A quick, quiet renewal.';}]]});}
   });
-  if(inc){S.money+=inc;line(`🧑‍💼 My clients' commissions earned me ${fmt(inc)}.`,'good');}
+  if(inc){const oh=Math.round(inc*.4);inc-=oh;S.money+=netStack(inc);line(`🧑‍💼 My clients' commissions earned me ${fmt(inc)} after agency costs of ${fmt(oh)}.`,'good');}
   A.inc=inc;A.rep=Math.min(100,A.rep+(A.cl.filter(c=>c.skill>=80).length?1:0));
   if(A.cl.some(c=>c.skill>=85&&c.fame>=60))unlock('agstar');
   if(A.cl.length)unlock('agfirst');
@@ -4976,7 +4977,7 @@ function drawAgent(s){
   s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🧑‍💼 Sports agent'));
   const ro=!S.alive||!!S.jail,A=S.agent;
   if(!A){s.append(h('p',{className:'sub'},'Represent players, negotiate their contracts and take a commission. Stars sign with agents they trust. I need to be 25 or older.'));
-    s.append(row('Start an agency','Free to start. Build a name one client at a time','',()=>{agEnsure().pool=Array.from({length:4},agProspect);mile('Started a sports agency');stay('I opened my own sports agency.','good');},ro||S.age<25));return;}
+    s.append(row('Start an agency','About $8,000 for licensing. Build a name one client at a time','',()=>{S.money-=Math.round(8000*cpiF());agEnsure().pool=Array.from({length:4},agProspect);mile('Started a sports agency');stay('I opened my own sports agency.','good');},ro||S.age<25||S.money<Math.round(8000*cpiF())));return;}
   s.append(h('p',{className:'sub'},`Reputation ${Math.round(A.rep)}. ${A.cl.length} of ${agCap(A)} clients. Commission last year ${fmt(A.inc)}.`),...mbar('Reputation',A.rep,'smarts'));
   s.append(h('h4',{},'My clients'));
   if(!A.cl.length)s.append(h('p',{className:'sub'},'No clients yet. Sign a prospect below.'));
@@ -5058,6 +5059,7 @@ function yrMediaPlus(){
   const m=S.med;
   // club broadcasting deal
   const C=S.club;
+  if(C&&C.parachute){C.parachute.yrs--;if(C.parachute.yrs<=0)C.parachute=null;}
   if(C){
     if(C.tv){C.cash+=C.tv.val;line(`📡 ${C.team}'s ${C.tv.n.toLowerCase()} broadcast deal paid ${fmt(C.tv.val)}.`,'good');C.tv.yrs--;if(C.tv.yrs<=0){C.tv=null;}}
     if(!C.tv&&canManage()){
@@ -5136,7 +5138,7 @@ function casinoSheet(){openSheet(s=>{
 const SLOT_PAY=[['7️⃣',.005,50],['💎',.015,10],['🔔',.04,4],['🍋',.08,2]];
 const SLOT_ALL=['🍒','🍋','🔔','💎','7️⃣'];
 function slots(prev){
-  const cap=Math.floor(Math.min(S.money,1e9));
+  const cap=Math.floor(Math.min(S.money,Math.round(250*cpiF())));
   amountModal({title:'🎰 Slots',sub:`Three of a kind pays 2x (lemons), 4x (bells), 10x (diamonds) or 50x (sevens). Two cherries give my bet back. I have ${fmt(S.money)}.`,min:10,max:cap,init:prev||Math.min(cap,Math.max(10,Math.round(S.money*.01/10)*10)),step:10,
     btn:a=>`Spin for ${fmt(a)}`,onOk:bet=>slotSpin(bet)});}
 function slotRoll(){let r=rnd();for(const [,p,m] of SLOT_PAY){if(r<p)return m;r-=p;}return r<.20?1:0;}
@@ -5157,7 +5159,7 @@ function casinoLeave(){const n=CV.net;S.st.happy+=n>0?3:n<0?-3:0;
 /* ---- blackjack: dealer stands on 17, blackjack pays 3 to 2, double on the first two cards ---- */
 function bjVal(hd){let t=0,a=0;hd.forEach(c=>{t+=c.r>=14?11:c.r>=11?10:c.r;if(c.r===14)a++;});while(t>21&&a>0){t-=10;a--;}return {t,soft:a>0};}
 function blackjack(prev){
-  const cap=Math.floor(Math.min(S.money,1e9));
+  const cap=Math.floor(Math.min(S.money,Math.round(5000*cpiF())));
   amountModal({title:'🃏 Blackjack',sub:`Dealer stands on 17. Blackjack pays 3 to 2. I have ${fmt(S.money)}.`,min:10,max:cap,init:prev||Math.min(cap,Math.max(10,Math.round(S.money*.02/10)*10)),step:10,
     btn:a=>`Bet ${fmt(a)}`,onOk:bet=>bjDeal(bet)});}
 function bjDeal(bet){
@@ -5203,7 +5205,7 @@ function pokerScore(cs){const n=cs.length,skips=[];let best=-1;
   skips.forEach(xs=>{const v=ev5(cs.filter((_,i)=>!xs.includes(i)));if(v>best)best=v;});return best;}
 const pkCat=v=>Math.floor(v/759375);
 /* ---- Texas Hold'em, no limit, 1, 3 or 5 opponents. Everyone starts each hand with my chips (my cash), so nobody can be short-stacked
-   and there are no side pots. Winning pots pay a rake once the flop is dealt (5%, up to 10 big blinds). ---- */
+   and there are no side pots. Winning pots pay a rake once the flop is dealt (5%, up to 3 big blinds). ---- */
 let PK=null;
 function boardCat(b){
   if(b.length>=5)return pkCat(pokerScore(b));
@@ -5223,7 +5225,7 @@ function poker(){
   choiceModal('♠️ Texas Hold\'em','How many opponents? Everyone starts each hand with the same chips as me. Bet, raise, call or fold, up to all in. The house takes a 5% rake once the flop is dealt, up to 10 big blinds.',[
     ['1 opponent (heads-up)',()=>pkBlinds(1)],['3 opponents (4 at the table)',()=>pkBlinds(3)],['5 opponents (6 at the table)',()=>pkBlinds(5)],['Cancel',()=>{}]]);}
 function pkBlinds(n){
-  const cap=Math.floor(S.money/10);
+  const cap=Math.max(2,Math.floor(Math.min(S.money/10,100*cpiF())));
   amountModal({title:'♠️ Set the blinds',sub:`The big blind is the smallest bet and the small blind is half of it. My chips are my cash, ${fmt(S.money)}, so the biggest blind I can sit at is ${fmt(cap)}.`,min:2,max:cap,init:Math.min(cap,Math.max(2,Math.round(S.money/200))),step:1,
     btn:a=>`Big blind ${fmt(a)}, small blind ${fmt(Math.floor(a/2))}`,note:a=>`That is about ${Math.floor(S.money/a)} big blinds deep.`,
     onOk:bb=>{PK={n,bb,btn:R(0,n),names:OPP_NAMES.slice().sort(()=>rnd()-.5).slice(0,n)};pkHand();},onCancel:poker});}
@@ -5305,7 +5307,7 @@ function pkShowdown(st){
   const live=st.seats.filter(p=>!p.folded);live.forEach(p=>p.sc=pokerScore(p.hole.concat(st.board)));
   const top=Math.max(...live.map(p=>p.sc));pkFinish(st,live.filter(p=>p.sc===top).map(p=>p.i),true);}
 function pkFinish(st,win,showdown){
-  const rake=st.flop?Math.min(Math.round(st.pot*.05),st.bb*10):0,pot=st.pot-rake,share=Math.floor(pot/win.length),me=st.seats[0];
+  const rake=st.flop?Math.min(Math.round(st.pot*.05),st.bb*3):0,pot=st.pot-rake,share=Math.floor(pot/win.length),me=st.seats[0];
   let mine=0;win.forEach((w,k)=>{if(w===0)mine+=share+(k===0?pot-share*win.length:0);});
   S.money+=mine;const net=mine-me.put;gambleNet(net);gRefresh();
   const names=win.map(w=>st.seats[w].name),hand=showdown?` with ${HAND_NAMES[pkCat(st.seats[win[0]].sc)].toLowerCase()}`:'';
@@ -5598,9 +5600,9 @@ const BIZ={
   lever:{t:'Services',o:{basic:{l:'Basic cuts',d:1.1,p:.85},spa:{l:'Full spa',d:.9,p:1.3,c:1.1},celeb:{l:'Celebrity stylist',d:.6,p:2.2,v:1.6}}},names:['Shear Genius','Mane Street','Gloss','The Parlour'],prods:['Signature Blowout','Scalp Ritual','Color Bar']},
  construction:{n:'Construction firm',ic:'🏗️',cost:350000,cap:0.3,base:900000,fixed:60000,cogs:.55,staff:6,wage:48000,mult:2.5,vol:.3,econ:1.6,gov:1,unit:['projects',45000],item:'renovation',season:'Spring building push',
   lever:{t:'Projects',o:{repairs:{l:'Home repairs',e:.6},housing:{l:'Housing',d:1.2,e:1.4,v:1.3},commercial:{l:'Commercial',d:1.3,v:1.6,e:1.2}}},names:['Solid Ground Builders','Beam & Bolt','Cornerstone Co','Ridgeline Build'],prods:['Modular Homes','Green Retrofits','Rapid Renovations']},
- dealership:{n:'Car dealership',ic:'🚗',cost:2500000,cap:0.25,base:10000000,fixed:450000,cogs:0.76,staff:20,wage:48000,mult:2.5,vol:.2,econ:1.3,inv:1,unit:['cars',28000],item:'test drive',season:'Year-end sales event',
+ dealership:{n:'Car dealership',ic:'🚗',cost:2500000,cap:0.25,base:10000000,fixed:600000,cogs:0.81,staff:20,wage:48000,mult:2.5,vol:.2,econ:1.3,inv:1,unit:['cars',28000],item:'test drive',season:'Year-end sales event',
   lever:{t:'Stock',o:{used:{l:'Used cars',d:1.1,p:.6,c:.95},fresh:{l:'New cars'},luxury:{l:'Luxury',d:.5,p:2.5,e:1.5}}},names:['Main Street Motors','Open Road Autos','Gearhouse','Silverline Cars'],prods:['Lifetime Oil Changes','Home Test Drives','EV Showroom']},
- hotel:{n:'Hotel',ic:'🏨',cost:5000000,cap:0.15,base:2600000,fixed:500000,cogs:.12,staff:25,wage:32000,mult:4,vol:.2,econ:1.1,unit:['room nights',140],item:'pillow',season:'Summer holiday push',
+ hotel:{n:'Hotel',ic:'🏨',cost:6500000,cap:0.15,base:2600000,fixed:520000,cogs:.2,staff:28,wage:32000,mult:4,vol:.2,econ:1.1,unit:['room nights',140],item:'pillow',season:'Summer holiday push',
   lever:{t:'Style',o:{motel:{l:'Budget motel',d:1.15,p:.6},boutique:{l:'Boutique',r:1},resort:{l:'Resort',d:.8,p:1.8,e:1.3}}},names:['The Wayfarer','Harbor House','Cedar Lodge','Hotel Lumen'],prods:['Rooftop Pool','Spa Wing','Suite Upgrades']},
  label:{n:'Record label',ic:'🎵',cost:150000,cap:0.35,base:210000,fixed:40000,cogs:.3,staff:3,wage:50000,mult:5,vol:.4,econ:.7,hit:[.1,6],online:1,unit:['streams',.004],item:'single',season:'Festival circuit push',
   lever:{t:'Roster',o:{many:{l:'Many small acts',hit:.8},stars:{l:'A few big stars',d:1.3,c:1.3,hit:.9,v:.7},viral:{l:'Viral bets',d:.8,hit:2}}},names:['Static Bloom Records','Low Hum','Night Owl Music','Paper Moon'],prods:['Debut Album','Summer Anthem','Live Session Series']},
@@ -6289,7 +6291,7 @@ const needStaff=b=>{const T=Tof(b);let n=T.tech?Math.max(2,Math.ceil(b.base/1500
 const payMult=b=>b.payPct!=null?b.payPct/100:({low:.85,market:1,high:1.15}[b.pay]||1);
 const wagePer=b=>Math.round(Tof(b).wage*cty(b).wage*S.regs.wage*payMult(b)*(b.union?1.1:1));
 const bizVal=b=>{const T=Tof(b);const debt=(b.loan.bal||0)+(b.credit||0)+(b.sl?b.sl.bal:0);let v;
-  if(T.tech)v=Math.max(b.lastRev*6,T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
+  if(T.tech)v=Math.max(b.lastRev*(b.lastPre>0?6:2.5),T.cost*(1-T.cap)*.5)+b.cash-debt;else v=Math.max(0,b.lastPre)*T.mult+T.cost*(1-T.cap)*Math.max(.3,.8-.08*b.yrs)*b.locs+b.prem*T.fixed*3+b.cash-debt+(b.fr?b.fr.n*T.base*.15:0)+b.patents*20000;
   v+=(b.fac||0)*T.cost*.6;v*=1+Math.min(.12,(b.gens-1)*.04);return Math.max(0,Math.round(v*(b.pub?b.pub.sent:1)));};
 const stakeVal=()=>S.biz.reduce((a,b)=>a+bizVal(b)*b.own,0);
 const synergy=b=>SYN.filter(([x,y])=>(b.type===x&&S.biz.some(o=>o.type===y))||(b.type===y&&S.biz.some(o=>o.type===x)));
@@ -6352,7 +6354,8 @@ function simBiz(b){
   const cash0=b.cash,acc0=Object.assign({prod:0,owner:0,invest:0},b.cfAcc);
   const T=Tof(b),L=lev(b),ph=bizPhase(b),simple=b.mode==='simple';
   const econ={boom:.12,normal:0,recession:-.12,crash:-.28}[ph]*T.econ*cty(b).vol*(L.e||1)*(b.lever==='annual'?1:1);
-  if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;setBase(b,Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+(b.rep-50)/4+(L.g||0))/100))));}
+  if(T.tech){const slow=b.base<1e6?1:b.base<1e7?.45:b.base<5e7?.2:.05;b.lossY=b.lastPre<0?(b.lossY||0)+1:0;setBase(b,Math.max(15000,Math.round(b.base*(1+(R(-45,90)*slow+((b.rep-50)/4+(L.g||0))*Math.max(.25,slow))/100))));
+    if((b.lossY||0)>=3&&b.base<1e6)setBase(b,Math.max(15000,Math.round(b.base*R(55,90)/100)));}
   if(b.ousted)b.life='absent';
   const sup=SUPPLIERS[b.supplier];
   const teamB=Math.min(25,b.team.filter(p=>p.role!=='Star').reduce((a,p)=>a+(p.skill-50)/6+(p.quirk==='Star'?3:0)+(p.quirk==='Charismatic'?2:0)-(p.quirk==='Lazy'?3:0),0));
@@ -7118,7 +7121,8 @@ function addLoan(b,amt,extra=0){const r=loanRate()+.025+extra;const bal=(b.loan.
   const rate=b.loan.bal?((b.loan.bal*b.loan.rate+amt*r)/bal):r;b.loan={bal,rate,pay:Math.round(annuity(bal,rate,LOAN_YEARS))};return b.loan;}
 
 /* ---- investor offers ---- */
-function investorOffer(score,preValue,amt){const pre=Math.round(preValue*(.7+score/100));const eq=amt/(pre+amt);return {pre,eq};}
+const bizScal=b=>{const T=Tof(b);return !!(T.tech||T.online||b.locs>=3||['hotel','clinic'].includes(b.type));};
+function investorOffer(score,preValue,amt){const pre=Math.round(preValue*(.5+score/150));const eq=amt/(pre+amt);return {pre,eq};}
 
 /* ================= launch screen ================= */
 let launch=null;
@@ -7265,16 +7269,16 @@ function finTab(s,b){
         row('Repay','','',()=>amountModal({title:'Repay the credit line',max:Math.min(b.credit||0,b.cash),init:Math.min(b.credit||0,b.cash),btn:a=>`Repay ${fmt(a)}`,onOk:a=>{b.cash-=a;b.credit-=a;stay(`Repaid ${fmt(a)} of the credit line.`,'good')}}),!b.credit||b.cash<=0)));
     // investors
     const ii=investorInterest(b);const why=b.pub?'Public companies raise money on the stock market':S.used['raise'+b.id]?'Already pitched this year':ii.score<40?`Interest too low (${ii.score}/100, needs 40)`:energyLeft()<1?'Needs 1 energy (⚡)':b.own<=.15?'I own too little to sell more':null;
-    s.append(h('h4',{},'Investors'),row('💸 Raise money from investors',why||'Sell part of the company. The money goes into the business','',()=>{const base=Math.max(v,T.cost);
+    s.append(h('h4',{},'Investors'),row('💸 Raise money from investors',why||(bizScal(b)?'Sell part of the company. The money goes into the business':'Investors only back businesses that can scale: tech, online, or chains of 3 or more'),'',()=>{const base=Math.max(v,T.cost);
       amountModal({title:`Raise money for ${b.name}`,sub:`Investors value it at about ${fmt(investorOffer(ii.score,base,0).pre)} before their money.`,max:base*.5,init:base*.2,btn:a=>`Pitch for ${fmt(a)}`,
         note:a=>`They'd want about ${(investorOffer(ii.score,base,a).eq*100).toFixed(1)}% of the company.`,
         onOk:a=>{S.used['raise'+b.id]=true;spend(1);pitch(`Raising for ${b.name}`,sc=>{const fin=Math.round(ii.score*.6+sc*.4);
           if(fin>=45){const o=investorOffer(fin,base,a);const tot=b.own+(b.co?b.co.share:0)+(b.inv||0)||1;const keep=1-o.eq;b.own*=keep;if(b.co)b.co.share*=keep;b.inv=(b.inv||0)*keep+o.eq;b.cash+=a;
             stay(`${b.name} raised ${fmt(a)} for ${(o.eq*100).toFixed(1)}% (overall score ${fin}). I now own ${Math.round(b.own*100)}%.${b.inv>=.3?' Investors now have board seats.':''}`,'good');}
-          else stay(`Investors passed. Overall score ${fin}, they needed 45. I can try again next year.`,'bad');});}});},!!why),interestBox(ii));
+          else stay(`Investors passed. Overall score ${fin}, they needed 45. I can try again next year.`,'bad');});}});},!!why||!bizScal(b)),interestBox(ii));
     // IPO
-    if(!b.pub){const need=5e6;s.append(h('h4',{},'Go public'),row('🔔 IPO',v<need?`Needs a company value of ${fmt(need)} (now ${fmt(v)})`:b.yrs<3?`Needs 3 years of trading (now ${b.yrs})`:'Sell 30% of my stake to the public. Shares trade in the Investing tab','',()=>{
-      const cashOut=Math.round(v*b.own*.3*1.3);S.money+=cashOut;b.inv+=b.own*.3;b.own*=.7;b.pub={sent:1};b.pub.px=sharePx(b);b.pub.h=[{age:S.age,nw:b.pub.px}];S.fame=Math.min(100,(S.fame||0)+15);unlock('ipo');mile(`Took ${b.name} public`);stay(`${b.name} went public! I cashed out ${fmt(cashOut)}.`,'good')},v<need||b.yrs<3));}
+    if(!b.pub){const need=75e6*cpiF();s.append(h('h4',{},'Go public'),row('🔔 IPO',v<need?`Needs a company value of ${fmt(need)} (now ${fmt(v)})`:(b.lastRev||0)<need/3?`Needs yearly revenue of ${fmt(need/3)} (now ${fmt(b.lastRev||0)})`:b.yrs<3?`Needs 3 years of trading (now ${b.yrs})`:'Sell 30% of my stake to the public. Shares trade in the Investing tab','',()=>{
+      const cashOut=Math.max(0,Math.round(v*b.own*.3*.9*.93-2e6*cpiF()));S.money+=cashOut;b.inv+=b.own*.3;b.own*=.7;b.pub={sent:1};b.pub.px=sharePx(b);b.pub.h=[{age:S.age,nw:b.pub.px}];S.fame=Math.min(100,(S.fame||0)+15);unlock('ipo');mile(`Took ${b.name} public`);stay(`${b.name} went public! I cashed out ${fmt(cashOut)}.`,'good')},v<need||(b.lastRev||0)<need/3||b.yrs<3));}
   }
   // exit
   s.append(h('h4',{},'Exit'));

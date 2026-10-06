@@ -7,7 +7,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 ## 1. Current state (2026-09-29)
 
 - **Environment:** moved from a claude.ai project to Claude Code on 2026-09-29. Local folder with git. No `project_read`/`project_write` any more.
-- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.5.48 (dynasty, politics, sports depth, media follow-ups).
+- **Build:** `One_Life.html`, about 480 KB, `SAVE_V=5`. Last feature block: 3.6.0 (realism passes 1 to 3).
 - **Test reference (2026-09-29, `npm test`, 6 lives):** syntax 1 script, 0 failed, 0 em dashes. Playtest 23 runs, 0 failed, FINGERPRINT `1da74e7c2331017d`. Old saves 0 failed. Balance 0 numbers moved more than 10%. The fingerprint changes whenever code changes; that is expected.
 - **Published artifact:** `https://claude.ai/artifact/J81Q77oc1qsPDd44ZeUYLs` (Version 1, has 3.5.31, `sample` capability on, published from Claude Code on 2026-09-30). The older `95FEiEA9QhTYSxeDsSbcWN` (Version 11) is stale and could not be reached from Claude Code. To update the new one, republish with `url` and keep `capabilities:{"sample":{}}`.
 - **Dropped by decision (2026-09-29):** the B1/B2 brand engine and Block W wealth spec mentioned in older chat memory were never in this file. David chose to drop them and start fresh. Do not look for them.
@@ -60,6 +60,7 @@ Lean current-state note, read at the start of every session. Working rules are i
 - **Politics (3.5.45):** `S.pol` (`polEnsure`): party, 6 office tiers (`POL_T`), campaigns (`polDeclare`, `polElection`), policies, scandals, events, staff, legacy income. `yrPolitics`. Screen: Activities > Careers > Politics.
 - **Sports depth (3.5.46):** `S.coach` (coaching ladder, own-club management bonus in `clStrength`), `S.agent` (clients, commission, placing at own club), `yrIntl` tournaments (World Cup etc.), `spRehab` injury choices, `spRivalYear`, `spLegacyQueue`.
 - **Media follow-ups (3.5.47 to 3.5.48):** `yrMediaPlus`: club TV rights deals (`C.tv`), streaming sports rights, awards campaigns and pre-sales for films, rivals and ranking, takeover offers, acquisitions, stadium naming rights, synergy.
+- **Realism passes (3.6.0, 2026-10-07):** `S.cpi` inflation index (`cpiF()`, grows in `econYear`, carried to heirs; pay, tuition, tax brackets, costs follow it). `lifeCosts()` (rent 4.7% of a median home, shared flat under 30, child costs). Stocks +5.5 points per phase, bonds and savings follow inflation, retirement account earns dividends. `netStack` stacks income into one set of brackets (`S.yOrd`), `PAYROLL`, `CG_TAX`, property tax and insurance (`homeCarry`), unemployment benefit (`UB`), state pension (`STATE_PEN`), public pension 2% a year, card limit and 19%+ APR, lottery odds, per-degree tuition. Mortality is a Gompertz curve (`mortP`, `MORT_C`), fertility by age (`fertP`), promotion minimum years (`promoYrs`), divorce by marriage length with child support, spouse share in wills, dementia and stroke, Medicare, country age rules (`AGES`, driving licence), crime odds. Careers: shorter sports careers and realistic salaries, club margins, film and streaming economics, campaign costs, casino limits, social ad revenue, IPO rules. Not yet done: flat event dollar amounts (events still use fixed US figures), marketplace business valuation mismatch, school start ages by country, club revenue sharing.
 - **Bug-fix pass (3.5.29):** dealership reputation death-spiral fixed (gate on quality, not reputation), dead `SEGS` and `svcStaff` removed.
 
 ---
@@ -167,3 +168,5 @@ Pick with David: backlog item 4 (special-careers scaffold).
 **2026-09-30, 3.5.41 to 3.5.43.** Real estate, health and media built and simulated (media economics tuned so buying a company returns roughly 10 to 30% a year). Published as version 7.
 
 **2026-10-07, 3.5.44 to 3.5.48.** Dynasty, politics, sports depth and media follow-ups built and simulated. Published as version 8.
+
+**2026-10-07, 3.6.0 realism passes.** Three passes from the realism audit. Not published yet.
