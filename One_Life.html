@@ -651,6 +651,9 @@ const ACH={
  crmking:['👑','Kingpin','Hold 3 territories with $10 million of dirty cash'],
  crmparole:['🕊️','On parole','Be released on parole'],
  crmclean:['🧼','Washed clean','Launder $1 million'],
+ oldmemoir:['📖','Author','Publish my memoir'],
+ oldmuseum:['🏛️','Patron of the arts','Give my collection to a museum'],
+ oldgoodbye:['🕊️','No regrets','Say my goodbyes'],
  clubown:['🏟️','Club owner','Buy a sports club'],
  medmogul:['🎬','Media mogul','Own a film studio, record label or streaming service'],
  medbb:['💥','Blockbuster','Release a film that grosses $500 million'],
@@ -801,6 +804,7 @@ function fillDefaults(s){
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
   if(s.med===undefined)s.med=null;
+  if(s.old===undefined)s.old=null;
   if(s.crm===undefined)s.crm=null;
   if(typeof s.cpi!=='number')s.cpi=1;
   if(s.pol===undefined)s.pol=null;
@@ -1881,7 +1885,7 @@ function yrDecade(){ if(S.age%10===0&&S.age>=20)Q.push(decadeReview()); }
 function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
-  ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['crime',yrCrime],['school',yrSchool],
+  ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['old',yrOld],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['crime',yrCrime],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['coach',yrCoach],['agent',yrAgent],['intl',yrIntl],['rival',()=>spRivalYear(S.spt)],['media',yrMedia],['media2',yrMediaPlus],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
@@ -1912,7 +1916,7 @@ function checkDeath(){
   if(rnd()<p){
     const rare=rnd()<.04;
     S.cause=rare?pick(['laughing too hard at their own joke','a vending machine that would not let go','an extremely aggressive goose','choking on a celebratory grape']):hlCause()?hlCause():S.st.health<20?pick(['heart failure','pneumonia','kidney failure','a stroke']):S.age>72?'old age':has('reckless')&&rnd()<.5?pick(['a skydiving accident','a street race gone wrong','a dare involving fireworks']):pick(['a car accident','a rare infection','a severe allergic reaction']);
-    S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');if(kids().some(k=>k.alive)||S.gen>1)line(`👪 Family legacy: generation ${S.gen}, family name ${dTier().toLowerCase()}, dynasty score ${dScore()}.`);if(hlDeathSummary())line(hlDeathSummary());
+    S.alive=false;Q=[];line(`I died from ${S.cause} at age ${S.age}.`,'bad');if(kids().some(k=>k.alive)||S.gen>1)line(`👪 Family legacy: generation ${S.gen}, family name ${dTier().toLowerCase()}, dynasty score ${dScore()}.`);funeralEffect();if(legacyLine())line(legacyLine());if(hlDeathSummary())line(hlDeathSummary());
     if(S.age<18)unlock('speedrun');if(S.age>=100)unlock('century');
     const ob=obituary();S.obit=ob;
     META.tree.push({dyn:S.dyn,gen:S.gen,name:S.name,age:S.age,cause:S.cause,nw:netWorth(),ribbon:ribbon(),obit:ob,traits:S.traits,id:S.id});if(META.tree.length>200)META.tree.shift();saveMeta();
@@ -2669,6 +2673,7 @@ function actSheet(){openSheet(s=>{
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
+  if(S.age>=55)s.append(row('🧓 Later life and legacy','Where I live, my memoir, a museum gift, mentoring, last wishes','',laterSheet,!S.alive));
   s.append(row('🩺 Health and care','Lifestyle, conditions, insurance and check-ups','',healthSheet,!S.alive));
   s.append(h('h4',{},'Relationships'),row('💘 Dating','Meet people, go on dates and build something lasting','',datingSheet,S.age<16||S.jail));
   s.append(h('h4',{},'Collecting'),row('🔨 Auction house','Bid at live sales for art, watches, wine and more. Keep pieces or resell them later','',aucOpen,S.age<18||S.jail));
@@ -5270,6 +5275,74 @@ function crmPrison(s,C,ro){
     row('📑 File an appeal',`About ${fmt(Math.round(25e3*crmScale()))}. A good chance to shorten the sentence`,'',()=>{const c=Math.round(25e3*crmScale());S.money-=c;S.used.ap=true;if(rnd()<.3){S.jail=Math.max(0,Math.round(S.jail*.5));stay('My appeal worked and the sentence was cut in half.','good');}else stay('The appeal was rejected.','bad');},ro||S.used.ap||S.money<25e3*crmScale()),
     row('🕊️ Parole hearing','Only after half the sentence and decent behaviour','',()=>{S.used.pl=true;if(rnd()<.15+C.beh/150){S.jail=0;unlock('crmparole');mile('Released on parole');stay('The board granted my parole. I am free.','good');}else stay('Parole was denied this year.','bad');},ro||S.used.pl||!half||C.beh<35));
 }
+/* ================= later life and legacy: care, memoir, museum, mentoring, goodbyes, funeral ================= */
+const OLD_CARE={
+  home:{n:'Stay in my own home',cost:0,d:'Independent, no extra cost. Harder if my health fails.'},
+  family:{n:'Move in with my family',cost:0,d:'Free, and warm, but it strains my children.'},
+  village:{n:'Retirement village',cost:28000,d:'Company, activities and light help. Costs money each year.'},
+  assisted:{n:'Assisted living or a care home',cost:75000,d:'Round-the-clock care for people who need it.'}};
+const OLD_FUN=[['Simple service',3000,0],['Traditional funeral',12000,.5],['Grand memorial',60000,2]];
+function oldEnsure(){if(!S.old)S.old={care:'home',memoir:false,museum:false,mentor:false,goodbyes:false,fun:null,visits:0,trip:false};return S.old;}
+const oldCost=k=>Math.round(OLD_CARE[k].cost*(.4+.6*resC().pp)*cpiF());
+const needsCare=()=>S.st.health<28||(S.hl&&S.hl.c.some(c=>!c.cured&&(c.id==='dementia'&&c.sev>=2||c.id==='stroke'&&c.sev>=2)));
+function yrOld(){
+  if(!S.alive||S.age<60)return;const O=oldEnsure();
+  if(S.age>=65&&!S.retired&&!S.job&&S.biz.length===0)S.st.happy=clamp(S.st.happy+1);
+  const cost=oldCost(O.care);
+  if(cost){S.money-=cost;
+    S.st.happy=clamp(S.st.happy+(O.care==='village'?2:1));S.st.health=clamp(S.st.health+(O.care==='assisted'?2:O.care==='village'?1:0));}
+  if(O.care==='family'){living(['Child']).forEach(k=>{k.rel=Math.max(0,k.rel-2);});S.st.happy=clamp(S.st.happy+2);}
+  // loneliness
+  const close=living(['Partner','Spouse','Child','Sibling']).filter(p=>p.rel>=50);
+  if(S.age>=70&&!close.length){S.st.happy=clamp(S.st.happy-3);if(rnd()<.3)line('🧓 The house feels quiet. I wish I saw people more often.');}
+  if(O.mentor){S.st.happy=clamp(S.st.happy+3);S.pres=Math.min(100,(S.pres||0)+.3);}
+  // care needed
+  if(needsCare()&&O.care==='home'&&canManage()){
+    Q.push({text:'🧓 Living alone has become unsafe for me. I need regular care.',ch:[
+      [`Move into assisted living (${fmt(oldCost('assisted'))} a year)`,()=>{if(S.money<oldCost('assisted')*2)return 'I could not afford it, so I stayed home with a visiting nurse.';O.care='assisted';return 'I moved into a care home. The staff are kind.';},()=>S.money<oldCost('assisted')],
+      ['Move in with my family',()=>{O.care='family';living(['Child']).forEach(k=>{k.rel=Math.max(0,k.rel-6);});return 'My family took me in. It is not always easy for them.';},()=>!living(['Child']).length],
+      ['Stay home and hire help',()=>{const c=Math.round(30000*cpiF()*(.4+.6*resC().pp));S.money-=c;S.st.health=clamp(S.st.health+3);return `Home care costs ${fmt(c)} a year, and I keep my independence.`;}]]});}
+  // reflection
+  if(S.age>=80&&rnd()<.35){const good=S.miles.length,bad=(S.flags.exes||0)+(S.flags.jailYears||0);S.st.happy=clamp(S.st.happy+(good>=15?4:good>=8?2:0)-(bad>=3?3:0));
+    line(good>=15?'🧓 Looking back, I have lived a full life.':bad>=3?'🧓 I think about the mistakes I made.':'🧓 I spent the afternoon remembering old friends.');}
+}
+let oldTab='over';
+function laterSheet(){openSheet(drawLater);}
+function drawLater(s){
+  s.append(h('button',{className:'back',on:()=>{closeSheet();actSheet();}},'‹ Activities'),h('h3',{},'🧓 Later life and legacy'));
+  const O=oldEnsure(),ro=!S.alive||!!S.jail;
+  s.append(h('p',{className:'sub'},S.age<60?'This opens at 60. Plan ahead: a memoir, a museum gift, a foundation and time with family all count in the end.':`Home: ${OLD_CARE[O.care].n}. ${O.care==='family'?'':oldCost(O.care)?`Costs ${fmt(oldCost(O.care))} a year.`:''}`));
+  if(S.age<60)return;
+  s.append(h('h4',{},'Where I live'));
+  Object.entries(OLD_CARE).forEach(([k,v])=>s.append(row(v.n+(O.care===k?' (current)':''),v.d+(oldCost(k)?` About ${fmt(oldCost(k))} a year.`:''),'',()=>{
+    if(k==='home'&&needsCare())return stay('I need care I cannot get at home.','bad');
+    if(k==='assisted'&&!needsCare()&&S.age<75)return stay('The home would not take me yet.','bad');
+    O.care=k;
+    stay(`I moved: ${v.n.toLowerCase()}.`);},ro||O.care===k||(k==='home'&&needsCare()),0)));
+  s.append(h('h4',{},'Giving something back'));
+  s.append(tog('🤝 Mentor young people','A little happiness and respect each year',O.mentor,()=>{O.mentor=!O.mentor;stay();},ro));
+  s.append(row('📖 Write my memoir',O.memoir?'Already published':'Turn my life into a book. Better with a rich life and fame','',()=>{
+    const q=Math.min(100,S.miles.length*3+(S.fame||0)/2+(S.pres||0)/3),adv=Math.round((8000+q*2500+(S.fame||0)*4000)*cpiF()),hit=rnd()<q/160;
+    O.memoir=true;S.money+=netStack(adv);S.fame=Math.min(100,(S.fame||0)+(hit?4:1));S.st.happy=clamp(S.st.happy+8);unlock('oldmemoir');mile('Published my memoir');
+    stay(`My memoir ${hit?'became a bestseller':'sold modestly'}. The advance was ${fmt(adv)}.`,'good');},ro||O.memoir||S.age<60,2));
+  const cv=colVal();
+  s.append(row('🏛️ Give my collection to a museum',S.col.length?`${S.col.length} piece${S.col.length===1?'':'s'}, worth about ${fmt(cv)}. A wing carries my name, plus a tax benefit`:'I have no collection to give','',()=>choiceModal('Donate to a museum?',`The museum would name a gallery after me. I would receive a tax benefit of about ${fmt(Math.round(cv*topRate(resC())*.6))}.`,[[`Donate the collection`,()=>{const tb=Math.round(cv*topRate(resC())*.6);S.money+=tb;S.col=[];O.museum=true;S.pres=Math.min(100,(S.pres||0)+Math.min(10,2+cv/1e6));S.fame=Math.min(100,(S.fame||0)+2);unlock('oldmuseum');mile('A museum gallery carries my name');stay(`The museum opened the ${S.name.split(' ').slice(-1)[0]} Gallery. The tax benefit was ${fmt(tb)}.`,'good');}],['Keep it',()=>{}]]),ro||!S.col.length||O.museum));
+  s.append(h('h4',{},'Time with the people I love'));
+  s.append(row('👨‍👩‍👧 Spend a year of time with family','Everyone I am close to feels it','',()=>{S.used.fam=true;O.visits++;living(['Partner','Spouse','Child','Sibling','Grandchild']).forEach(p=>{p.rel=Math.min(100,p.rel+R(4,10));});S.st.happy=clamp(S.st.happy+5);stay('I made time for the people who matter.','good');},ro||!!S.used.fam,2));
+  if(S.age>=75){s.append(h('h4',{},'Last wishes'));
+    s.append(row('🕊️ Say my goodbyes',O.goodbyes?'Done':'Tell everyone what they mean to me','',()=>{O.goodbyes=true;living().forEach(p=>{if(p.type!=='Pet')p.rel=Math.min(100,p.rel+15);});S.st.happy=clamp(S.st.happy+10);unlock('oldgoodbye');stay('I said what needed saying.','good');},ro||O.goodbyes));
+    s.append(row('✈️ One last trip',O.trip?'Done':'See somewhere I always wanted to see','',()=>{const c=Math.round(12000*cpiF());S.money-=c;O.trip=true;S.st.happy=clamp(S.st.happy+12);stay(`My last trip cost ${fmt(c)}. It was worth every cent.`,'good');},ro||O.trip||S.money<12000*cpiF()));
+    s.append(h('p',{className:'label'},'My funeral'),seg(OLD_FUN.map(([n,c],i)=>[i,`${n} ${fmt(Math.round(c*cpiF()))}`]),O.fun==null?-1:O.fun,v=>{O.fun=v;stay();}));
+  }
+}
+function legacyLine(){
+  const bits=[],O=S.old||{};
+  if(O.memoir)bits.push('a memoir');if(O.museum)bits.push('a museum gallery');if(S.fdn)bits.push(`the ${S.fdn.name}`);
+  const t=S.spt?(S.spt.titles||0)+(S.spt.champs||0):0;if(t)bits.push(`${t} sporting title${t===1?'':'s'}`);
+  if(S.pol&&S.pol.best>=0)bits.push(`a political career as ${polTitle(S.pol.best).toLowerCase()}`);
+  const kd=kids().length;if(kd)bits.push(`${kd} ${kd===1?'child':'children'}`);
+  return bits.length?`🕯️ I leave behind ${bits.length>1?bits.slice(0,-1).join(', ')+' and '+bits[bits.length-1]:bits[0]}.`:'';}
+function funeralEffect(){const O=S.old;if(!O||O.fun==null)return;const [n,c,p]=OLD_FUN[O.fun],cost=Math.round(c*cpiF());S.money-=Math.min(Math.max(0,S.money),cost);S.pres=Math.min(100,(S.pres||0)+p);line(`⚰️ My ${n.toLowerCase()} was held as I planned.`);}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
