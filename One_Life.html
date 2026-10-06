@@ -656,6 +656,7 @@ const ACH={
  oldgoodbye:['🕊️','No regrets','Say my goodbyes'],
  gmhit:['🎮','Critical darling','Release a game with a review score of 85 or more'],
  capexit:['🤝','Deal maker','Sell a business or a majority stake to a buyer'],
+ lbhit:['💿','Hit maker','Release a track that scores 75 or more at my record label'],
  techexit:['🏁','Exit','Sell a tech startup to a buyer'],
  techseriesa:['📈','Series A','Raise a Series A round'],
  techunicorn:['🦄','Unicorn','Build a tech company worth $1 billion'],
@@ -5872,6 +5873,88 @@ function yrCapital(){
         ['Argue for the long term',()=>{b.rep=Math.min(100,b.rep+2);return 'They listened, this time.';}]]});}
   });
 }
+/* ================= record label: roster, scouting, releases, streaming catalogue, tours, deals, distribution ================= */
+const LB_GENRE=['Pop','Hip hop','Rock','Electronic','Country','Indie','R&B','Latin'];
+const LB_PLAN={rest:'Resting',single:'Single',album:'Album',tour:'Tour'};
+const LB_DIST={indie:{n:'Independent distribution',keep:.85,reach:1,q:0,d:'Keep 85% of streaming income. Smaller reach.'},major:{n:'Major label distribution',keep:.6,reach:1.6,q:3,d:'Keep 60%, but 60% more reach and extra marketing help.'}};
+function lbEnsure(b){
+  if(b.sp)return b.sp;
+  const live=b.yrs>=1&&b.lastRev>0;
+  b.sp={artists:[],pool:[],scout:1,dist:'indie',prod:1,mkt:1,deal:'standard',rate:1,cat:live?[{n:'Back catalogue',age:S.age-1,streams:Math.round(b.lastRev/.004/ (1)),score:60,old:true}]:[],last:null};
+  b.sp.pool=lbPool(b);return b.sp;}
+function lbArtist(talent,fame){const g=pick(LB_GENRE);return {id:uid(),n:fullName(pick(['M','F']),pick(Object.keys(COUNTRIES))),g,talent,fame,age:R(18,34),yrs:3,roy:.2,plan:'single',albums:0,hits:0,deal:'standard'};}
+function lbPool(b){const sd=[22,14,9,5][b.sp?b.sp.scout:1];return Array.from({length:4},()=>{const a=lbArtist(clamp(R(30,90)),R(0,35));a.seen=clamp(Math.round(a.talent+gauss()*sd));a.adv=Math.round((20000+a.talent*700+a.fame*1500)*cpiF()/1000)*1000;return a;});}
+const lbCost=(sp,kind)=>Math.round({single:15e3,album:90e3}[kind]*[1,1.6,2.8][sp.prod]*cpiF()*(.4+.6*resC().pp));
+function lbYear(b,common,ph,econ){
+  const sp=lbEnsure(b),k=cpiF(),D=LB_DIST[sp.dist],trend=trendHits(b)?1.15:1;
+  sp.rate=Math.max(.7,Math.min(1.4,sp.rate*(1+gauss()*.05+({boom:.02,normal:0,recession:-.015,crash:-.04}[ph]||0))));
+  let rev=0,cogs=0;const ln=[];
+  // catalogue tails
+  let tail=0;sp.cat.forEach(c=>{const yrs=S.age-c.age;const m=c.old?(yrs===1?.4:yrs===2?.15:0):(c.score>=85?(yrs<=8?.3:0):[0,.5,.25,.12,.06][yrs]||0);tail+=c.streams*m;});
+  rev+=tail*.004*k*sp.rate*D.keep;
+  sp.cat=sp.cat.filter(c=>S.age-c.age<=8);
+  // artists
+  let plays=0,albums=0;
+  sp.artists.forEach(a=>{
+    let plan=a.plan;
+    if(plan==='single'||plan==='album'){
+      const kind=plan,cost=lbCost(sp,kind),mk=[0,20e3,80e3][sp.mkt]*k*(kind==='album'?2:1);
+      const qs=Math.max(10,Math.min(98,a.talent*.5+sp.scout*3+sp.mkt*3+[0,4,8][sp.prod]+D.q+gauss()*10+(a.hits?3:0)));
+      const base=(3.5e6+Math.pow(a.fame,2)*70e3)*(kind==='album'?4.5:1)*D.reach*trend;
+      let streams=Math.round(base*Math.exp((qs-60)/16));
+      const viral=rnd()<.04+Math.max(0,qs-70)/400;if(viral){streams=Math.round(streams*R(5,25));a.fame=Math.min(100,a.fame+12);ln.push(`🔥 ${a.n}'s ${kind} went viral.`);}
+      const r=streams*.004*k*sp.rate*D.keep,royal=r*a.roy;
+      rev+=r;cogs+=cost+mk+royal;sp.cat.push({n:`${a.n}: ${kind}`,age:S.age,streams,score:Math.round(qs),artist:a.id});
+      a.fame=Math.max(0,Math.min(100,a.fame+(qs-55)/6));if(qs>=75){a.hits++;unlock('lbhit');}
+      if(kind==='album')a.albums++;albums++;
+      ln.push(`🎵 ${a.n}'s ${kind} scored ${Math.round(qs)} and earned ${fmt(Math.round(r))}.`);
+    }else if(plan==='tour'){
+      const gross=Math.pow(a.fame,2)*900*k*(1+a.talent/200)*(.7+rnd()*.6),cut=a.deal==='360'?.35:.22;
+      rev+=gross*cut;cogs+=gross*.08;a.fame=Math.min(100,a.fame+R(0,3));ln.push(`🎤 ${a.n} toured. The label's cut was ${fmt(Math.round(gross*cut))}.`);
+    }else a.fame=Math.max(0,a.fame-Math.round(a.fame*.07+1));
+    if(a.deal==='360'){const m=Math.pow(a.fame,2)*120*k;rev+=m*.5;}
+    a.age++;a.yrs--;if(a.age>44&&rnd()<.3)a.talent=Math.max(20,a.talent-2);
+    if(a.age>=50&&rnd()<.4){sp.artists=sp.artists.filter(x=>x!==a);ln.push(`${a.n} retired.`);}
+  });
+  // sync licensing from the catalogue
+  if(sp.cat.some(c=>c.score>=70)&&rnd()<.25){const x=Math.round(R(15,90)*1000*k);rev+=x;ln.push(`📺 A track was licensed for a show or an ad: ${fmt(x)}.`);}
+  cogs+=[0,25e3,60e3,120e3][sp.scout]*k;
+  // contracts
+  sp.artists.slice().forEach(a=>{if(a.yrs>0)return;
+    if(a.fame>=60&&rnd()<.3+(a.roy<.2?.2:0)){sp.artists=sp.artists.filter(x=>x!==a);ln.push(`A major label poached ${a.n}.`);b.rep=Math.max(0,b.rep-3);return;}
+    if(!canManage()||b.ousted){a.yrs=3;return;}
+    const fee=Math.round(a.fame*1500*k+20000*k);
+    Q.push({text:`🎵 ${a.n}'s contract with ${b.name} is up.${a.fame>=60?' They have offers from bigger labels.':''}`,ch:[
+      [`Renew for 3 years, their share rises to ${Math.round(Math.min(.45,a.roy+.06)*100)}% (bonus ${fmt(fee)})`,()=>{b.cash-=fee;a.yrs=3;a.roy=Math.min(.45,a.roy+.06);return `${a.n} re-signed.`;}],
+      ['Let them go',()=>{sp.artists=sp.artists.filter(x=>x!==a);return `${a.n} left the label.`;}]]});});
+  sp.pool=lbPool(b);
+  sp.last={albums,tail:Math.round(tail*.004*k*sp.rate*D.keep)};
+  ln.forEach(t=>line(t));
+  b.staff=Math.max(2,Math.round(2+sp.artists.length*.7));b.autoStaff=false;b.base=Math.max(15000,b.staff*70000);
+  return {rev:Math.round(rev),cogs:Math.round(cogs)};}
+let lbTab='roster';
+SPEC.label={tab:'Label',year:lbYear,
+  panel(s,b,lock){
+    const sp=lbEnsure(b),k=cpiF();
+    s.append(h('div',{className:'tabs'},[['roster','Roster'],['sign','Signings'],['cat','Catalogue'],['biz','Business']].map(([v,l])=>h('button',{'aria-pressed':String(lbTab===v),on:()=>{lbTab=v;drawSheet(true);}},l))));
+    if(lbTab==='roster'){
+      s.append(h('p',{className:'sub'},`${sp.artists.length} of 8 artists. Streaming pays about ${(sp.rate*100).toFixed(0)}% of the standard rate. Tell each artist what to do this year.`));
+      if(!sp.artists.length)s.append(h('p',{className:'sub'},'No artists yet. Sign someone on the Signings tab.'));
+      sp.artists.forEach(a=>s.append(row(`🎤 ${a.n}`,`${a.g}, age ${a.age}. Talent ${a.talent}, fame ${Math.round(a.fame)}. Gets ${Math.round(a.roy*100)}%. ${a.yrs} yr left. ${a.deal==='360'?'360 deal. ':''}This year: ${LB_PLAN[a.plan]}`,'Plan',()=>choiceModal(a.n,`Talent ${a.talent}, fame ${Math.round(a.fame)}, ${a.albums} album${a.albums===1?'':'s'}, ${a.hits} hit${a.hits===1?'':'s'}.`,[
+        [`Release a single (${fmt(lbCost(sp,'single'))})`,()=>{a.plan='single';stay();}],[`Record an album (${fmt(lbCost(sp,'album'))})`,()=>{a.plan='album';stay();}],['Send on tour',()=>{a.plan='tour';stay();}],['Rest this year',()=>{a.plan='rest';stay();}],
+        [a.deal==='360'?'Switch to a standard deal':'Offer a 360 deal (I share tour and merch, they get less)',()=>{a.deal=a.deal==='360'?'standard':'360';a.roy=a.deal==='360'?Math.max(.12,a.roy-.06):Math.min(.45,a.roy+.06);stay();}],
+        ['Drop from the label',()=>{sp.artists=sp.artists.filter(x=>x!==a);stay();}],['Close',()=>{}]]),lock)));return;}
+    if(lbTab==='sign'){
+      s.append(h('p',{className:'sub'},`Scouting level ${sp.scout} of 3. Better scouts see talent more clearly. The pool refreshes every year.`));
+      sp.pool.forEach(a=>s.append(row(`🎤 ${a.n}`,`${a.g}, age ${a.age}. Talent looks like about ${a.seen}, fame ${a.fame}. The advance comes from the label's cash first, then mine`,fmt(a.adv),()=>{const f=Math.min(Math.max(0,b.cash),a.adv);b.cash-=f;S.money-=a.adv-f;sp.artists.push(a);sp.pool=sp.pool.filter(x=>x!==a);stay(`${a.n} signed with ${b.name}.`,'good');},lock||Math.max(0,b.cash)+Math.max(0,S.money)<a.adv||sp.artists.length>=8)));
+      s.append(h('p',{className:'label'},'Scouting'),seg([[0,'None'],[1,'Basic'],[2,'Strong'],[3,'Elite']],sp.scout,v=>{sp.scout=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Costs more each level, every year.'));return;}
+    if(lbTab==='cat'){
+      s.append(h('p',{className:'sub'},'Songs earn most in the first year and then fade. A score of 85 or more stays popular for years.'));
+      if(!sp.cat.length)s.append(h('p',{className:'sub'},'No releases yet.'));
+      sp.cat.slice().reverse().forEach(c=>s.append(row(c.n,`${fmtN(c.streams)} streams. Score ${c.score}. Released at age ${c.age}.`,'',null,true)));return;}
+    s.append(h('p',{className:'label'},'Distribution'),seg(Object.entries(LB_DIST).map(([k2,v])=>[k2,v.n]),sp.dist,v=>{sp.dist=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},LB_DIST[sp.dist].d));
+    s.append(h('p',{className:'label'},'Studio budget'),seg([[0,'Basic'],[1,'Standard (+60% cost)'],[2,'Premium (+180% cost)']],sp.prod,v=>{sp.prod=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Better production raises the score of every release and costs more.'));
+    s.append(h('p',{className:'label'},'Marketing per release'),seg([[0,'None'],[1,'Light'],[2,'Big']],sp.mkt,v=>{sp.mkt=v;stay();}));}};
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
