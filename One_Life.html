@@ -645,6 +645,12 @@ const ACH={
  intlwin:['🥇','World champions','Win an international tournament'],
  rehab:['🩹','Comeback','Win back lost skill after a severe injury'],
  sbook:['📖','Autobiography','Publish my autobiography'],
+ crmfirst:['🕶️','First score','Pull off a successful criminal job'],
+ crmheist:['💎','The big job','Pull off a heist'],
+ crmwalk:['⚖️','Walked free','Be acquitted at trial'],
+ crmking:['👑','Kingpin','Hold 3 territories with $10 million of dirty cash'],
+ crmparole:['🕊️','On parole','Be released on parole'],
+ crmclean:['🧼','Washed clean','Launder $1 million'],
  clubown:['🏟️','Club owner','Buy a sports club'],
  medmogul:['🎬','Media mogul','Own a film studio, record label or streaming service'],
  medbb:['💥','Blockbuster','Release a film that grosses $500 million'],
@@ -795,6 +801,7 @@ function fillDefaults(s){
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
   if(s.med===undefined)s.med=null;
+  if(s.crm===undefined)s.crm=null;
   if(typeof s.cpi!=='number')s.cpi=1;
   if(s.pol===undefined)s.pol=null;
   if(s.coach===undefined)s.coach=null;
@@ -1873,7 +1880,7 @@ function yrDecade(){ if(S.age%10===0&&S.age>=20)Q.push(decadeReview()); }
 function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
-  ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['school',yrSchool],
+  ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['crime',yrCrime],['school',yrSchool],
   ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['coach',yrCoach],['agent',yrAgent],['intl',yrIntl],['rival',()=>spRivalYear(S.spt)],['media',yrMedia],['media2',yrMediaPlus],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
@@ -2143,11 +2150,13 @@ function drawWork(s){
 function tabCareers(s){
   s.append(h('p',{className:'sub'},'Other careers beyond a regular job: sport, politics, media, coaching and more.'));
   s.append(row('🧢 Coaching and management',S.coach?`${CO_T[S.coach.tier][0]}${S.coach.team?' at '+S.coach.team:''}`:'Coach or manage a team after playing','',coachSheet,S.age<28||S.jail),row('🧑‍💼 Sports agent',S.agent?`${S.agent.cl.length} clients, reputation ${Math.round(S.agent.rep)}`:'Represent players, negotiate deals, take a commission','',agentSheet,S.age<25||S.jail),row('🏛️ Politics',S.pol&&S.pol.party?(S.pol.tier>=0?`${polTitle(S.pol.tier)}, approval ${Math.round(S.pol.pop)}%`:'Out of office, ready to run'):'Join a party, run for office and climb to the top job','',polSheet,S.age<21||S.jail),row('🎬 Media and entertainment',S.med?`${MED[S.med.type].ic} ${S.med.name}`:'Own a film studio, record label or streaming service','',medSheet,S.age<21||S.jail),row('🏟️ Sports club',S.club?`${S.club.team}: ${S.club.lg}`:'Buy a club and run it as a business and a team','',clubSheet,S.age<18||S.jail),row('📱 Social media',S.soc?`${socTier()}, ${fmtF(socTotal())} followers`:'Build an audience, go viral, sign brand deals','',socialSheet,S.age<12||S.jail),row('🏆 Sports career',S.spt&&!S.spt.retired?`${SP[S.spt.sport].n}: ${SP[S.spt.sport].stages[S.spt.st]}`:S.spt?'Retired':'Basketball, football or tennis. Go pro, join the big leagues, earn endorsements','',sportsSheet,S.age<14||S.jail));
+  s.append(row('🕶️ Crime and law',S.crm&&(S.crm.ops||S.crm.conv)?`Heat ${Math.round(S.crm.heat)}, dirty cash ${fmt(S.crm.dirty)}${S.jail?', in prison':''}`:'Jobs, heists, crews, laundering, trials and prison','',()=>{crTab=S.jail?'prison':'over';crimeSheet();},S.age<14));
 }
 function tabWorkContent(s){
   s.append(h('h3',{},'Work & school'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));
   if(!S.alive)return s.append(h('p',{className:'sub'},'This life has ended.'));
   if(S.jail){s.append(h('p',{className:'sub'},`I'm in prison with ${S.jail} year${S.jail>1?'s':''} left.`),
+    row('Prison life, appeals and parole','Work, study, file an appeal or ask for parole','',()=>{crTab='prison';crimeSheet();}),
     row('Attempt escape','2% chance. Getting caught adds 3 years.','',()=>{S.used.esc=true;if(rnd()<(has('reckless')?.04:.02)){S.jail=0;S.flags.wanted=true;unlock('escape');mile('Escaped from prison');act('I escaped from prison! I am wanted now, and every job will check my record.','good')}else{S.jail+=3;act('I was caught trying to escape. 3 years added.','bad')}},S.used.esc,1));return;}
   if(S.age<5)return s.append(h('p',{className:'sub'},'Too young for school. Nap time.'));
   if(S.age<18){s.append(h('p',{className:'sub'},`I'm in ${S.age<11?'elementary':S.age<14?'middle':'high'} school.`),
@@ -2656,7 +2665,6 @@ function actSheet(){openSheet(s=>{
     ['🎰','Casino',AG().gamble,false,1,()=>{CV={net:0};casinoSheet();},S.money<10],
     ['💉','Plastic surgery',18,false,1,()=>{const pc=Math.round(9000*cpiF());S.money-=pc;const n=S.flags.surg||0;S.flags.surg=n+1;if(rnd()<Math.max(.3,.72-.1*n)){S.st.looks+=Math.max(2,Math.round(R(8,20)/(1+n*.6)));return `My plastic surgery (${fmt(pc)}) went well.`}S.st.looks-=R(5,15);S.st.health-=R(1,4);return `My surgery (${fmt(pc)}) had complications.`},S.money<Math.round(9000*cpiF())],
     ['🎭','Acting class',14,false,1,()=>{if(S.age>=18)S.money-=500;S.act.cls++;S.st.looks+=R(0,2);const newly=S.act.cls===3&&!(S.st.looks-R(0,2)>=80);return `I took an acting class${S.age>=18?' ($500)':''}.${actUnlocked()&&newly?' I can audition for roles now.':''}`},S.age>=18&&S.money<500],
-    ['🔓','Burglary',16,false,1,()=>crime(.2,[500,6000],'burglary',[2,5])],
   ];
   A.forEach(([ic,n,min,inJail,cost,f,block])=>{const noE=energyLeft()<cost;const dis=S.age<min||S.used[n]||(S.jail&&!inJail)||block||noE;
     g.append(h('button',{className:'row',disabled:!!dis,on:()=>{S.used[n]=true;spend(cost);const r=f();if(r)stay(r);else drawSheet()}},h('b',{},ic+' '+n),h('small',{},S.age<min?`Age ${min}+`:S.used[n]?'Done this year':noE?'No energy left':cost?'⚡'.repeat(cost):'Free')));});
@@ -5118,6 +5126,148 @@ function medRightsRow(s,m,ro){
   s.append(h('h4',{},'Sports and event rights'));
   m.rights.forEach(r=>s.append(row(`📡 ${r.n}`,`${fmt(r.cost)} a year, ${r.yrs} year${r.yrs===1?'':'s'} left`,'',null,true)));
   MED_LEAGUES.filter(l=>!m.rights.find(r=>r.n===l[0])).forEach(([n,c,b])=>s.append(row(`Bid for ${n}`,`${fmt(c)} a year for 3 years. Raises the library and keeps subscribers. Rivals may outbid me`,fmt(c),()=>{const p=Math.max(.2,Math.min(.9,.35+m.brand/150));if(m.cash<c)return stay('The company cannot afford that bid.','bad');if(rnd()<p){m.rights.push({n,cost:c,yrs:3,b});m.brand=Math.min(100,m.brand+3);stay(`${m.name} won the ${n.toLowerCase()}.`,'good');}else stay(`A rival outbid me for the ${n.toLowerCase()}.`,'bad');},ro||m.cash<c)));
+}
+/* ================= crime and law: operations, heists, crew, heat, laundering, trials, prison, empire ================= */
+const CR_OPS=[
+  {k:'shop',n:'Shoplifting spree',ic:'🛍️',min:14,e:1,risk:.12,loot:[200,2500],jail:[0,1],heat:4},
+  {k:'burg',n:'Burglary',ic:'🔓',min:16,e:1,risk:.2,loot:[500,6000],jail:[2,5],heat:6},
+  {k:'car',n:'Car theft ring',ic:'🚗',min:16,e:1,risk:.18,loot:[3000,20000],jail:[1,3],heat:8},
+  {k:'fraud',n:'Online fraud',ic:'💻',min:18,e:2,risk:.15,loot:[8000,90000],jail:[2,6],heat:10,smarts:50},
+  {k:'smug',n:'Smuggling run',ic:'📦',min:18,e:2,risk:.2,loot:[20000,200000],jail:[3,8],heat:14},
+  {k:'den',n:'Illegal gambling den',ic:'🎲',min:21,e:2,risk:.1,loot:[30000,160000],jail:[2,5],heat:9,crew:1}];
+const CR_HEISTS=[
+  {k:'jewel',n:'Jewellery store',sec:35,loot:[150e3,600e3],jail:[4,9]},
+  {k:'armor',n:'Armoured truck',sec:50,loot:[400e3,1.5e6],jail:[6,12]},
+  {k:'museum',n:'Museum gallery',sec:65,loot:[2e6,10e6],jail:[8,15]},
+  {k:'bank',n:'Bank vault',sec:70,loot:[1.5e6,8e6],jail:[8,16]},
+  {k:'casino',n:'Casino cash room',sec:80,loot:[3e6,15e6],jail:[10,20]}];
+const CR_ROLES=[['driver','Driver'],['hacker','Hacker'],['inside','Inside man'],['muscle','Muscle']];
+const CR_LAUND=[
+  {k:'biz',n:'Run it through my businesses',fee:.25,risk:.03,heat:0,cap:()=>S.biz.reduce((t,b)=>t+(b.lastRev||0)*.12,0),ok:()=>S.biz.length>0,why:'Needs a business'},
+  {k:'casino',n:'Chips and cash-outs at the casino',fee:.18,risk:.02,heat:5,cap:()=>250e3*cpiF(),ok:()=>true,why:''},
+  {k:'shell',n:'Shell companies abroad',fee:.3,risk:.05,heat:0,cap:()=>3e6*cpiF(),ok:()=>crmEnsure().rep>=30,why:'Needs street reputation 30'}];
+function crmEnsure(){if(!S.crm)S.crm={heat:0,rep:0,dirty:0,crew:[],pool:[],lay:false,conv:0,beh:50,sent:0,turf:0,laund:0,heists:0,ops:0,hist:[]};return S.crm;}
+const crmScale=()=>cpiF();
+function crmPool(){const C=crmEnsure();return Array.from({length:4},()=>{const r=pick(CR_ROLES),sk=clamp(R(30,85)),cut=Math.round(R(10,25))/100;
+  return {id:uid(),n:fullName(pick(['M','F']),pick(Object.keys(COUNTRIES))),role:r[0],rn:r[1],skill:sk,cut,loy:R(50,75),price:Math.round(R(5,30)*1000*crmScale())};});}
+const crmCrewSkill=()=>{const C=crmEnsure();return C.crew.length?C.crew.reduce((t,m)=>t+m.skill,0)/C.crew.length:0;};
+const crmCuts=()=>Math.min(.4,crmEnsure().crew.reduce((t,m)=>t+m.cut,0));
+function crmRisk(base){const C=crmEnsure();return Math.max(.03,Math.min(.9,base*(1+C.heat/80)-crmCrewSkill()/450-C.rep/700+(has('reckless')?.05:0)-(has('clever')?.03:0)));}
+function crmOp(o){
+  const C=crmEnsure();C.ops++;S.flags.crimes++;
+  if(rnd()>crmRisk(o.risk)){
+    const loot=Math.round(R(o.loot[0],o.loot[1])*payF()*(1+C.crew.length*.12)*(1-crmCuts()));
+    C.dirty+=loot;C.heat=Math.min(100,C.heat+o.heat);C.rep=Math.min(100,C.rep+2);unlock('crmfirst');if(o.k==='burg')remember('burglary');
+    return stay(`${o.ic} The ${o.n.toLowerCase()} worked. ${fmt(loot)} of dirty cash.`,'good');}
+  crmArrest(o.n,o.jail,S.age<18?'juvenile':'adult');}
+function crmHeist(h,prep){
+  const C=crmEnsure(),cost=Math.round([0,5e3,40e3][prep]*crmScale()),bonus=[0,10,22][prep];
+  if(S.money<cost)return stay('I could not afford the preparation.','bad');S.money-=cost;
+  const p=Math.max(.05,Math.min(.9,.25+(crmCrewSkill()+bonus-h.sec)/160+S.st.smarts/500+C.rep/400-C.heat/400));
+  S.flags.crimes++;C.heists++;
+  // a crew member may talk
+  const snitch=C.crew.find(m=>m.loy<35&&rnd()<.5);
+  if(snitch){C.crew=C.crew.filter(m=>m!==snitch);C.heat=Math.min(100,C.heat+30);return crmArrest(h.n+' heist',h.jail,'adult','Someone in my crew tipped off the police.');}
+  if(rnd()<p){const loot=Math.round(R(h.loot[0],h.loot[1])*crmScale()*(1-crmCuts()));C.dirty+=loot;C.heat=Math.min(100,C.heat+28);C.rep=Math.min(100,C.rep+10);unlock('crmfirst');unlock('crmheist');mile(`Pulled off a ${h.n.toLowerCase()} heist`);
+    C.crew.forEach(m=>{m.loy=Math.min(100,m.loy+4);});return stay(`💎 The ${h.n.toLowerCase()} heist worked. ${fmt(loot)} of dirty cash after the crew's cut.`,'good');}
+  if(rnd()<.45){C.heat=Math.min(100,C.heat+20);C.rep=Math.max(0,C.rep-3);return stay(`The ${h.n.toLowerCase()} job went wrong and we got away with nothing.`,'bad');}
+  crmArrest(h.n+' heist',h.jail,'adult');}
+function crmArrest(what,jail,kind,note){
+  const C=crmEnsure(),c=crmScale();
+  if(kind==='juvenile'||S.age<18){S.st.happy-=10;const pr=parent();if(pr)pr.rel-=15;line(`I was caught ${what.toLowerCase()}. My parents grounded me for months.`,'bad');return stay();}
+  const sentence=(plea)=>Math.max(1,Math.round(R(Math.max(1,jail[0]),Math.max(1,jail[1]))*(1+.15*C.conv)*(plea?.6:1)));
+  const verdict=(convP,plea,label)=>{
+    if(!plea&&rnd()>=convP){C.heat=Math.max(0,C.heat-10);unlock('crmwalk');return `⚖️ ${label} The jury acquitted me. I walked free.`;}
+    const yrs=sentence(plea),seized=Math.round(C.dirty);C.dirty=0;S.flags.record=true;C.conv++;C.sent=yrs;C.beh=50;
+    S.jail=yrs;S.st.happy-=15;mile(`Went to prison for ${what.toLowerCase()}`);
+    if(S.job){line(`I lost my job as a ${title(S.job)}.`,'bad');S.job=null;}S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate';});
+    return `⚖️ ${label} I was sentenced to ${yrs} year${yrs===1?'':'s'} in prison.${seized?` ${fmt(seized)} of dirty cash was seized.`:''}`;};
+  const ch=[
+    ['Public defender (free)',()=>verdict(.85,false,'My public defender did what they could.')],
+    [`Private lawyer (${fmt(Math.round(15e3*c))})`,()=>{S.money-=Math.round(15e3*c);return verdict(.6,false,'My lawyer fought hard.');},()=>S.money<15e3*c],
+    [`Top defence team (${fmt(Math.round(150e3*c))})`,()=>{S.money-=Math.round(150e3*c);return verdict(.38,false,'The best defence money can buy.');},()=>S.money<150e3*c],
+    ['Plead guilty for a reduced sentence',()=>verdict(1,true,'I took the plea deal.')],
+    [`Bribe a court official (${fmt(Math.round(40e3*c))} of dirty cash)`,()=>{C.dirty-=Math.round(40e3*c);if(rnd()<.35+C.rep/200){C.heat=Math.min(100,C.heat+10);return '🤐 The charges quietly disappeared.';}C.heat=Math.min(100,C.heat+15);jail=[jail[0]+1,jail[1]+2];return verdict(1,false,'The bribe was refused and reported.');},()=>C.dirty<40e3*c]];
+  Q.push({text:`🚔 I was arrested for ${what.toLowerCase()}.${note?' '+note:''} How do I face the court?`,ch});
+  stay();}
+function yrCrime(){
+  const C=S.crm;if(!C||!S.alive)return;
+  C.heat=Math.max(0,C.heat-12-(C.lay?25:0));C.lay=false;C.lbiz=C.lcasino=C.lshell=0;
+  if(S.jail>0){
+    if(rnd()<.15*(C.gang?.5:1)){S.st.health=clamp(S.st.health-R(3,10));line('I was hurt in a fight in prison.','bad');}
+    C.beh=Math.max(0,Math.min(100,C.beh+R(-3,5)));return;}
+  // small money is spent quietly
+  const quiet=Math.min(C.dirty,Math.round(8000*crmScale()));if(quiet>0){C.dirty-=quiet;S.money+=quiet;}
+  // turf income and rivals
+  if(C.turf){C.dirty+=Math.round(C.turf*90e3*crmScale()*(1-crmCuts()*.5));C.heat=Math.min(100,C.heat+C.turf*6);C.rep=Math.min(100,C.rep+1);
+    if(rnd()<.25*C.turf&&canManage()){Q.push({text:'🔫 A rival gang is moving in on my territory.',ch:[
+      ['Fight them off',()=>{if(rnd()<.45+crmCrewSkill()/200){C.rep=Math.min(100,C.rep+5);C.heat=Math.min(100,C.heat+15);return 'We beat them back and my name grew.';}C.turf=Math.max(0,C.turf-1);if(C.crew.length)C.crew.pop();return 'We lost the fight, a territory and a crew member.';}],
+      [`Pay tribute (${fmt(Math.round(60e3*crmScale()))} of dirty cash)`,()=>{const x=Math.round(60e3*crmScale());if(C.dirty<x)return 'I could not pay and they took a territory.';C.dirty-=x;return 'They took the money and left.';}],
+      ['Give up the territory',()=>{C.turf=Math.max(0,C.turf-1);return 'I let them have it.';}]]});}
+    if(C.turf>=3&&C.dirty>=1e7*crmScale())unlock('crmking');}
+  // crew loyalty and betrayal
+  C.crew.slice().forEach(m=>{m.loy=Math.max(0,Math.min(100,m.loy+R(-6,4)+(m.cut>=.2?2:0)));
+    if(m.loy<30&&rnd()<(60-m.loy)/250){C.crew=C.crew.filter(x=>x!==m);C.heat=Math.min(100,C.heat+25);line(`🕵️ ${m.n} betrayed my crew to the police.`,'bad');}});
+  C.pool=crmPool();
+  // audits of unexplained money
+  const exposure=C.dirty/(1e6*crmScale()),pAud=Math.min(.5,exposure*.06+C.heat/500);
+  if(C.dirty>50e3*crmScale()&&rnd()<pAud&&canManage()){
+    Q.push({text:`🧾 Investigators are asking where my ${fmt(C.dirty)} came from.`,ch:[
+      ['Cooperate and pay 50% in back taxes',()=>{const x=Math.round(C.dirty*.5);C.dirty-=x;C.heat=Math.max(0,C.heat-15);return `I paid ${fmt(x)} and kept the rest.`;}],
+      [`Lawyer up (${fmt(Math.round(60e3*crmScale()))})`,()=>{const c=Math.round(60e3*crmScale());if(S.money<c)return 'I could not afford it.';S.money-=c;if(rnd()<.5){C.heat=Math.max(0,C.heat-10);return 'My lawyer made the case go away.';}const d=C.dirty;C.dirty=0;C.heat=Math.min(100,C.heat+10);return `The case went ahead and ${fmt(d)} was seized.`;}],
+      ['Stonewall',()=>{if(rnd()<.4)return 'They found nothing they could use.';const yrs=R(3,8),d=Math.round(C.dirty);C.dirty=0;S.flags.record=true;C.conv++;C.sent=yrs;C.beh=50;S.jail=yrs;mile('Convicted of money laundering');return `I was convicted of money laundering. ${fmt(d)} was seized and I got ${yrs} years.`;}]]});}
+}
+let crTab='over';
+function crimeSheet(){openSheet(drawCrime);}
+function drawCrime(s){
+  s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🕶️ Crime and law'));
+  const C=crmEnsure(),ro=!S.alive;
+  s.append(h('p',{className:'sub'},S.jail?`I am in prison with ${S.jail} year${S.jail===1?'':'s'} left.`:'Crime pays in cash and attention. Police heat builds with every job and fades slowly. Getting caught means a trial.'));
+  s.append(...mbar('Police heat',C.heat,'happy'),...mbar('Street reputation',C.rep,'smarts'));
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['ops','Jobs'],['crew','Crew'],['money','Money'],['prison','Prison']].map(([v,l])=>h('button',{'aria-pressed':String(crTab===v),on:()=>{crTab=v;drawSheet();}},l))));
+  if(crTab==='over')crmOver(s,C,ro);else if(crTab==='ops')crmOps(s,C,ro);else if(crTab==='crew')crmCrew(s,C,ro);else if(crTab==='money')crmMoney(s,C,ro);else crmPrison(s,C,ro);
+}
+function crmOver(s,C,ro){
+  s.append(h('dl',{},h('dt',{},'Dirty cash'),h('dd',{},fmt(C.dirty)),h('dt',{},'Jobs and heists'),h('dd',{},`${C.ops} and ${C.heists}`),h('dt',{},'Convictions'),h('dd',{},String(C.conv)),h('dt',{},'Crew'),h('dd',{},String(C.crew.length)),h('dt',{},'Territories'),h('dd',{},String(C.turf)),h('dt',{},'Criminal record'),h('dd',{},S.flags.record?'Yes. It hurts job hunting and blocks regulated careers':'Clean')));
+  s.append(row('🌙 Lie low this year','Heat falls by an extra 25 points, no jobs','',()=>{C.lay=true;stay('I kept my head down this year.');},ro||!!S.jail||C.lay));
+  s.append(h('p',{className:'sub'},'Small amounts of dirty cash are spent quietly each year. Large piles attract auditors, so launder money on the Money tab.'));
+}
+function crmOps(s,C,ro){
+  if(S.jail)return s.append(h('p',{className:'sub'},'I cannot run jobs from prison.'));
+  if(C.lay)s.append(h('p',{className:'sub'},'I am lying low this year.'));
+  s.append(h('h4',{style:'margin-top:0'},'Jobs'));
+  CR_OPS.forEach(o=>{const why=S.age<o.min?`Needs age ${o.min}`:o.smarts&&S.st.smarts<o.smarts?`Needs smarts ${o.smarts}`:o.crew&&!C.crew.length?'Needs a crew member':'';
+    s.append(row(`${o.ic} ${o.n}`,why||`About ${fmt(Math.round(o.loot[0]*payF()))} to ${fmt(Math.round(o.loot[1]*payF()))}. Risk of arrest about ${Math.round(crmRisk(o.risk)*100)}%`,'',()=>crmOp(o),ro||!!why||C.lay,o.e));});
+  s.append(h('h4',{},'Heists'));
+  if(S.age<18||C.crew.length<2)s.append(h('p',{className:'sub'},'A heist needs an adult and a crew of at least 2.'));
+  else CR_HEISTS.forEach(hs=>s.append(row(`💎 ${hs.n}`,`Security ${hs.sec}. Haul about ${fmt(Math.round(hs.loot[0]*crmScale()))} to ${fmt(Math.round(hs.loot[1]*crmScale()))}. ${C.crew.length} crew, average skill ${Math.round(crmCrewSkill())}`,'Plan',()=>choiceModal(`${hs.n} heist`,`Preparation raises the odds. Security here is ${hs.sec}.`,[
+    ['Go in cold (free)',()=>crmHeist(hs,0)],[`Scout the place (${fmt(Math.round(5e3*crmScale()))})`,()=>crmHeist(hs,1),()=>S.money<5e3*crmScale()],[`Full planning (${fmt(Math.round(40e3*crmScale()))})`,()=>crmHeist(hs,2),()=>S.money<40e3*crmScale()],['Call it off',()=>{}]]),ro||C.lay,2)));
+  s.append(h('h4',{},'Territory'));
+  s.append(row('🗺️ Take over a territory',`Needs street reputation 40 and 2 crew. Pays about ${fmt(Math.round(90e3*crmScale()))} of dirty cash a year each. Territories: ${C.turf} of 4`,'',()=>{const cost=Math.round(80e3*crmScale());if(S.money<cost)return stay('I could not afford the muscle.','bad');S.money-=cost;if(rnd()<.4+crmCrewSkill()/200){C.turf++;C.heat=Math.min(100,C.heat+10);C.rep=Math.min(100,C.rep+4);mile('Took over a territory');stay('We took the territory.','good');}else{C.heat=Math.min(100,C.heat+8);C.rep=Math.max(0,C.rep-3);stay('The takeover failed.','bad');}},ro||C.lay||C.rep<40||C.crew.length<2||C.turf>=4||S.money<80e3*crmScale(),2));
+}
+function crmCrew(s,C,ro){
+  s.append(h('p',{className:'sub'},`Crew members take a cut of every haul (now ${Math.round(crmCuts()*100)}%). Unhappy members talk to the police.`));
+  C.crew.forEach(m=>s.append(row(`${m.n}`,`${m.rn}, skill ${m.skill}, cut ${Math.round(m.cut*100)}%, loyalty ${m.loy}`,'Let go',()=>{C.crew=C.crew.filter(x=>x!==m);stay(`I cut ${m.n} loose.`);},ro)));
+  if(!C.pool.length)C.pool=crmPool();
+  s.append(h('h4',{},'Looking for work'));
+  C.pool.forEach(m=>s.append(row(`${m.n}`,`${m.rn}, skill about ${m.skill}, wants ${Math.round(m.cut*100)}%`,fmt(m.price),()=>{if(C.rep+30<m.skill-20)return stay(`${m.n} wanted a bigger name to work with.`,'bad');S.money-=m.price;C.crew.push(m);C.pool=C.pool.filter(x=>x!==m);stay(`${m.n} joined my crew.`,'good');},ro||S.money<m.price||C.crew.length>=6)));
+}
+function crmMoney(s,C,ro){
+  s.append(h('p',{className:'sub'},`Dirty cash ${fmt(C.dirty)}. Laundering turns it into clean cash for a fee, up to a yearly limit. Total laundered so far ${fmt(C.laund)}.`));
+  CR_LAUND.forEach(L=>{const cap=Math.round(L.cap()),ok=L.ok();
+    s.append(row(`🧼 ${L.n}`,ok?`Fee ${Math.round(L.fee*100)}%, up to ${fmt(cap)} a year${L.heat?'. Adds some heat':''}`:L.why,'',()=>amountModal({title:L.n,sub:`Dirty cash ${fmt(C.dirty)}. Fee ${Math.round(L.fee*100)}%.`,max:Math.min(C.dirty,cap-(C['l'+L.k]||0)),init:Math.min(C.dirty,cap),btn:a=>`Launder ${fmt(a)}`,note:a=>`I would get ${fmt(Math.round(a*(1-L.fee)))} clean.`,onOk:a=>{C.dirty-=a;C['l'+L.k]=(C['l'+L.k]||0)+a;const net=Math.round(a*(1-L.fee));S.money+=net;C.laund+=a;C.heat=Math.min(100,C.heat+L.heat);if(C.laund>=1e6*crmScale())unlock('crmclean');if(rnd()<L.risk*a/(1e5*crmScale())){C.heat=Math.min(100,C.heat+12);stay(`I laundered ${fmt(a)} but a bank flagged the activity.`,'bad');}else stay(`I laundered ${fmt(a)} and kept ${fmt(net)}.`,'good');}}),ro||!ok||C.dirty<1000||!!S.jail));});
+  s.append(row('💸 Spend dirty cash on a legit-looking purchase','Quietly clears up to 8% a year of its value, no fee, but only small amounts','',()=>{const x=Math.min(C.dirty,Math.round(20e3*crmScale()));C.dirty-=x;S.money+=x;C.heat=Math.min(100,C.heat+2);stay(`I washed ${fmt(x)} through everyday spending.`);},ro||C.dirty<1000||!!S.jail));
+  if(C['lbiz']||C['lcasino']||C['lshell'])s.append(h('p',{className:'sub'},'Yearly limits reset when the year turns.'));
+}
+function crmPrison(s,C,ro){
+  if(!S.jail)return s.append(h('p',{className:'sub'},C.conv?`I have been convicted ${C.conv} time${C.conv===1?'':'s'}. I am free now.`:'I am a free man or woman. Keep it that way.'));
+  const served=Math.max(0,C.sent-S.jail),half=C.sent>0&&served>=Math.ceil(C.sent*.5);
+  s.append(h('p',{className:'sub'},`Served ${served} of ${C.sent} years. Behaviour record ${Math.round(C.beh)}%. ${half?'I am eligible for parole.':'Parole opens after half the sentence.'}`),...mbar('Behaviour',C.beh,'health'));
+  s.append(row('🧺 Work in the prison laundry','Good behaviour, pocket money','',()=>{S.used.pw=true;C.beh=Math.min(100,C.beh+8);S.money+=Math.round(500*crmScale());S.st.happy+=2;stay('I worked a prison job.');},ro||S.used.pw,1),
+    row('📚 Study in the prison library','Smarts and good behaviour','',()=>{S.used.ps=true;C.beh=Math.min(100,C.beh+5);S.st.smarts=clamp(S.st.smarts+R(1,3));stay('I studied in prison.');},ro||S.used.ps,1),
+    row('🧱 Join a prison gang','Protection and street reputation, but it hurts parole','',()=>{C.gang=true;C.beh=Math.max(0,C.beh-15);C.rep=Math.min(100,C.rep+5);stay('I joined a gang inside.');},ro||!!C.gang),
+    row('📑 File an appeal',`About ${fmt(Math.round(25e3*crmScale()))}. A good chance to shorten the sentence`,'',()=>{const c=Math.round(25e3*crmScale());S.money-=c;S.used.ap=true;if(rnd()<.3){S.jail=Math.max(0,Math.round(S.jail*.5));stay('My appeal worked and the sentence was cut in half.','good');}else stay('The appeal was rejected.','bad');},ro||S.used.ap||S.money<25e3*crmScale()),
+    row('🕊️ Parole hearing','Only after half the sentence and decent behaviour','',()=>{S.used.pl=true;if(rnd()<.15+C.beh/150){S.jail=0;unlock('crmparole');mile('Released on parole');stay('The board granted my parole. I am free.','good');}else stay('Parole was denied this year.','bad');},ro||S.used.pl||!half||C.beh<35));
 }
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
