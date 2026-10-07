@@ -2423,8 +2423,13 @@ function drawNat(s){
   if(!N)return natFound(s,ro);
   s.append(h('p',{className:'sub'},`${N.flag} ${N.name}, "${N.motto}". Year ${N.yrs} of my rule.`));
   ['pro','ord','fre','leg','rep'].forEach(k=>s.append(...mbar({pro:'Prosperity',ord:'Order',fre:'Freedom',leg:'Legitimacy',rep:'Reputation'}[k],N.m[k],k==='ord'?'smarts':k==='fre'?'looks':k==='rep'?'happy':'health')));
-  s.append(h('div',{className:'tabs'},[['over','Overview'],['gov','Government'],['cit','Citizens'],['eco','Economy'],['wld','World'],['def','Defence'],['log','Events'],['tre','Treasury']].map(([v,l])=>h('button',{'aria-pressed':String(natTab===v),on:()=>{natTab=v;drawSheet();}},l))));
-  if(natTab==='over')natOver(s,N,ro);else if(natTab==='gov')natGov(s,N,ro);else if(natTab==='cit')natCit(s,N,ro);else if(natTab==='eco')natEco(s,N,ro);else if(natTab==='wld')natWorldTab(s,N,ro);else if(natTab==='log')natLogTab(s,N);else if(natTab==='def')natDefTab(s,N,ro);else natTre(s,N,ro);
+  if(!['over','gov','eco','wld'].includes(natTab))natTab='over';
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['gov','Government'],['eco','Economy'],['wld','World']].map(([v,l])=>h('button',{'aria-pressed':String(natTab===v),on:()=>{natTab=v;drawSheet();}},l))));
+  const sec=t=>s.append(h('h3',{style:'margin:18px 0 4px'},t));
+  if(natTab==='over'){natOver(s,N,ro);sec('Citizens');natCit(s,N,ro);sec('Events');natLogTab(s,N);}
+  else if(natTab==='gov')natGov(s,N,ro);
+  else if(natTab==='eco'){natEco(s,N,ro);sec('Treasury');natTre(s,N,ro);}
+  else{natWorldTab(s,N,ro);sec('Defence');natDefTab(s,N,ro);}
 }
 function natFound(s,ro){
   const nw=netWorth();
