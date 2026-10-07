@@ -4581,13 +4581,6 @@ function yrDynasty(){
   // family office
   if(S.fo){const nw=Math.max(0,netWorth());S.money-=Math.round(nw*.003);
     const pol=S.fo.pol;S.fo.harm=clamp(S.fo.harm+R(-3,3)+(pol==='generous'?2:pol==='tight'?-1:0));
-    const adults=kids().filter(k=>k.alive&&k.age>=20);
-    if(adults.length>=2&&S.age%3===0&&canManage()){const c=pick(adults);
-      Q.push({text:`👪 At the family council, ${fname(c.name)} argues for a bigger share of the family money.`,ch:[
-        ['Give them a bigger allowance',()=>{S.fo.harm=clamp(S.fo.harm+6);p2(c,5);const x=Math.round(nw*.004);S.money-=x;dTal(c).cash+=x;return `${fname(c.name)} was satisfied. Others grumbled quietly.`;}],
-        ['Hold the line',()=>{S.fo.harm=clamp(S.fo.harm-6);p2(c,-6);return 'It was a tense meeting. Nobody left happy.';}],
-        ['Propose a fair formula for everyone',()=>{S.fo.harm=clamp(S.fo.harm+3);S.pres=Math.min(100,S.pres+.5);return 'The family agreed to a written formula. It calmed things down.';}]]});}
-    if(S.fo.harm<30&&rnd()<.3){const c=Math.round(nw*.01);S.money-=c;S.pres=Math.max(0,S.pres-4);line(`⚖️ A family dispute over money turned into a lawsuit that cost ${fmt(c)} and dented the family name.`,'bad');}
     if(S.fo.harm>=70&&S.pres<100)S.pres=Math.min(100,S.pres+.4);}
   // prestige drift
   const nwv=Math.max(0,netWorth());
@@ -5955,6 +5948,56 @@ SPEC.label={tab:'Label',year:lbYear,
     s.append(h('p',{className:'label'},'Distribution'),seg(Object.entries(LB_DIST).map(([k2,v])=>[k2,v.n]),sp.dist,v=>{sp.dist=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},LB_DIST[sp.dist].d));
     s.append(h('p',{className:'label'},'Studio budget'),seg([[0,'Basic'],[1,'Standard (+60% cost)'],[2,'Premium (+180% cost)']],sp.prod,v=>{sp.prod=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Better production raises the score of every release and costs more.'));
     s.append(h('p',{className:'label'},'Marketing per release'),seg([[0,'None'],[1,'Light'],[2,'Big']],sp.mkt,v=>{sp.mkt=v;stay();}));}};
+/* ================= hotel: rating and stars, occupancy, pricing, channels, amenities, renovation, brand ================= */
+const LAYER={};
+const HT_PRICE={budget:{n:'Budget',p:.85,o:.08},market:{n:'Market rate',p:1,o:0},premium:{n:'Premium',p:1.18,o:-.07},yield:{n:'Dynamic pricing',p:1.06,o:.01}};
+const HT_AMEN={pool:{n:'Pool and gym',ic:'🏊',rev:.04,cost:60e3,d:'Pleases families and leisure guests.'},spa:{n:'Spa',ic:'🧖',rev:.08,cost:150e3,d:'High margin, and lifts the star rating.'},rest:{n:'Restaurant and bar',ic:'🍽️',rev:.1,cost:90e3,d:'Brings in diners, with thin margins.'},conf:{n:'Conference centre',ic:'🎤',rev:.12,cost:200e3,d:'Corporate events fill weekdays and low seasons.'}};
+function htEnsure(b){
+  if(!b.hx)b.hx={stars:3,rating:7,age:0,price:'market',brand:'indie',ota:.5,loy:false,svc:1,maint:1,amen:{pool:false,spa:false,rest:false,conf:false},last:null,renov:0};
+  return b.hx;}
+LAYER.hotel={tab:'Hotel',
+  year(b,common,ph,econ,rev0){
+    const x=htEnsure(b),k=cpiF(),PR=HT_PRICE[x.price];
+    x.age=Math.min(15,x.age+1);
+    const amenN=Object.values(x.amen).filter(Boolean).length;
+    const Qh=38+x.stars*8+x.svc*6+x.maint*5-x.age*2.4+amenN*3+(b.morale-60)/10+(b.rep-50)/8;
+    const target=Math.max(2,Math.min(9.8,3.5+Qh/17+gauss()*.35));
+    x.rating=Math.max(1,Math.min(10,x.rating*.55+target*.45));
+    const mkt={boom:1.1,normal:1,recession:.88,crash:.65}[ph]||1,shock=1+gauss()*.05;
+    let occ=.28+.42*(x.rating/10)+.12*(x.stars/5)+(x.brand==='franchise'?.05:0)+(x.loy?.02:0)+PR.o+(mkt-1)*.35+(shock-1)*.6+(x.amen.conf?.04:0);
+    occ=Math.max(.22,Math.min(.95,occ));
+    const otaShare=Math.max(.15,x.ota-(x.loy?.2:0));
+    let amenRev=0,amenCost=0;Object.entries(x.amen).forEach(([k2,on])=>{if(on){amenRev+=HT_AMEN[k2].rev;amenCost+=HT_AMEN[k2].cost*k*(.4+.6*resC().pp);}});
+    const m=(occ/.68)*PR.p*(1+amenRev)*(1-otaShare*.17)/(1-.5*.17)*(.85+.15*mkt);
+    const rev=rev0*m;
+    const brandFee=x.brand==='franchise'?rev*.08:0,loyCost=x.loy?rev*.015:0,maintCost=rev*[0,.012,.03][x.maint]+rev*[0,.01,.025][x.svc];
+    const cost=amenCost+brandFee+loyCost+maintCost;
+    x.last={occ,rating:x.rating,pIdx:PR.p,m,amenRev,otaShare,rev:Math.round(rev),cost:Math.round(cost)};
+    line(`🏨 ${b.name}: ${Math.round(occ*100)}% occupancy, guest rating ${x.rating.toFixed(1)} out of 10, ${x.stars} stars.`,x.rating>=8?'good':x.rating<5.5?'bad':'');
+    if(canManage()&&!b.ousted&&rnd()<.3)htEvent(b,x,rev);
+    return {m,cost:Math.round(cost)};},
+  panel(s,b,lock){
+    const x=htEnsure(b),L=x.last||{},k=cpiF();
+    s.append(h('dl',{},h('dt',{},'Stars'),h('dd',{},`${'★'.repeat(x.stars)}${'☆'.repeat(5-x.stars)}`),h('dt',{},'Guest rating'),h('dd',{},`${x.rating.toFixed(1)} / 10`),h('dt',{},'Occupancy last year'),h('dd',{},L.occ?`${Math.round(L.occ*100)}%`:'n/a'),h('dt',{},'Rooms last renovated'),h('dd',{},x.age?`${x.age} year${x.age===1?'':'s'} ago`:'This year')));
+    s.append(...spBar('Guest rating',x.rating*10,'happy'));
+    s.append(h('p',{className:'label'},'Room pricing'),seg(Object.entries(HT_PRICE).map(([k2,v])=>[k2,v.n]),x.price,v=>{x.price=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Cheaper rooms fill up. Premium rates only pay off when the hotel earns its reputation.'));
+    s.append(h('p',{className:'label'},'Service'),seg([[0,'Lean'],[1,'Standard'],[2,'Attentive']],x.svc,v=>{x.svc=v;stay();}),h('p',{className:'label'},'Maintenance'),seg([[0,'Minimal'],[1,'Regular'],[2,'Thorough']],x.maint,v=>{x.maint=v;stay();}));
+    s.append(h('p',{className:'label'},'Booking channels'),seg([[.7,'Mostly online agencies'],[.5,'Balanced'],[.3,'Mostly direct']],x.ota,v=>{x.ota=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Online agencies charge about 17% of what they book. A loyalty programme brings guests back direct.'));
+    s.append(tog('🎁 Loyalty programme','Costs 1.5% of revenue. Moves 20% of bookings direct and lifts occupancy a little',x.loy,()=>{x.loy=!x.loy;stay();},lock));
+    s.append(h('p',{className:'label'},'Brand'),seg([['indie','Independent'],['franchise','Hotel chain brand']],x.brand,v=>{x.brand=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'A chain brand brings steadier bookings for an 8% fee on revenue.'));
+    s.append(h('h4',{},'Amenities'));
+    Object.entries(HT_AMEN).forEach(([k2,A])=>{const c=Math.round(A.cost*k*(.4+.6*resC().pp)*2.5);s.append(x.amen[k2]?tog(`${A.ic} ${A.n}`,`Open. About +${Math.round(A.rev*100)}% revenue, costs ${fmt(Math.round(A.cost*k*(.4+.6*resC().pp)))} a year`,true,()=>{x.amen[k2]=false;stay();},lock):row(`${A.ic} Add ${A.n.toLowerCase()}`,`${A.d} Building costs ${fmt(c)}, then ${fmt(Math.round(A.cost*k*(.4+.6*resC().pp)))} a year`,'',()=>{b.cash-=c;x.amen[k2]=true;stay(`The hotel opened a new ${A.n.toLowerCase()}.`,'good');},lock||b.cash<c));});
+    const rc=Math.round(Math.max(b.lastRev,b.base)*.25);
+    s.append(h('h4',{},'Renovation'),row('🛠️ Refresh the rooms',`Costs about ${fmt(rc)}. Resets room age and lifts the rating`,'',()=>{b.cash-=rc;x.age=0;x.rating=Math.min(10,x.rating+.6);stay('We refreshed the rooms.','good');},lock||b.cash<rc||x.age<2),
+      row('⭐ Upgrade a star',`Needs ${fmt(rc*2)}, a rating of 7.5 or more, and at least 2 amenities`,'',()=>{b.cash-=rc*2;x.stars++;x.age=0;stay(`${b.name} earned a ${x.stars}-star rating.`,'good');},lock||b.cash<rc*2||x.stars>=5||x.rating<7.5||Object.values(x.amen).filter(Boolean).length<2));}};
+function htEvent(b,x,rev){
+  const ev=[];
+  if(x.maint===0)ev.push(()=>({text:`A health and safety inspector found problems at ${b.name}.`,ch:[[`Fix everything (${fmt(Math.round(rev*.04))})`,()=>{b.cash-=Math.round(rev*.04);return 'We fixed the issues and passed the re-check.';}],['Pay the fine and carry on',()=>{b.cash-=Math.round(rev*.02);b.rep=Math.max(0,b.rep-4);x.rating=Math.max(1,x.rating-.4);return 'The fine was paid, and the reviews noticed.';}]]}));
+  ev.push(()=>({text:`A large wedding party wants to book most of ${b.name} for a weekend.`,ch:[['Accept',()=>{b.cash+=Math.round(rev*.015);x.rating=Math.min(10,x.rating+.1);return 'The wedding was a success.';}],['Decline to keep regular guests happy',()=>'We kept things as they were.']]}));
+  ev.push(()=>({text:`A viral post criticises the service at ${b.name}.`,ch:[['Respond personally and offer refunds',()=>{b.cash-=Math.round(rev*.01);x.rating=Math.max(1,x.rating-.1);return 'The reply was praised and things calmed down.';}],['Ignore it',()=>{x.rating=Math.max(1,x.rating-.4);b.rep=Math.max(0,b.rep-3);return 'The story grew.';}]]}));
+  ev.push(()=>({text:'A big company asks to sign a corporate contract for rooms and meetings.',ch:[['Sign it at a discount',()=>{b.cash+=Math.round(rev*.03);return 'The contract steadied our weekday bookings.';}],['Hold out for full price',()=>{if(rnd()<.4){b.cash+=Math.round(rev*.04);return 'They agreed to full price.';}return 'They went elsewhere.';}]]}));
+  if(rnd()<.2)ev.push(()=>({text:`A kitchen fire broke out at ${b.name}.`,ch:[['Close for repairs',()=>{const c=Math.round(rev*.06);b.cash-=c;x.rating=Math.max(1,x.rating-.3);return `The repairs cost ${fmt(c)} and we lost bookings.`;}]]}));
+  Q.push(pick(ev)());}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
@@ -7219,6 +7262,7 @@ function simBiz(b){
     rev=Math.round(demand*P.p*(L.p||1)*cty(b).pp);}
   b.lastSoldOut=soldOut;
   if(SPEC[b.type]){const sp0=SPEC[b.type].year(b,common,ph,econ);rev=sp0.rev;b.spC=sp0.cogs;writeoff=0;}
+  let layCost=0;if(LAYER[b.type]){const Ly=LAYER[b.type].year(b,common,ph,econ,rev);rev=Math.round(rev*Ly.m);layCost=Ly.cost;}
   let hit=false;if(T.hit&&!SPEC[b.type]&&rnd()<T.hit[0]*(L.hit||1)*(1+b.q/200)){const m=R(3,T.hit[1]);rev*=m;hit=true;line(`🎉 ${b.name} scored a smash hit! Revenue jumped ${m}x.`,'good');S.fame=Math.min(100,(S.fame||0)+4);}
   const conRev=b.contracts.reduce((a,c)=>a+c.rev,0);b.contracts.forEach(c=>c.yrs--);b.contracts=b.contracts.filter(c=>c.yrs>0);
   let royal=0;if(b.fr){const grow=Math.round(R(0,3)*(b.rep/70));b.fr.n+=grow;royal=Math.round(b.fr.n*b.base*.9*.06);}
@@ -7229,7 +7273,7 @@ function simBiz(b){
   const wages=Math.round((b.staff*wagePer(b)+storeMgrCost(b))*fx.cost)+b.team.reduce((a,p)=>a+p.wage,0)+ceoPay+owner+(b.smm?b.smm.wage:0);
   const rent=Math.round((T.fixed*.5*b.locs+T.fixed*.5*Math.max(0,b.locs-b.prem)*b.rentMult+(b.fac||0)*facRun(b))*cty(b).rent);
   let mkCost=mktCost(b);if(b.celeb)mkCost+=b.celeb.c;if(b.push)mkCost+=Math.round(b.base*b.locs*.03);
-  const other=Math.round(fx.cost*((b.ins?Math.max(2000,rev*.015):0)+(b.contracts.some(c=>c.gov)?conRev*.05:0)));
+  const other=layCost+Math.round(fx.cost*((b.ins?Math.max(2000,rev*.015):0)+(b.contracts.some(c=>c.gov)?conRev*.05:0)));
   // Online: commissions and platform fees, then what it costs to get an order to the door and back.
   const onRev=b.ecY?b.ecY.rev:0,ecFee=(b.ecY?b.ecY.fee:0)+ecRun(b,onRev),ecShipC=b.ecY?b.ecY.ship:0;
   // Credit line interest is charged once, as a cost. The balance itself only moves when I draw or repay,
@@ -7582,10 +7626,10 @@ function drawBiz(s,b){
   s.append(h('button',{className:'back',on:()=>{bizView=null;flash=null;drawSheet(true)}},'‹ All businesses'));
   s.append(h('h3',{},`${T.ic} ${b.name}`),h('p',{className:'sub'},`${b.cty&&COUNTRIES[b.cty]?COUNTRIES[b.cty].ic+' '+COUNTRIES[b.cty].n+'. ':''}${T.n}, ${b.yrs} yr${b.yrs===1?'':'s'} old${b.gens>1?`, family-owned for ${b.gens} generations`:''}. I own ${Math.round(b.own*100)}%${b.co?`, ${fname(b.co.name)} owns ${Math.round(b.co.share*100)}%`:''}${b.inv>0?`, investors own ${Math.round(b.inv*100)}%`:''}.${b.pub?' Publicly traded.':''}`));
   if(b.ousted)s.append(h('p',{className:'flash bad'},'🪑 The board removed me as CEO. A hired CEO runs things. I can sell my stake or buy out the investors to take back control.'));
-  ensureGoods(b);s.append(h('div',{className:'tabs'},(b.mode==='simple'?[['over','Overview'],['people','CEO'],['grow','Growth'],['fin','Finance'],['risk','Risk']]:[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),...(SPEC[b.type]?[['spec',SPEC[b.type].tab]]:[]),['strat','Strategy'],['mkt','Marketing'],['people','People'],['fin','Finance'],['risk','Risk']]).map(([k,l])=>h('button',{'aria-pressed':String(bTab===k||(k==='over'&&bTab==='fins')),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
+  ensureGoods(b);s.append(h('div',{className:'tabs'},(b.mode==='simple'?[['over','Overview'],['people','CEO'],['grow','Growth'],['fin','Finance'],['risk','Risk']]:[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),...((SPEC[b.type]||LAYER[b.type])?[['spec',(SPEC[b.type]||LAYER[b.type]).tab]]:[]),['strat','Strategy'],['mkt','Marketing'],['people','People'],['fin','Finance'],['risk','Risk']]).map(([k,l])=>h('button',{'aria-pressed':String(bTab===k||(k==='over'&&bTab==='fins')),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
   const bars=(l,v,c)=>[h('p',{className:'label'},`${l} ${v}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${v}%;background:var(--${c})`}))];
   if(bTab==='prod'&&!isGoods(b))bTab='over';
-  if(bTab==='spec'&&(!SPEC[b.type]||b.mode==='simple'))bTab='over';
+  if(bTab==='spec'&&((!SPEC[b.type]&&!LAYER[b.type])||b.mode==='simple'))bTab='over';
   if(b.mode==='simple'&&['prod','strat','fins','mkt'].includes(bTab))bTab='over';
   if(b.mode!=='simple'&&bTab==='grow')bTab='strat';
   if(bTab==='prod'){tabProducts(s,b,lock);return;}
@@ -7609,7 +7653,7 @@ function drawBiz(s,b){
     const sy=synergy(b);if(sy.length)s.append(h('p',{className:'sub'},`🔗 ${sy.map(x=>x[3]).join(', ')}`));
     return;}
   if(lock&&bTab!=='fin'){s.append(h('p',{className:'sub'},S.jail?"The business runs without me while I'm in prison.":S.age<18?'A trustee runs this until I turn 18.':'The board is in charge.'));return;}
-  if(bTab==='spec'){SPEC[b.type].panel(s,b,lock);return;}
+  if(bTab==='spec'){(SPEC[b.type]||LAYER[b.type]).panel(s,b,lock);return;}
   if(bTab==='strat'){
     if(!isGoods(b))s.append(h('p',{className:'label'},'Prices'),seg(Object.entries(PRICE).map(([k,p])=>[k,p.l]),b.price,x=>{b.price=x;stay()}));
     else s.append(h('p',{className:'sub'},'Prices, suppliers and quantities are set per product in the Products tab.'));
