@@ -203,17 +203,20 @@ function getOrCreateEvent_() {
   const props = PropertiesService.getScriptProperties();
   const cal = CalendarApp.getDefaultCalendar();
   const savedId = props.getProperty('EVENT_ID');
-  if (savedId) {
-    const existing = cal.getEventById(savedId);
-    if (existing) return existing;
+  let event = savedId ? cal.getEventById(savedId) : null;
+  if (!event) {
+    event = cal.createEvent(
+      CONFIG.eventTitle,
+      new Date(CONFIG.eventStart),
+      new Date(CONFIG.eventEnd),
+      { description: CONFIG.eventDescription, location: CONFIG.eventLocation }
+    );
+    props.setProperty('EVENT_ID', event.getId());
   }
-  const event = cal.createEvent(
-    CONFIG.eventTitle,
-    new Date(CONFIG.eventStart),
-    new Date(CONFIG.eventEnd),
-    { description: CONFIG.eventDescription, location: CONFIG.eventLocation }
-  );
-  props.setProperty('EVENT_ID', event.getId());
+  // keep the guest list private: guests cannot see each other, invite others or edit the event
+  event.setGuestsCanSeeGuests(false);
+  event.setGuestsCanInviteOthers(false);
+  event.setGuestsCanModify(false);
   return event;
 }
 
