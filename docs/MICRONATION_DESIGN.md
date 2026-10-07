@@ -1,6 +1,6 @@
 # Micronation: design plan (not built yet)
 
-Status: design only, agreed in discussion on 2026-10-07. Build in stages, simulate and commit each one.
+Status: stage 1 built (2026-10-07), stages 2 to 5 open. Design agreed, agreed in discussion on 2026-10-07. Build in stages, simulate and commit each one.
 
 ## Unlock
 Net worth of about $500M or more, and you own land (estate, private island, sea platform, remote territory or an artificial island).
