@@ -7,7 +7,8 @@
  * After sending, it writes "Done" in "Email sent" so they are never emailed twice.
  *
  * Setup: Sheet > Extensions > Apps Script, paste this file, edit CONFIG,
- * then run setup() once and approve the permissions.
+ * then run setup() once and approve the permissions. After that, reload the
+ * sheet: a menu "Event emails > Send to new people now" sends immediately.
  */
 
 const CONFIG = {
@@ -93,4 +94,17 @@ function setup() {
     .forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('sendEventEmails').timeBased().everyDays(1).atHour(CONFIG.runHour).create();
   sendEventEmails(); // also run now so you can test immediately
+}
+
+/** Adds a button (menu) to the sheet for sending right away. */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Event emails')
+    .addItem('Send to new people now', 'sendNow_')
+    .addToUi();
+}
+
+function sendNow_() {
+  sendEventEmails();
+  SpreadsheetApp.getActive().toast('Done. Check the "' + CONFIG.sentHeader + '" column.', 'Event emails', 5);
 }
