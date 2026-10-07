@@ -136,10 +136,16 @@ button.chip{font:inherit;font-size:.75rem;cursor:pointer}
 .chip.good{color:var(--good);border-color:var(--good)} .chip.bad{color:var(--bad);border-color:var(--bad)}
 @keyframes flashUp{0%{color:var(--good);transform:scale(1.08)}100%{color:inherit;transform:none}}
 @keyframes flashDown{0%{color:var(--bad);transform:scale(1.08)}100%{color:inherit;transform:none}}
+@keyframes celeIn{0%{opacity:0;transform:translate(-50%,-40%) scale(.7)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}30%{transform:translate(-50%,-50%) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}
+@keyframes ciPop{0%,100%{transform:scale(1)}40%{transform:scale(1.35) rotate(-8deg)}}
+.cele{position:fixed;left:50%;top:38%;z-index:40;pointer-events:none;background:var(--card);border:2px solid var(--sun);border-radius:20px;padding:16px 26px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:celeIn 2.4s ease forwards;max-width:86vw}
+.cele .ci{font-size:2.6rem;line-height:1;animation:ciPop .9s ease .2s}
+.cele b{display:block;font-family:Fredoka,system-ui,sans-serif;font-size:1.15rem;margin-top:6px}
+.cele small{display:block;color:var(--muted);margin-top:2px}
 @keyframes bump{0%{filter:brightness(1.7)}100%{filter:none}}
 .cash b.up{animation:flashUp .9s ease}.cash b.down{animation:flashDown .9s ease}.cash b{transform-origin:right center}
 .bar i.bump{animation:bump .8s ease}
-@media (prefers-reduced-motion: reduce){ .cash b.up,.cash b.down,.bar i.bump{animation:none} .bar i,.toggle .sw::after{transition:none} .pop,.toast{animation-duration:.01s;animation-delay:1.5s} }
+@media (prefers-reduced-motion: reduce){ .cele,.cele .ci,.cash b.up,.cash b.down,.bar i.bump{animation:none} .cele{opacity:1} .bar i,.toggle .sw::after{transition:none} .pop,.toast{animation-duration:.01s;animation-delay:1.5s} }
 </style>
 </head>
 <body>
@@ -1894,9 +1900,9 @@ function natMigrate(N){
   return inflow;
 }
 /* a confirm screen that shows what changes: each row is [label, before, after, formatter, higherIsGood] */
-function fxModal(title,text,rows,okLabel,onOk){
+function fxModal(title,text,rows,okLabel,onOk,onCancel){
   const d=h('dl',{},...rows.flatMap(([l,a,b,f,up])=>{f=f||fmt;const c=a===b?'':((b>a)===(up!==false))?'good':'bad';return [h('dt',{},l),h('dd',{className:c},`${f(a)} → ${f(b)}`)];}));
-  choiceModal(title,text,[[okLabel,onOk],['Cancel',()=>{}]],d);}
+  choiceModal(title,text,[[okLabel,onOk],['Cancel',()=>{if(onCancel)onCancel();}]],d);}
 function natLawChange(N,k,to){
   const L=N.lw[k],d=Math.abs(to-L.v);if(!d||to===L.to)return;
   const cost=Math.round(300e3*(1+natPop(N)/1000)*d*cpiF());
@@ -2773,7 +2779,13 @@ function checkDeath(){
 }
 
 /* ================= achievements ================= */
-function unlock(id){if(META.ach[id]||!ACH[id])return;META.ach[id]=Date.now();saveMeta();const [ic,n]=ACH[id];toast(`🏆 ${ic} ${n}`);sfx('ach');}
+let celeAt=0;
+/* a short, non-blocking celebration for a new achievement. Close together unlocks fall back to a quiet toast. */
+function celebrate(ic,n,d){
+  const now=Date.now();if(now-celeAt<2600||!document.body.animate){toast(`🏆 ${ic} ${n}`);return;}
+  celeAt=now;const el=h('div',{className:'cele','aria-live':'polite'},h('div',{className:'ci'},ic),h('b',{},n),h('small',{},d||'Achievement unlocked'));
+  document.body.append(el);setTimeout(()=>el.remove(),2400);}
+function unlock(id){if(META.ach[id]||!ACH[id])return;META.ach[id]=Date.now();saveMeta();const [ic,n,d]=ACH[id];celebrate(ic,n,d);sfx('ach');}
 function checkAch(){
   const nw=netWorth();
   if(nw>=1e6)unlock('millionaire');if(nw>=1e7)unlock('deca');if(nw>=1e9)unlock('billion');
@@ -8181,10 +8193,12 @@ function staffCard(b){const need=needStaff(b),auto=b.autoStaff!==false,box=h('di
   const pTxt=v=>{const w=Math.round(base*v/100),m=Math.round((v/100-1)*(v<100?53:40));return `${v}% of market pay · ${fmt(w)} each, ${fmt(w*b.staff)}/yr in total. Morale ${m>0?'+':''}${m} a year.${v<85?' Staff may quit or strike.':''}`;};
   const ss=h('input',{type:'range',className:'slider',min:0,max:mx,step:1,value:String(b.staff),'aria-label':'Number of staff'});
   ss.oninput=()=>{sLbl.textContent=sTxt(+ss.value);};
-  ss.onchange=()=>{const n=+ss.value,fired=b.staff-n;b.autoStaff=false;if(fired>0)b.morale=clamp(b.morale-Math.min(15,fired*2));b.staff=n;stay(fired>0?`${b.name} let ${fired} staff go.`:fired<0?`${b.name} hired ${-fired} staff.`:undefined);};
+  ss.onchange=()=>{const n=+ss.value,d0=n-b.staff;if(!d0)return;const w=b.staff*wagePer(b),w2=n*wagePer(b),r1=need?Math.min(1,b.staff/need):1,r2=need?Math.min(1,n/need):1;
+    fxModal(d0>0?`Hire ${d0} staff?`:`Let ${-d0} go?`,d0<0?'Letting people go hurts morale.':'More staff means more customers served, up to what the outlets need.',[['Staff',b.staff,n,x=>String(x),true],['Wages a year',w,w2,fmt,false],['Customers I can serve',Math.round(r1*100),Math.round(r2*100),x=>x+'%',true]],d0>0?'Hire':'Let them go',()=>{const fired=-d0;b.autoStaff=false;if(fired>0)b.morale=clamp(b.morale-Math.min(15,fired*2));b.staff=n;stay(fired>0?`${b.name} let ${fired} staff go.`:`${b.name} hired ${-fired} staff.`);},()=>drawSheet());};
   const ps=h('input',{type:'range',className:'slider',min:70,max:150,step:5,value:String(Math.round(payMult(b)*100)),'aria-label':'Staff pay'});
   ps.oninput=()=>{pLbl.textContent=pTxt(+ps.value);};
-  ps.onchange=()=>{const v=+ps.value;b.payPct=v;b.pay=v<95?'low':v>105?'high':'market';stay(`Staff pay at ${b.name} is now ${v}% of market.`);};
+  ps.onchange=()=>{const v=+ps.value,cur=Math.round(payMult(b)*100);if(v===cur)return;const m=x=>Math.round((x/100-1)*(x<100?53:40));
+    fxModal(`Pay staff ${v}% of market?`,v<85?'Below 85% staff may quit or strike.':'Pay changes morale every year.',[['Wages a year',b.staff*wagePer(b),Math.round(b.staff*Math.round(wagePer(b)/payMult(b))*v/100),fmt,false],['Morale a year',m(cur),m(v),x=>(x>0?'+':'')+x,true]],'Set pay',()=>{b.payPct=v;b.pay=v<95?'low':v>105?'high':'market';stay(`Staff pay at ${b.name} is now ${v}% of market.`);},()=>drawSheet());};
   sLbl.textContent=sTxt(b.staff);pLbl.textContent=pTxt(Math.round(payMult(b)*100));
   box.append(h('p',{className:'label',style:'margin:0'},`👥 Staff${b.union?' (unionized)':''}`),ss,sLbl,
     h('button',{className:'choice alt',style:'margin:2px 0 10px','aria-pressed':String(auto),disabled:auto,on:()=>{b.autoStaff=true;syncStaff(b);stay(`${b.name} now hires staff automatically.`)}},auto?'✅ Auto-hiring: staff match what the business needs':'Switch back to auto-hiring'),
