@@ -26,18 +26,15 @@ const CONFIG = {
   subject: 'You are confirmed for our event'         // TODO: edit
 };
 
-// TODO: edit the wording. Each quoted line below is one line of the email.
+// TODO: edit the wording. Keep the quotes and the + signs.
 function buildBody_(name) {
-  return [
-    'Hi ' + name + ',',
-    '',
-    'Thank you for signing up! We are happy to confirm your spot.',
-    '',
-    '[Event name / date / time / Zoom link here]',
-    '',
-    'See you there!',
-    CONFIG.senderName
-  ].join(String.fromCharCode(10));
+  var nl = String.fromCharCode(10);
+  var body = 'Hi ' + name + ',' + nl + nl;
+  body = body + 'Thank you for signing up! We are happy to confirm your spot.' + nl + nl;
+  body = body + '[Event name / date / time / Zoom link here]' + nl + nl;
+  body = body + 'See you there!' + nl;
+  body = body + CONFIG.senderName;
+  return body;
 }
 
 function sendEventEmails() {
