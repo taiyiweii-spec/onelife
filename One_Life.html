@@ -6416,39 +6416,43 @@ SPEC.tech={tab:'Startup',
   year:techYear,
   panel(s,b,lock){
     const sp=tcEnsure(b),M=tcM(sp),L=sp.last||{},g=tcGrowth(b),val=techVal(b),burn=b.lastPre<0?-b.lastPre:0;
-    s.append(h('div',{className:'tabs'},[['dash','Dashboard'],['product','Product'],['growth','Growth'],['team','Team'],['funding','Funding'],['exit','Exit']].map(([v,l])=>h('button',{'aria-pressed':String(tcTab===v),on:()=>{tcTab=v;drawSheet(true);}},l))));
+    s.append(h('div',{className:'tabs'},[['dash','Overview'],['run','Run it'],['money','Funding and exit']].map(([v,l])=>h('button',{'aria-pressed':String(tcTab===v),on:()=>{tcTab=v;drawSheet(true);}},l))));
+    if(!['dash','run','money'].includes(tcTab))tcTab='dash';
     if(tcTab==='dash'){
       s.append(h('p',{className:'sub'},`${M.n}. ${sp.live?`Stage: ${sp.stage>=5?'Late stage':TC_ROUNDS[Math.min(4,Math.max(0,sp.stage-1))].n+' company'}`:'Still building the first product.'} ${b.yrs} yr${b.yrs===1?'':'s'} old.`));
       s.append(...spBar('Product built',sp.live?100:sp.mvp,'smarts'),...spBar('Product-market fit',sp.fit,'happy'),...spBar('Reliability',sp.rel,'health'),...spBar('Tech debt (lower is better)',100-sp.debt,'smarts'));
       s.append(h('dl',{},h('dt',{},'Revenue (last year)'),h('dd',{},fmt(b.lastRev)),h('dt',{},'Growth'),h('dd',{},sp.live?`${Math.round(g*100)}%`:'Pre-launch'),h('dt',{},'Users'),h('dd',{},fmtN(sp.users||0)),h('dt',{},'Paying'),h('dd',{},fmtN(sp.payers||tcPayers(sp))),h('dt',{},'Churn'),h('dd',{},sp.churn?`${Math.round(sp.churn*100)}% a year`:'n/a'),h('dt',{},'Cost to win a user'),h('dd',{},sp.cac?fmt(sp.cac):'n/a'),h('dt',{},'Cash'),h('dd',{className:b.cash<0?'bad':''},fmt(b.cash)),h('dt',{},'Runway'),h('dd',{},burn?`${Math.max(0,b.cash/burn*12).toFixed(0)} months`:'Cash positive'),h('dt',{},'Competition'),h('dd',{},`${Math.round(sp.comp)}%`),h('dt',{},'Valuation'),h('dd',{},fmt(val)),h('dt',{},'I own'),h('dd',{},`${Math.round(b.own*100)}%`)));
       return;}
-    if(tcTab==='product'){
+    if(tcTab==='run'){
+      s.append(h('h4',{style:'margin-top:0'},'Product'));
       s.append(h('p',{className:'label'},'What we sell'),seg(Object.entries(TC_MODEL).map(([k,v])=>[k,v.n]),sp.model,v=>{if(sp.live&&sp.model!==v){return choiceModal('Change the business model?','Switching costs half of the users and some product fit.',[['Switch',()=>{sp.model=v;sp.tam=TC_MODEL[v].tam;sp.users=Math.round(sp.users*.5);sp.fit=Math.max(0,sp.fit-10);stay('We changed the business model.');}],['Keep it',()=>{}]]);}sp.model=v;sp.tam=TC_MODEL[v].tam;stay();}));
       s.append(h('p',{className:'sub',style:'margin:-4px 0 10px'},M.d));
       s.append(h('p',{className:'label'},'This year\'s focus'),seg(TC_FOCUS,sp.focus,v=>{sp.focus=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},{product:'More progress and better fit, but growth waits.',growth:'More users, but tech debt builds up.',money:'Balanced, steady revenue.',stable:'Pays down tech debt and fixes reliability.'}[sp.focus]));
       s.append(h('p',{className:'label'},'Pricing'),seg([[.8,'Cheap'],[1,'Standard'],[1.25,'Premium']],sp.price,v=>{sp.price=v;stay();}),h('p',{className:'sub',style:'margin:-4px 0 10px'},'Cheaper prices keep more paying users, premium prices earn more from fewer.'));
       s.append(tog('🧑‍💻 I write code myself','Adds to product progress while I run the company hands-on',sp.hands,()=>{sp.hands=!sp.hands;stay();},lock));
       if(sp.live&&sp.fit<35&&sp.pivots<2)s.append(row('↩️ Pivot to a new idea','Keeps the team and 60% of the product, loses most users, resets fit to 40. Can be done twice','',()=>choiceModal('Pivot?','This is a big bet on a new direction.',[['Pivot',()=>{sp.pivots++;sp.users=Math.round(sp.users*.2);sp.fit=40;sp.mvp=60;sp.live=false;sp.comp=Math.max(5,sp.comp-15);b.morale=Math.max(0,b.morale-10);stay('We pivoted to a new idea.');}],['Stay the course',()=>{}]]),lock));
-      return;}
-    if(tcTab==='growth'){
+      s.append(h('h4',{},'Growth'));
       s.append(h('p',{className:'sub'},sp.live?`Cost to win a user is about ${fmt(sp.cac||Math.round(M.cac*cpiF()))}. Word of mouth grows with product fit.`:'Growth spending only starts after launch.'));
       s.append(h('p',{className:'label'},'Marketing spend (share of cash each year)'),seg([[0,'None'],[1,'Low (12%)'],[2,'High (30%)']],sp.growth,v=>{sp.growth=v;stay();}));
       s.append(h('p',{className:'sub'},`Sales team: ${sp.sales}. Sales reps help most with business software.${sp.model==='saas'?'':' They add little in a consumer model.'}`));
       s.append(row('➕ Hire a salesperson','A team member pays about the usual wage each year','',()=>{sp.sales++;stay();},lock||sp.sales>=60),row('➖ Let a salesperson go','','',()=>{sp.sales--;stay();},lock||sp.sales<=0));
-      s.append(h('p',{className:'sub'},`Revenue last year ${fmt(L.rev||0)}.`));return;}
-    if(tcTab==='team'){
+      s.append(h('p',{className:'sub'},`Revenue last year ${fmt(L.rev||0)}.`));
+      s.append(h('h4',{},'Team'));
       s.append(h('p',{className:'sub'},`Engineers ${sp.eng}, sales ${sp.sales}. Everyone costs about ${fmt(wagePer(b))} a year. More engineers build faster, but tech debt slows them down.`));
       s.append(row('➕ Hire an engineer','','',()=>{sp.eng++;stay();},lock||sp.eng>=80),row('➖ Let an engineer go','Layoffs hurt morale','',()=>{sp.eng--;b.morale=Math.max(0,b.morale-6);stay();},lock||sp.eng<=1));
       s.append(tog('🎯 Employee stock option pool',`Gives staff a stake (I give up 10% of my share). Helps keep people`,sp.esop,()=>{if(!sp.esop){b.own*=.9;sp.esop=true;stay('I set up an employee option pool.');}},lock||sp.esop));
       s.append(h('p',{className:'sub'},`Morale ${Math.round(b.morale)}%. Product progress per year about ${L.D||0} points.`));return;}
-    if(tcTab==='funding'){
+    if(tcTab==='money'){
+      s.append(h('h4',{style:'margin-top:0'},'Funding'));
       s.append(h('p',{className:'sub'},`I own ${Math.round(b.own*100)}%. Investors own ${Math.round((b.inv||0)*100)}%. Valuation today about ${fmt(val)}.`));
       const done=sp.raisedYr===S.age;
       TC_ROUNDS.forEach((r,i)=>{const e=tcRound(b,r),prior=sp.rounds.find(x=>x.k===r.k);
         s.append(row(`${r.n}${prior?' (raised)':''}`,prior?`${fmt(prior.amt)} at ${fmt(prior.pre)}, ${(prior.eq*100).toFixed(1)}% sold at age ${prior.age}`:e.ok?`Ask for ${fmt(Math.round(r.size[0]*cpiF()))} to ${fmt(Math.round(r.size[1]*cpiF()))}`:`Needs: ${r.need}`,'',()=>choiceModal(`Raise a ${r.n} round`,`How much of the company do I sell? A bigger round means more cash and more dilution. The investor interest score is ${e.ii.score}.`,[
           ['A small round',()=>tcPitch(b,r,0)],['A normal round',()=>tcPitch(b,r,1)],['A large round',()=>tcPitch(b,r,2)],['Not now',()=>{}]]),lock||!e.ok||!!prior||done));});
       if(sp.rounds.length){s.append(h('h4',{},'Round history'));sp.rounds.forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.n}, ${fmt(x.amt)} at ${fmt(x.pre)} before the money.`)));}
-      s.append(h('p',{className:'sub'},'Investors with 30% or more get board seats and can push for growth or even replace me.'));return;}
+      s.append(h('p',{className:'sub'},'Investors with 30% or more get board seats and can push for growth or even replace me.'));
+      s.append(h('h4',{},'Exit'));
+    }
     // exit
     s.append(h('p',{className:'sub'},`Buyers and the public markets look at revenue, growth and product fit. Now: revenue ${fmt(b.lastRev)}, growth ${Math.round(g*100)}%, fit ${Math.round(sp.fit)}. A company worth about ${fmt(val)}.`));
     s.append(row('🔔 Go public',b.pub?'Already public':'Needs a $75M value, 3 years and enough revenue. Use the Finance tab','',()=>{bTab='fin';drawSheet(true);},lock));
