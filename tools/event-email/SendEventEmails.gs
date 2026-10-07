@@ -18,12 +18,14 @@ const CONFIG = {
   nameHeader: 'Name',
   answerHeader: 'Would u like to attend the event',  // the Yes/No question
   yesValue: 'Yes',
+  noValue: 'No',
   sentHeader: 'Email sent',                          // created automatically if missing
   sentValue: 'Done',
   senderName: 'Beyond Insights',                     // TODO: confirm
   replyTo: '',                                       // optional
   runHour: 9,                                        // daily run time (script time zone)
-  subject: 'You are confirmed for our event'         // TODO: edit
+  subject: 'You are confirmed for our event',        // TODO: edit
+  noSubject: 'Can we ask why you cannot join?'       // TODO: edit
 };
 
 // TODO: edit the wording. Keep the quotes and the + signs.
@@ -33,6 +35,16 @@ function buildBody_(name) {
   body = body + 'Thank you for signing up! We are happy to confirm your spot.' + nl + nl;
   body = body + '[Event name / date / time / Zoom link here]' + nl + nl;
   body = body + 'See you there!' + nl;
+  body = body + CONFIG.senderName;
+  return body;
+}
+
+function buildNoBody_(name) {
+  var nl = String.fromCharCode(10);
+  var body = 'Hi ' + name + ',' + nl + nl;
+  body = body + 'Thanks for letting us know you cannot attend.' + nl + nl;
+  body = body + 'Could you reply to this email and tell us why? Your feedback helps us improve.' + nl + nl;
+  body = body + 'Thank you!' + nl;
   body = body + CONFIG.senderName;
   return body;
 }
@@ -64,7 +76,9 @@ function sendEventEmails() {
   rows.forEach((row, i) => {
     const answer = String(row[answerCol]).trim().toLowerCase();
     const alreadySent = String(row[sentCol] || '').trim().toLowerCase() === CONFIG.sentValue.toLowerCase();
-    if (answer !== CONFIG.yesValue.toLowerCase() || alreadySent) return;
+    const isYes = answer === CONFIG.yesValue.toLowerCase();
+    const isNo = answer === CONFIG.noValue.toLowerCase();
+    if ((!isYes && !isNo) || alreadySent) return;
 
     let to = emailCol > -1 ? String(row[emailCol]).trim() : '';
     if (!to && fallbackCol > -1) to = String(row[fallbackCol]).trim();
@@ -75,7 +89,9 @@ function sendEventEmails() {
     if (CONFIG.replyTo) options.replyTo = CONFIG.replyTo;
 
     try {
-      GmailApp.sendEmail(to, CONFIG.subject, buildBody_(name), options);
+      const subject = isYes ? CONFIG.subject : CONFIG.noSubject;
+      const body = isYes ? buildBody_(name) : buildNoBody_(name);
+      GmailApp.sendEmail(to, subject, body, options);
       sheet.getRange(i + 2, sentCol + 1).setValue(CONFIG.sentValue);
       SpreadsheetApp.flush(); // save the mark immediately so a later failure can't cause a re-send
     } catch (err) {
