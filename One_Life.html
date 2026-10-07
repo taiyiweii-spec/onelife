@@ -658,6 +658,8 @@ const ACH={
  capexit:['🤝','Deal maker','Sell a business or a majority stake to a buyer'],
  lbhit:['💿','Hit maker','Release a track that scores 75 or more at my record label'],
  ceoplan:['📋','Plan delivered','Have a CEO meet a 3 year strategy plan'],
+ wprival:['🥊','Office survivor','Outwork a rival colleague for a promotion'],
+ wpmentor:['🤝','Under a wing','Be taken on by a mentor'],
  techexit:['🏁','Exit','Sell a tech startup to a buyer'],
  techseriesa:['📈','Series A','Raise a Series A round'],
  techunicorn:['🦄','Unicorn','Build a tech company worth $1 billion'],
@@ -1308,8 +1310,9 @@ function econYear(){
   e.yrs=e.phase===old?e.yrs+1:0;
   if(e.phase!==old&&S.age>=16){const msg={boom:'World markets are booming.',normal:'World markets have settled back to normal.',recession:'World markets fell into a slump.',crash:'The global stock market crashed!'}[e.phase];line(`🌍 ${msg}`,e.phase==='boom'||e.phase==='normal'?'good':'bad');}
   countryEconYear(e.phase,e.phase!==old);
-  const [mu,sd]=PHASE[e.phase].m;const mret=mu+gauss()*sd;
-  const infl=Math.max(0,PHASE[e.phase].inf+gauss()*.6);S.cpi=(S.cpi||1)*(1+infl/100);S.infl=infl;
+  const [mu,sd]=PHASE[e.phase].m;const mret0=mu+gauss()*sd;
+  const infl=Math.max(0,PHASE[e.phase].inf+gauss()*.6)*(S.gen>=2?.12:1);S.cpi=(S.cpi||1)*(1+infl/100);S.infl=infl;
+  const mret=mret0+(infl-2.5)*.9;
   TICK.forEach(t=>{const q=S.mkt[t.s];let r;
     if(t.fixed!=null)r=t.s==='BOND'?infl+1.5+({boom:-2,normal:0,recession:1,crash:3}[e.phase]||0):t.s==='SAVE'?Math.max(.2,infl-.8):t.fixed;
     else if(t.crypto){const y=rnd();r=y<.3?-50+gauss()*12:y<.65?-5+gauss()*20:y<.9?45+gauss()*20:130+gauss()*50;if(e.phase==='crash')r-=30;}
@@ -1602,7 +1605,7 @@ function workYear(){
   else if(j.perf<60){j.warn=0;j.s=Math.round(j.s*1.03);msg='Meets expectations. 3% raise.';}
   else if(j.perf<85){j.warn=0;j.s=Math.round(j.s*1.05);const b=Math.round(j.s*.05);S.money+=netStack(b);msg=`Exceeds expectations. 5% raise and a ${fmt(b)} bonus.`;cls='good';}
   else{j.warn=0;j.s=Math.round(j.s*1.06);const b=Math.round(j.s*(C.bon?R(10,20):R(2,6))/100);S.money+=netStack(b);msg=`Outstanding! 6% raise and a ${fmt(b)} bonus.`;cls='good';
-    if(canPromote(j)&&rnd()<.55){line(`Performance review: ${msg}`,cls);line(promote(j),'good');return;}}
+    if(canPromote(j)&&rnd()<.55*wpPromoF(j)){line(`Performance review: ${msg}`,cls);line(promote(j),'good');return;}}
   line(`Performance review: ${msg}`,cls);trackBest();
 }
 function trackBest(){if(S.job){const x=cexp(S.job.c);x.lvl=Math.max(x.lvl,S.job.lvl);}if(S.job&&(!S.bestJob||S.job.s>S.bestJob.s))S.bestJob={t:title(S.job),s:S.job.s};}
@@ -1610,7 +1613,7 @@ function cexp(c){S.cexp=S.cexp||{};if(!S.cexp[c])S.cexp[c]={yrs:S.careers.includ
 const promoYrs=(C,l)=>C.min?C.min[Math.min(l,C.min.length-1)]:[2,3,4,5,6][Math.min(4,l)];
 function canPromote(j){const C=CAREERS[j.c];return j.lvl<C.t.length-1&&j.lvlYrs>=promoYrs(C,j.lvl)&&S.st.smarts>=reqSm(C,j.lvl+1);}
 function promote(j){const C=CAREERS[j.c];j.lvl++;j.s=Math.max(Math.round(j.s*1.12),Math.round(C.t[j.lvl][1]*payF()));j.lvlYrs=0;j.perf=55;S.st.happy+=10;mile(`Promoted to ${title(j)}`);trackBest();sfx('good');return `I was promoted to ${title(j)}! New salary: ${fmt(j.s)}.`;}
-function hire(id,lvl=0,sal){const C=CAREERS[id];S.job={c:id,s:sal||Math.round(C.t[lvl][1]*payF()),perf:50,lvl,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[lvl][0]}`);}trackBest();}
+function hire(id,lvl=0,sal){const C=CAREERS[id];S.job={c:id,s:sal||Math.round(C.t[lvl][1]*payF()),perf:50,lvl,yrs:0,lvlYrs:0,warn:0,style:'normal'};S.job.wp=wpNew(C,lvl);S.biz.forEach(b=>{if(b.life==='hands')b.life='delegate'});if(!S.careers.includes(id)){S.careers.push(id);mile(`Started working as a ${C.t[lvl][0]}`);}trackBest();}
 
 /* ---- job openings and interviews ---- */
 const STATIC_JOBS=['police','teach','nurse','med','law'];
@@ -1631,7 +1634,7 @@ function openings(){
 function jobBlock(o){const C=CAREERS[o.c],dg=S.edu.degrees,need=C.sm||0;
   return S.flags.hs===false&&need>0?'Needs a diploma':C.deg&&!dg.includes(C.deg)?`Needs ${C.deg} degree`:C.car&&!hasLic()?'Needs a driving licence':C.car&&!hasCar()?'Needs a car':(C.clean||['law','med','nurse','teach','fin'].includes(o.c))&&S.flags.record?'Criminal record':S.st.smarts<need?`Needs smarts ${need}+`:null;}
 function hireChance(o,bonus=0){const C=CAREERS[o.c],x=(S.cexp||{})[o.c],need=reqSm(C,o.lvl);
-  let c=.5+(S.st.smarts-need)/200+(S.st.looks-50)/400+(S.st.happy-50)/250+(has('charming')?.05:0)+bonus;
+  let c=.5+(S.st.smarts-need)/200+(S.st.looks-50)/400+(S.st.happy-50)/250+(has('charming')?.05:0)+bonus+((S.flags.cert||{})[o.c]?.06:0);
   if(x&&x.yrs)c+=Math.min(.12,x.yrs*.015);
   c+=((S.ethic||50)-50)/600+sk('ppl')/600+((S.karma||50)-50)/1000+(o.c==='tech'?sk('tech')/400:0)+(o.lvl>=2?sk('biz')/800:0);
   if(o.lvl>0)c-=o.lvl===(x?x.lvl:0)?.12:0;
@@ -1648,7 +1651,7 @@ const IVQ=[
 ];
 function applyJob(o){const C=CAREERS[o.c],t=C.t[o.lvl][0];
   const finish=bonus=>{S.used.apps=(S.used.apps||0)+1;const had=S.job;
-    if(rnd()<hireChance(o,bonus)){hire(o.c,o.lvl,o.pay);S.jobOpen.list=S.jobOpen.list.filter(y=>y!==o);stay(`I got hired as a ${t}${o.co?` at ${o.co}`:''}!${had?' I left my old job.':''}`,'good');}
+    if(rnd()<hireChance(o,bonus)){wpOffer(o,had,t);}
     else{o.gone=1;S.st.happy-=2;stay(pick([`They went with someone else for the ${t} role.`,`I interviewed to be a ${t} but didn't get it.`,`The ${t} role went to an internal candidate.`]),'bad');}};
   if(C.sm===0&&!C.deg&&o.lvl===0)return finish(0);
   const q=pick(IVQ),lvlNote=o.lvl>0?' It\'s a senior role, so they dig deep.':'';
@@ -1894,7 +1897,7 @@ function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['old',yrOld],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['crime',yrCrime],['school',yrSchool],
-  ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['pension',yrPension],['gig',yrGig],
+  ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['workplace',yrWorkplace],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['capital',yrCapital],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['coach',yrCoach],['agent',yrAgent],['intl',yrIntl],['rival',()=>spRivalYear(S.spt)],['media',yrMedia],['media2',yrMediaPlus],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
@@ -2185,16 +2188,17 @@ function tabWorkContent(s){
   if(j){const C=CAREERS[j.c];
     s.append(h('h4',{},'My job'),row(title(j),`${C.n}, level ${j.lvl+1} of ${C.t.length}. ${j.lvlYrs} yr in role.`,fmt(j.s),null,true));
     s.append(h('p',{className:'label'},`Performance ${j.perf}%`,j.warn?h('span',{className:'warn'},' On a formal warning'):j.perf<35?h('span',{className:'warn'},' Slipping'):null),h('div',{className:'bar',style:'margin:0 0 12px'},h('i',{style:`width:${j.perf}%;background:${j.perf<25?'var(--bad)':j.perf<60?'var(--sun)':'var(--health)'}`})));
+    wpBlock(s,j,C);
     s.append(h('p',{className:'label'},'Work style (changes my yearly energy)'),seg([['slack','Slack off +⚡'],['normal','Normal'],['hustle','Hustle −⚡']],j.style||'normal',v=>{j.style=v;stay()}));
     const next=j.lvl<C.t.length-1?C.t[j.lvl+1][0]:null;const minYrs=Math.max(1,promoYrs(C,j.lvl)-(has('ambitious')?1:0));
     s.append(row('Work harder','Big performance boost, builds work ethic','',()=>{S.used.work=true;j.perf+=R(6,14);addEthic(2);S.st.happy-=2;stay('I put in extra hours at work.')},S.used.work,2),
       row('Network with leadership','Small boost, builds goodwill','',()=>{S.used.net=true;j.perf+=R(2,7)+(has('charming')?3:0)+Math.round(sk('ppl')/20);addSk('ppl',2);S.st.happy+=1;stay('I networked with the leadership team.')},S.used.net,1),
-      row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(rnd()<j.perf/140+sk('ppl')/500){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
+      row('Ask for a raise','Works better with high performance','',()=>{S.used.raise=true;if(rnd()<j.perf/140+sk('ppl')/500+(wpEnsure(j).boss-50)/300){j.s=Math.round(j.s*1.08);stay(`My boss gave me a raise to ${fmt(j.s)}.`,'good')}else{j.perf-=5;stay('My boss said no to the raise.','bad')}},S.used.raise,1),
       row('Ask for a promotion',next?`Next: ${next}. Needs performance 65%+, ${minYrs} yr${minYrs>1?'s':''} in role, smarts ${reqSm(C,j.lvl+1)}+`:'Already at the top','',()=>{S.used.promo=true;
         if(j.perf<65||j.lvlYrs<minYrs||S.st.smarts<reqSm(C,j.lvl+1)){j.perf-=4;return stay("My boss said I'm not ready for a promotion yet.",'bad')}
-        if(rnd()<j.perf/110)stay(promote(j),'good');else{j.perf-=4;stay('I was passed over for the promotion.','bad')}},S.used.promo||!next,1),
+        if(rnd()<j.perf/110*wpPromoF(j))stay(promote(j),'good');else{j.perf-=4;stay('I was passed over for the promotion.','bad')}},S.used.promo||!next,1),
       row('Steal office supplies','Tiny profit, real risk','',()=>{S.used.steal=true;if(rnd()<.12){const t=title(j);S.job=null;stay(`I got caught stealing supplies and was fired as a ${t}.`,'bad')}else{addKarma(-2);S.money+=R(50,300);stay('I "borrowed" some office supplies. Nobody noticed.')}},S.used.steal),
-      row('Quit','Leave this job','',()=>{const t=title(j);S.job=null;stay(`I quit my job as a ${t}.`)}));
+      row('Quit','Leave this job','',()=>wpQuit(j)));
     if(S.age>=60)s.append(row('Retire',C.pub?'Public-sector pension: 2% of salary for each year served, up to 70%':'Live off savings, the retirement account and any state pension','',()=>{S.pension=C.pub?Math.round(j.s*Math.min(.7,.02*(S.py||0))):0;S.retired=true;const t=title(j);S.job=null;mile(`Retired as a ${t}`);stay(`I retired from being a ${t}.${S.pension?` Pension: ${fmt(S.pension)}/yr.`:''}`,'good')}));
   }
   if(!j&&S.age>=60&&!S.retired)s.append(row('Retire','Live off savings, the retirement account and any state pension','',()=>{S.retired=true;mile('Retired');stay('I retired.','good');}));
@@ -4161,7 +4165,7 @@ function yrHealth(){
   const adult=age>=18,sc=hcScale();
   // lifestyle costs and effects
   if(adult){let c=0;c+=[0,0,3000][H.diet]*sc;c+=[0,600,3500][H.ex]*sc;c+=H.smoke?2200*sc:0;c+=[0,900,3200][H.alc]*sc;
-    const ins=HC_INS.find(x=>x[0]===H.ins)[2]*sc;c+=ins;
+    const ins=HC_INS.find(x=>x[0]===H.ins)[2]*sc*(S.job&&S.job.wp&&S.job.wp.ben?.4:1);c+=ins;
     if(H.clinic)c+=40000*Math.max(.5,resC().pp);
     if(H.check)c+=350*sc;
     if(c>0)S.money-=Math.round(c);
@@ -6000,6 +6004,67 @@ function htEvent(b,x,rev){
   ev.push(()=>({text:'A big company asks to sign a corporate contract for rooms and meetings.',ch:[['Sign it at a discount',()=>{b.cash+=Math.round(rev*.03);return 'The contract steadied our weekday bookings.';}],['Hold out for full price',()=>{if(rnd()<.4){b.cash+=Math.round(rev*.04);return 'They agreed to full price.';}return 'They went elsewhere.';}]]}));
   if(rnd()<.2)ev.push(()=>({text:`A kitchen fire broke out at ${b.name}.`,ch:[['Close for repairs',()=>{const c=Math.round(rev*.06);b.cash-=c;x.rating=Math.max(1,x.rating-.3);return `The repairs cost ${fmt(c)} and we lost bookings.`;}]]}));
   Q.push(pick(ev)());}
+/* ================= the workplace: boss, rivals, mentors, career track, remote work, training, offers and notice ================= */
+function wpNew(C,lvl){return {boss:R(45,65),rival:null,mentor:false,track:null,rem:false,ben:!!(C.pub||lvl>=1||rnd()<.7)};}
+function wpEnsure(j){if(!j.wp)j.wp=wpNew(CAREERS[j.c],j.lvl);return j.wp;}
+const wpPromoF=j=>{const w=wpEnsure(j);return (w.rival?.65:1)*(w.mentor?1.15:1)*(1+(w.boss-50)/200)*((S.flags.cert||{})[j.c]?1.1:1);};
+function wpOffer(o,had,t){
+  const take=(pay,msg)=>{hire(o.c,o.lvl,pay);S.jobOpen.list=S.jobOpen.list.filter(y=>y!==o);stay(`${msg?msg+' ':''}I got hired as a ${t}${o.co?` at ${o.co}`:''} at ${fmt(pay)} a year!${had?' I left my old job.':''}${S.job.wp.ben?' The job comes with health insurance.':''}`,'good');};
+  choiceModal(`Job offer: ${t}`,`${o.co?o.co+' offers':'They offer'} ${fmt(o.pay)} a year. I can accept, or try to negotiate.`,[
+    [`Accept ${fmt(o.pay)}`,()=>take(o.pay)],
+    [`Negotiate for ${fmt(Math.round(o.pay*1.12))}`,()=>{const p=.45+sk('ppl')/400+(S.st.smarts-50)/400+(has('charming')?.08:0);
+      if(rnd()<p)take(Math.round(o.pay*1.12),'They agreed to my number.');
+      else if(rnd()<.2){S.jobOpen.list=S.jobOpen.list.filter(y=>y!==o);stay('I pushed too hard and they withdrew the offer.','bad');}
+      else take(o.pay,'They held firm.');}],
+    ['Turn it down',()=>{stay('I turned the offer down.');}]]);}
+function wpQuit(j){
+  const t=title(j);
+  choiceModal('Hand in my notice?',`I would leave my job as a ${t}.${j.perf>=65?' My boss may try to keep me.':''}`,[
+    ['Hand in my notice',()=>{
+      if(j.perf>=65&&rnd()<.5){const pay=Math.round(j.s*1.15);
+        Q.push({text:`My boss offers ${fmt(pay)} (15% more) to keep me as a ${t}.`,ch:[['Stay for the raise',()=>{j.s=pay;wpEnsure(j).boss=Math.min(100,wpEnsure(j).boss+5);return 'I stayed for the raise.';}],['Leave anyway',()=>{S.job=null;return `I left my job as a ${t}.`;}]]});stay();return;}
+      S.job=null;stay(`I quit my job as a ${t}.`);}],
+    ['Stay',()=>{}]]);}
+function yrWorkplace(){
+  const j=S.job;if(!j||S.jail||!S.alive)return;const w=wpEnsure(j),C=CAREERS[j.c],t=title(j);
+  w.boss=Math.max(0,Math.min(100,w.boss+(j.perf-55)/14+(j.style==='hustle'?2:j.style==='slack'?-3:0)+R(-3,3)-(w.rival?1:0)));
+  j.perf=Math.max(0,Math.min(100,j.perf+(w.boss-50)/25+(w.mentor?3:0)+(w.rem?-2:0)));
+  if(w.rem){S.st.happy=Math.max(0,Math.min(100,S.st.happy+2));S.money+=Math.round(j.s*.02);}
+  if(w.track==='mgr'){S.st.happy=Math.max(0,S.st.happy-1);j.s=Math.round(j.s*1.01);addSk('ppl',1);}else if(w.track==='ic')addSk('tech',1);
+  // a boss who has lost faith can push me out
+  if(w.boss<22&&rnd()<.12){const sev=Math.round(j.s*.1);S.money+=sev;S.job=null;S.st.happy-=10;line(`My boss pushed me out of my job as a ${t}. I got ${fmt(sev)} in severance.`,'bad');return;}
+  // a new boss every so often
+  if(rnd()<.08){const old=w.boss;w.boss=R(35,70);line(`🧑‍💼 A new manager took over my team. ${w.boss>old?'It looks like a good change.':'We will have to get to know each other.'}`);}
+  if(!canManage())return;
+  // career track at the first step up
+  if(!w.track&&j.lvl>=1){Q.push({text:`My employer asks where I want my career to go: managing a team, or becoming a senior specialist?`,ch:[
+    ['Move into management',()=>{w.track='mgr';return 'I took the management track. More money and more stress.';}],
+    ['Stay a specialist',()=>{w.track='ic';return 'I stayed a specialist and kept building my craft.';}]]});return;}
+  // a rival for the same promotion
+  if(!w.rival&&rnd()<.14){const n=fullName(pick(['M','F']));w.rival={n,skill:R(40,90)};
+    Q.push({text:`${n}, a colleague, is going after the same promotion as me.`,ch:[
+      ['Outwork them',()=>{if(rnd()<.55+(j.perf-w.rival.skill)/200){w.rival=null;j.perf=Math.min(100,j.perf+6);unlock('wprival');return `My results spoke for themselves and ${n} backed off.`;}j.perf=Math.min(100,j.perf+3);return `${n} kept pace. The race is still on.`;}],
+      ['Befriend them',()=>{w.rival=null;S.st.happy+=3;return `${n} and I became allies instead.`;}],
+      ['Undermine them behind the scenes',()=>{if(rnd()<.5){w.rival=null;addKarma(-5);return `${n} was sidelined. I do not feel great about it.`;}w.boss=Math.max(0,w.boss-15);j.perf=Math.max(0,j.perf-8);return 'It backfired and my boss found out.';}],
+      ['Ignore them',()=>`I kept my head down.`]]});return;}
+  // a mentor
+  if(!w.mentor&&w.boss>=65&&j.lvl>=1&&rnd()<.15)Q.push({text:`A senior leader offers to mentor me.`,ch:[['Accept',()=>{w.mentor=true;unlock('wpmentor');return 'I have a mentor now. Doors will open faster.';}],['Politely decline',()=>'I decided to find my own way.']]});
+  else if(rnd()<.18){
+    const ev=[()=>({text:'My team is being restructured.',ch:[['Volunteer to lead the change',()=>{if(rnd()<.55){j.perf=Math.min(100,j.perf+8);w.boss=Math.min(100,w.boss+8);return 'I led the change and got noticed.';}j.perf=Math.max(0,j.perf-4);return 'It was a mess, and I took the blame.';}],['Keep a low profile',()=>'I rode it out.']]}),
+      ()=>({text:'A high-profile project is looking for an owner.',ch:[['Take it on',()=>{if(rnd()<.5+j.perf/300){j.perf=Math.min(100,j.perf+10);S.money+=Math.round(j.s*.05);return 'It was a success, and I got a bonus.';}j.perf=Math.max(0,j.perf-6);return 'It struggled, and so did my standing.';}],['Pass',()=>'I passed. Someone else got the credit.']]}),
+      ()=>({text:'Office gossip about me is spreading.',ch:[['Address it directly',()=>{w.boss=Math.min(100,w.boss+3);return 'I cleared the air and gained some respect.';}],['Ignore it',()=>{w.boss=Math.max(0,w.boss-4);return 'It lingered longer than I hoped.';}]]})];
+    Q.push(pick(ev)());}
+}
+function wpBlock(s,j,C){
+  const w=wpEnsure(j),ro=!canManage(),k=cpiF();
+  s.append(h('p',{className:'label'},'The workplace'),...spBar('Relationship with my boss',w.boss,'happy'));
+  s.append(h('p',{className:'sub'},`${w.rival?`Rival for promotion: ${w.rival.n}. `:''}${w.mentor?'I have a mentor. ':''}${w.track?`Track: ${w.track==='mgr'?'management':'specialist'}. `:''}${w.ben?'My job includes health insurance.':'No employer health insurance.'}`));
+  s.append(tog('🏠 Work remotely','Saves about 2% of pay in commuting and lifts happiness, but my performance and standing slip a little',w.rem,()=>{w.rem=!w.rem;stay();},ro));
+  const cc=Math.round(3000*k*(.4+.6*resC().pp));
+  s.append(row('📚 Take a professional course',`Costs ${fmt(cc)}. Builds skills and performance`,'',()=>{S.money-=cc;S.used.course=true;j.perf=Math.min(100,j.perf+R(4,9));addSk(C.sm>=40?'tech':'ppl',2);stay('I took a course after hours.');},ro||S.used.course||S.money<cc,1));
+  const cert=(S.flags.cert||{})[j.c];
+  s.append(row(cert?'🎓 Certified in this field':'🎓 Get a professional certification',cert?'Helps with job offers and promotions':`Costs ${fmt(cc*2)}. Helps with job offers and promotions in ${C.n.toLowerCase()}`,'',()=>{S.money-=cc*2;S.flags.cert=S.flags.cert||{};S.flags.cert[j.c]=true;j.perf=Math.min(100,j.perf+3);stay('I earned a professional certification.','good');},ro||!!cert||S.money<cc*2,1));
+}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};
