@@ -134,7 +134,12 @@ dt{color:var(--muted)} dd{margin:0;font-weight:700;text-align:right}
 .chip.pick{background:var(--sun);color:var(--sunInk);border-color:var(--sun);font-weight:700}
 button.chip{font:inherit;font-size:.75rem;cursor:pointer}
 .chip.good{color:var(--good);border-color:var(--good)} .chip.bad{color:var(--bad);border-color:var(--bad)}
-@media (prefers-reduced-motion: reduce){ .bar i,.toggle .sw::after{transition:none} .pop,.toast{animation-duration:.01s;animation-delay:1.5s} }
+@keyframes flashUp{0%{color:var(--good);transform:scale(1.08)}100%{color:inherit;transform:none}}
+@keyframes flashDown{0%{color:var(--bad);transform:scale(1.08)}100%{color:inherit;transform:none}}
+@keyframes bump{0%{filter:brightness(1.7)}100%{filter:none}}
+.cash b.up{animation:flashUp .9s ease}.cash b.down{animation:flashDown .9s ease}.cash b{transform-origin:right center}
+.bar i.bump{animation:bump .8s ease}
+@media (prefers-reduced-motion: reduce){ .cash b.up,.cash b.down,.bar i.bump{animation:none} .bar i,.toggle .sw::after{transition:none} .pop,.toast{animation-duration:.01s;animation-delay:1.5s} }
 </style>
 </head>
 <body>
@@ -2925,12 +2930,22 @@ function pops(){
 }
 
 /* ================= UI core ================= */
-let curSheet=null,flash=null;
+let curSheet=null,flash=null,shownCash=null,shownId=null,cashAnim=null,prevSt=null;
+/* the cash figure counts to its new value and flashes green or red, so gains and losses are felt, not read */
+function animateMoney(){
+  const el=$('money'),to=S.money,still=Math.abs(to-(shownCash==null?to:shownCash))<1||shownId!==S.id||!window.requestAnimationFrame||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  shownId=S.id;
+  if(still){shownCash=to;el.textContent=fmt(to);return;}
+  const from=shownCash,t0=performance.now();shownCash=to;
+  el.classList.remove('up','down');void el.offsetWidth;el.classList.add(to>from?'up':'down');
+  if(cashAnim)cancelAnimationFrame(cashAnim);
+  const step=t=>{const k=Math.min(1,(t-t0)/550),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)cashAnim=requestAnimationFrame(step);else el.textContent=fmt(to);};
+  cashAnim=requestAnimationFrame(step);}
 function render(){
   $('nm').textContent=S.name;
   $('meta').textContent=`Age ${S.age}, ${S.city}${S.gen>1?`, gen ${S.gen}`:''}`;
   $('traits').innerHTML='';S.traits.forEach(t=>$('traits').append(h('span',{className:'chip',title:TRAITS[t].d},`${TRAITS[t].ic} ${TRAITS[t].n}`)));
-  $('money').textContent=fmt(S.money);$('money').style.color=S.money<0?'var(--bad)':'';
+  animateMoney();$('money').style.color=S.money<0?'var(--bad)':'';
   const em=energyMax(),el=energyLeft();$('energy').textContent=S.alive?'⚡'.repeat(el)+'○'.repeat(Math.max(0,em-el)):'';$('energy').title=`${el} of ${em} energy left this year`;
   const log=$('log');log.innerHTML='';
   if(saveFail)log.append(h('div',{className:'yr'},h('p',{className:'bad'},'Warning: this life could not be saved. Storage may be full. Back up your life from the menu.')));
@@ -2940,6 +2955,8 @@ function render(){
   const st=$('stats');st.innerHTML='';
   [['Happiness','happy'],['Health','health'],['Smarts','smarts'],['Looks','looks']].forEach(([l,k])=>
     st.append(h('div',{className:'stat'},h('span',{},l),h('div',{className:'bar'},h('i',{style:`width:${S.st[k]}%;background:var(--${k})`})),h('em',{},S.st[k]+'%'))));
+  if(prevSt&&prevSt.id===S.id)[...st.querySelectorAll('.bar i')].forEach((i,n)=>{const k=['happy','health','smarts','looks'][n];if(k&&prevSt.v[k]!==S.st[k])i.classList.add('bump');});
+  prevSt={id:S.id,v:{...S.st}};
   st.append(h('small',{style:'grid-column:1/-1;text-align:center;opacity:.6;font-size:12px'},'Tap for karma, skills and more ›'));
   $('bAge').innerHTML=S.alive?'<span class="plus">+</span>Age':'<span class="plus">↻</span>Again';
   const ub=$('bUndo');
