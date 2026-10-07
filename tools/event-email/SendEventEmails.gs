@@ -23,10 +23,10 @@ const CONFIG = {
   senderName: 'Beyond Insights',                     // TODO: confirm
   replyTo: '',                                       // optional
   runHour: 9,                                        // daily run time (script time zone)
-  subject: 'You are confirmed for our event',        // TODO: edit
+  subject: 'You are confirmed for our event'         // TODO: edit
 };
 
-// TODO: edit the wording. {{name}} is replaced with the person's name.
+// TODO: edit the wording. Each quoted line below is one line of the email.
 function buildBody_(name) {
   return [
     'Hi ' + name + ',',
@@ -36,8 +36,8 @@ function buildBody_(name) {
     '[Event name / date / time / Zoom link here]',
     '',
     'See you there!',
-    CONFIG.senderName,
-  ].join('\n');
+    CONFIG.senderName
+  ].join(String.fromCharCode(10));
 }
 
 function sendEventEmails() {
