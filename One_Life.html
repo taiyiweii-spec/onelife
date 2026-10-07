@@ -1774,6 +1774,34 @@ const NAT_ROLES=[['Engineer','sci','Wants to build a deep-water port on their ow
 const NAT_SYM=['🏴','🚩','🏳️','⚑','🔱','⚜️'];
 const NAT_NAMES=['Nova','Aurel','Sol','Halcyon','Meridia','Vela','Atlas','Eden','Zenith','Oriel','Kestrel','Lumen','Calder','Verano','Isola'];
 const NAT_END=['ia','land','ora','ium','os','a'];
+const NAT_PROJ={
+  airport:{n:'Airport',ic:'✈️',cost:40e6,yrs:3,pop:800,rev:3e6,up:1.2e6,fx:{rep:3,pro:3},h:'Brings visitors. Tourism earns more.',tour:.25},
+  port:{n:'Deep-water port',ic:'⚓',cost:60e6,yrs:3,pop:600,rev:2.5e6,up:1.5e6,fx:{pro:4},h:'Customs and shipping income.'},
+  power:{n:'Power plant',ic:'⚡',cost:30e6,yrs:2,pop:400,rev:0,up:.8e6,fx:{pro:2},h:'Cuts public service costs by 10%.',svc:.1},
+  datac:{n:'Data centre',ic:'🖥️',cost:50e6,yrs:2,pop:500,rev:5e6,up:2e6,fx:{pro:3},h:'Hosting income from firms that want a quiet home.'},
+  ftz:{n:'Free trade zone',ic:'📦',cost:25e6,yrs:2,pop:500,rev:3e6,up:.8e6,fx:{pro:2},h:'Draws entrepreneurs and opportunists. Fees from firms.',grp:{entre:15,opp:8}},
+  univ:{n:'University',ic:'🎓',cost:35e6,yrs:3,pop:1000,rev:1e6,up:1.5e6,fx:{pro:3,rep:3},h:'Draws scientists and lifts Reputation.',grp:{sci:20}},
+  resort:{n:'Resort strip',ic:'🏖️',cost:70e6,yrs:3,pop:700,rev:4e6,up:2e6,fx:{rep:1,ord:-1},h:'Hotels and beaches. Tourism earns much more.',tour:.5},
+  fin:{n:'Financial centre',ic:'🏦',cost:120e6,yrs:4,pop:2000,rev:10e6,up:4e6,fx:{pro:5,rep:2},h:'Needs Reputation 50 or more. Draws investors.',minrep:50,grp:{invest:15}},
+  launch:{n:'Launch pad',ic:'🚀',cost:200e6,yrs:5,pop:1500,rev:12e6,up:5e6,fx:{rep:8,pro:3},h:'Satellite launches. A national prize.'},
+  desal:{n:'Desalination plant',ic:'💧',cost:20e6,yrs:2,pop:300,rev:0,up:.6e6,fx:{pro:1,ord:1},h:'Raises the number of people the site can hold by 20%.',cap:.2}};
+const NAT_ZONE={
+  fin:{n:'Finance',ic:'💹',mul:{corp:1.5},pj:['fin','ftz'],vuln:'a banking panic'},
+  tech:{n:'Technology',ic:'🧪',mul:{tax:1.15},pj:['datac'],vuln:'a cyber attack'},
+  tour:{n:'Tourism',ic:'🏖️',mul:{tour:1.5},pj:['airport','resort'],vuln:'a tourist slump'},
+  mfg:{n:'Manufacturing',ic:'🏭',mul:{tax:1.1},pj:['port','power'],vuln:'a supply shock'},
+  res:{n:'Research',ic:'🔭',mul:{},pj:['univ','launch'],vuln:'a brain drain',rep:2},
+  trade:{n:'Trade',ic:'🚢',mul:{},pj:['port','ftz'],vuln:'a customs blockade'}};
+const NAT_RATING=[['AAA',85,.03,3],['AA',75,.04,2.5],['A',66,.05,2],['BBB',57,.065,1.5],['BB',48,.085,1],['B',39,.11,.6],['CCC',30,.15,.3],['D',-999,.25,0]];
+function natEnsure(N){if(!N.proj)Object.assign(N,{zone:null,proj:[],done:{},inv:{},rate:3});return N;}
+const natPjCost=k=>Math.round(NAT_PROJ[k].cost*cpiF());
+function natPjRev(N,k){const P=NAT_PROJ[k],Z=N.zone&&NAT_ZONE[N.zone];let r=P.rev*cpiF()*(.6+N.m.rep/125+N.m.pro/250);if(Z&&Z.pj.includes(k))r*=1.4;return r;}
+function natRating(N){
+  const rv=Math.max(1e6,N.fin?N.fin.rev:1e6),co=Math.max(1e6,N.fin?N.fin.cost:1e6),m=N.m;
+  const sc=55+20*Math.min(1,Math.max(0,N.bal)/co)-25*Math.min(2,N.debt/rv)+(m.leg-50)*.25+(m.rep-50)*.15-N.corr*.15-N.late*10+N.inst.courts*2+(m.pro-50)*.1;
+  let i=NAT_RATING.findIndex(r=>sc>=r[1]);return i<0?7:i;
+}
+const natRate=N=>NAT_RATING[N.rate==null?3:N.rate];
 const natSc=N=>(NAT_SITES[N.site].up)*cpiF();
 const natLerp=(a,v)=>{const i=Math.max(0,Math.min(a.length-1,Math.floor(v))),j=Math.min(a.length-1,i+1);return a[i]+(a[j]-a[i])*(Math.max(0,Math.min(a.length-1,v))-i);};
 const natPop=N=>NAT_GK.reduce((t,k)=>t+Math.round(N.g[k]),0);
@@ -1797,7 +1825,7 @@ function natNew(site,idn,style,name,motto,flag,seed){
   roles.forEach(r=>N.cits.push(natPerson(r[0],r[1],r[2])));
   const fr=(S.fr&&S.fr.list||[]).slice().sort((a,b)=>b.close-a.close)[0];
   if(fr){const c=natPerson('Old friend','remote','Misses home and wonders if this was a good idea',fr);c.loy=Math.min(95,60+Math.round(fr.close/4));N.cits.push(c);}
-  natMeters(N,true);
+  natEnsure(N);natMeters(N,true);
   return N;
 }
 /* meter targets from laws, institutions, style, ministers and citizens */
@@ -1827,16 +1855,20 @@ function natCosts(N){
   const pop=natPop(N),sc=natSc(N),c=cpiF();
   const adm=600e3*sc*(1+pop/3000),inst=Object.entries(N.inst).reduce((t,[k,l])=>t+NAT_UP[l]*NAT_INST[k].w,0)*sc*(1+pop/2500),svc=pop*2000*c*(1+pop/4000),wel=pop*natLerp(NAT_WEL,natV(N,'welf'))*c,
     cab=Object.values(N.cab).filter(Boolean).length*150e3*c;
-  return {adm,inst,svc,wel,cab,tot:adm+inst+svc+wel+cab};
+  const pw=Object.keys(N.done||{}).includes('power')?.9:1,pup=Object.keys(N.done||{}).reduce((t,k)=>t+NAT_PROJ[k].up*c,0);
+  return {adm,inst,svc:svc*pw,wel,cab,pup,tot:adm+inst+svc*pw+wel+cab+pup};
 }
 function natRevenue(N,inflow){
   const c=cpiF(),T=NAT_SITES[N.site],coll=.5+.12*N.inst.taxo,rate=natLerp(NAT_RATE,natV(N,'tax')),m=N.m;
   const q=N.cits.find(x=>x.id===N.cab.fin),fm=q?1+(natQ(N,'fin',q)-50)/600:1;
   let tax=0;NAT_GK.forEach(k=>tax+=N.g[k]*NAT_G[k].inc*c*rate*coll);
   const corp=(N.g.entre*35e3+N.g.invest*120e3)*c*rate*coll*.8;
+  const Z=N.zone&&NAT_ZONE[N.zone],zm=k=>Z&&Z.mul[k]?Z.mul[k]:1;tax*=zm('tax');
   const visa=inflow*NAT_FEE[natV(N,'cit')>=3.5?4:Math.round(natV(N,'cit'))]*c;
   const tour=(natPop(N)*400+600e3*T.tour)*c*(m.rep/50)*Math.min(1.3,m.ord/60);
-  const o={tax:tax*fm,corp:corp*fm,visa,tour};o.rev=o.tax+o.corp+o.visa+o.tour;return o;
+  let tm=1;Object.keys(N.done||{}).forEach(k=>{tm+=NAT_PROJ[k].tour||0;});
+  let pj=0;Object.keys(N.done||{}).forEach(k=>pj+=natPjRev(N,k));
+  const o={tax:tax*fm,corp:corp*fm*zm('corp'),visa,tour:tour*tm*zm('tour'),pj,lic:Math.max(0,3-natV(N,'reg'))*.25e6*c*(natPop(N)/500)};o.rev=o.tax+o.corp+o.visa+o.tour+o.pj+o.lic;return o;
 }
 function natMigrate(N){
   const T=NAT_SITES[N.site],imm=natV(N,'imm'),cit=Math.round(natV(N,'cit')),immF=natLerp([0,.25,.6,1,1.4],imm)*[.3,.7,1,1.1,1.3][cit];
@@ -1849,8 +1881,8 @@ function natMigrate(N){
     d=Math.round(d+(rnd()-.5)*Math.max(1,g*.05));
     N.g[k]=Math.max(0,g+d);if(d>0)inflow+=d;
   });
-  const pop=natPop(N);
-  if(pop>T.cap){const f=T.cap/pop;NAT_GK.forEach(k=>N.g[k]=Math.floor(N.g[k]*f));}
+  const pop=natPop(N),cap=Math.round(T.cap*(N.done&&N.done.desal?1.2:1));
+  if(pop>cap){const f=cap/pop;NAT_GK.forEach(k=>N.g[k]=Math.floor(N.g[k]*f));}
   return inflow;
 }
 function natLawChange(N,k,to){
@@ -1927,7 +1959,7 @@ function natLoans(N){
     if(pay>0){N.bal-=pay;L.bal-=pay;S.money+=pay;paid+=pay;intr+=Math.min(pay,interest);L.late=Math.max(0,L.late-1);}
     if(pay<due*.99){L.late++;}
     if(L.bal<=50){N.loans=N.loans.filter(x=>x!==L);line(`🏦 ${N.name} repaid my loan in full.`,'good');}
-    else if(L.late>=3){N.loans=N.loans.filter(x=>x!==L);nM(N,{rep:-5,leg:-2});line(`💸 ${N.name} defaulted. I wrote off the remaining ${fmt(L.bal)} of my loan.`,'bad');}
+    else if(L.late>=3){N.loans=N.loans.filter(x=>x!==L);N.late++;nM(N,{rep:-5,leg:-2});line(`💸 ${N.name} defaulted. I wrote off the remaining ${fmt(L.bal)} of my loan.`,'bad');}
   });
   return paid;
 }
@@ -1945,8 +1977,24 @@ function natCorruption(N){
       ['Blame a minister',()=>{const c=N.cits.find(x=>Object.values(N.cab).includes(x.id));if(!c){nM(N,{leg:-9,rep:-8});return 'No one believed me.';}N.cits=N.cits.filter(x=>x!==c);Object.keys(N.cab).forEach(p=>{if(N.cab[p]===c.id)N.cab[p]=null;});nM(N,{leg:-5,rep:-3});N.corr=Math.round(N.corr*.7);return `${c.n.split(' ')[0]} took the fall, and everyone else will remember.`;}]]});}
   if(N.corr>=60&&N.inst.courts>=2&&rnd()<.3){const x=Math.min(Math.round(N.grab*.5),Math.max(0,S.money));S.money-=x;N.bal+=x;N.grab=Math.max(0,N.grab-x);N.corr=Math.round(N.corr*.5);nM(N,{leg:-10,rep:-8});line(`⚖️ The courts opened an investigation. I was ordered to return ${fmt(x)} to the treasury.`,'bad');}
 }
+function natProjects(N){
+  N.proj.slice().forEach(p=>{const P=NAT_PROJ[p.k],inst=Math.round(natPjCost(p.k)/P.yrs);
+    if(p.me)p.left--;else if(N.bal>=inst){N.bal-=inst;p.left--;}else line(`🏗️ Work on the ${P.n.toLowerCase()} in ${N.name} stalled: the treasury could not pay.`,'bad');
+    if(p.left<=0){N.proj=N.proj.filter(x=>x!==p);N.done[p.k]=1;if(p.me)N.inv[p.k]=.4;nM(N,P.fx);
+      if(P.grp)Object.keys(P.grp).forEach(g=>N.g[g]+=P.grp[g]);
+      line(`${P.ic} The ${P.n.toLowerCase()} in ${N.name} is open.${p.me?' I own 40% of its profit.':''}`,'good');}
+  });
+  Object.keys(N.inv).forEach(k=>{if(!N.done[k])return;const net=Math.max(0,natPjRev(N,k)-NAT_PROJ[k].up*cpiF()),pay=Math.min(Math.round(net*N.inv[k]),Math.max(0,Math.round(N.bal-natReserve(N))));if(pay>0){N.bal-=pay;S.money+=pay;N.fin.div=(N.fin.div||0)+pay;}});
+}
+function natShock(N){
+  const Z=NAT_ZONE[N.zone],rv=natRevEst(N);
+  Q.push({text:`⚠️ ${N.name} is hit by ${Z.vuln}, the risk of focusing on ${Z.n.toLowerCase()}.`,ch:[
+    ['Absorb it',()=>{N.bal-=Math.round(rv*.25);nM(N,{pro:-4,leg:-2});return `It cost the treasury ${fmt(rv*.25)} in lost income.`;}],
+    ['Launch a rescue package',()=>{N.bal-=Math.round(rv*.12);nM(N,{pro:-1});return `The rescue package cost ${fmt(rv*.12)} and softened the blow.`;}],
+    ['Pay for it from my own money',()=>{const x=Math.round(rv*.12);S.money-=x;nM(N,{pro:-1,leg:2});N.don+=1;return `I paid ${fmt(x)} myself.`;},()=>S.money<rv*.12]]});
+}
 function natYear(N){
-  N.yrs++;
+  N.yrs++;natEnsure(N);
   // laws settle
   Object.values(N.lw).forEach(L=>{if(L.v!==L.to){L.v=L.left<=1?L.to:L.v+(L.to-L.v)/L.left;L.left=Math.max(0,L.left-1);if(L.left===0)L.v=L.to;}});
   N.don=Math.round(N.don*.75);
@@ -1960,20 +2008,21 @@ function natYear(N){
   const rv=natRevenue(N,inflow),co=natCosts(N);
   N.fin={...rv,cost:co.tot,costs:co};
   N.bal+=rv.rev-co.tot;
-  const debtInt=Math.round(N.debt*.11);N.debt+=debtInt;N.bal-=debtInt;
+  const debtInt=Math.round(N.debt*natRate(N)[2]);N.debt+=debtInt;N.bal-=debtInt;
   const paid=natLoans(N);
   // salary
   let sal=0;
   if(N.sal>0){sal=Math.min(natSalary(N),Math.max(0,N.bal-natReserve(N)));N.bal-=sal;S.money+=sal;}
   N.fin.sal=sal;N.fin.net=rv.rev-co.tot-debtInt;N.fin.loanPaid=paid;
   if(N.debt>0&&N.bal>natReserve(N)){const x=Math.min(N.debt,N.bal-natReserve(N));N.debt-=x;N.bal-=x;}
+  natProjects(N);N.late=Math.max(0,N.late-.25);N.rate=natRating(N);
   natCorruption(N);
   // events: at most 3 cards a year in total
-  natDecisions(N);if(rnd()<.4)natStory(N);
+  natDecisions(N);if(rnd()<.4)natStory(N);if(N.zone&&rnd()<.14)natShock(N);
   if(N.bal<0){const need=Math.round(-N.bal);
     Q.push({text:`🏦 The ${N.name} treasury is ${fmt(need)} short and cannot pay its bills.`,ch:[
       [`Cover it from my own money`,()=>{const x=Math.min(need,Math.max(0,S.money));S.money-=x;N.bal+=x;if(x<need){nM(N,{leg:-3});}return `I put ${fmt(x)} into the treasury.`;},()=>S.money<need*.2],
-      ['Borrow on the market at 11%',()=>{N.debt+=need;N.bal+=need;nM(N,{rep:-2});return `We borrowed ${fmt(need)}. The interest will follow us.`;}],
+      [`Borrow on the market at ${Math.round(natRate(N)[2]*100)}%`,()=>{N.debt+=need;N.bal+=need;nM(N,{rep:-2});return `We borrowed ${fmt(need)}. The interest will follow us.`;}],
       ['Cut services',()=>{N.bal=0;nM(N,{leg:-6,ord:-4,pro:-3});return 'Services were cut hard. People felt it at once.';}]]});}
   // endings and records
   const pop=natPop(N);
@@ -1993,12 +2042,12 @@ function natSheet(){if(!S.nat&&!NF)NF={site:'island',idn:'lib',style:'pre',name:
 function natRandName(){return pick(NAT_NAMES)+pick(NAT_END);}
 function drawNat(s){
   s.append(h('button',{className:'back',on:()=>{wbTab='careers';closeSheet();jobSheet();}},'‹ Work'),h('h3',{},'🏝️ Nation'));
-  const ro=!S.alive||!!S.jail,N=S.nat;
+  const ro=!S.alive||!!S.jail,N=S.nat?natEnsure(S.nat):null;
   if(!N)return natFound(s,ro);
   s.append(h('p',{className:'sub'},`${N.flag} ${N.name}, "${N.motto}". Year ${N.yrs} of my rule.`));
   ['pro','ord','fre','leg','rep'].forEach(k=>s.append(...mbar({pro:'Prosperity',ord:'Order',fre:'Freedom',leg:'Legitimacy',rep:'Reputation'}[k],N.m[k],k==='ord'?'smarts':k==='fre'?'looks':k==='rep'?'happy':'health')));
-  s.append(h('div',{className:'tabs'},[['over','Overview'],['gov','Government'],['cit','Citizens'],['tre','Treasury']].map(([v,l])=>h('button',{'aria-pressed':String(natTab===v),on:()=>{natTab=v;drawSheet();}},l))));
-  if(natTab==='over')natOver(s,N,ro);else if(natTab==='gov')natGov(s,N,ro);else if(natTab==='cit')natCit(s,N,ro);else natTre(s,N,ro);
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['gov','Government'],['cit','Citizens'],['eco','Economy'],['tre','Treasury']].map(([v,l])=>h('button',{'aria-pressed':String(natTab===v),on:()=>{natTab=v;drawSheet();}},l))));
+  if(natTab==='over')natOver(s,N,ro);else if(natTab==='gov')natGov(s,N,ro);else if(natTab==='cit')natCit(s,N,ro);else if(natTab==='eco')natEco(s,N,ro);else natTre(s,N,ro);
 }
 function natFound(s,ro){
   const nw=netWorth();
@@ -2025,6 +2074,7 @@ function natOver(s,N,ro){
   const pop=natPop(N),f=N.fin;
   s.append(h('dl',{},h('dt',{},'Citizens'),h('dd',{},pop.toLocaleString()+` of ${NAT_SITES[N.site].cap.toLocaleString()}`),h('dt',{},'Treasury'),h('dd',{},fmt(N.bal)),h('dt',{},'Nation score'),h('dd',{},String(natScore(N))),
     h('dt',{},'Ruler'),h('dd',{},`${NAT_STYLE[N.style].ic} ${NAT_STYLE[N.style].n}`),h('dt',{},'Site'),h('dd',{},`${NAT_SITES[N.site].ic} ${NAT_SITES[N.site].n}`)));
+  s.append(h('p',{className:'sub'},`Credit rating ${natRate(N)[0]}${N.zone?`. Economic focus: ${NAT_ZONE[N.zone].n}`:''}.`));
   if(f)s.append(h('p',{className:'sub'},`Last year the treasury took in ${fmt(f.rev)} and spent ${fmt(f.cost)}.`));
   if(N.corr>=25)s.append(h('p',{className:'sub warn'},'There are rumours about the treasury.'));
   if(N.m.leg<25)s.append(h('p',{className:'sub warn'},'Legitimacy is dangerously low. Unrest could end my rule.'));
@@ -2061,19 +2111,43 @@ function natCit(s,N,ro){
   N.cits.forEach(c=>{const hold=Object.keys(N.cab).find(p=>N.cab[p]===c.id);
     s.append(row(`${c.n}, ${c.role}${c.fr?' (friend)':''}`,`${hold?'Minister for '+NAT_POST[hold].n.toLowerCase()+'. ':''}Loyalty ${c.loy>=70?'strong':c.loy>=45?'steady':c.loy>=25?'wavering':'low'}.${c.rev?' Secret known: '+c.sec+'.':''}`,`Skill ${c.sk}`,null,true));});
 }
+function natEco(s,N,ro){
+  const rt=natRate(N),pop=natPop(N);
+  s.append(h('p',{className:'sub'},`Credit rating ${rt[0]}. Borrowing costs ${Math.round(rt[2]*100)}% a year. The rating falls with debt, an empty treasury, low Legitimacy, corruption and defaults.`));
+  s.append(h('h4',{},'Economic focus'),h('p',{className:'sub'},'A focus lifts that sector and its projects by about 40%, and brings a matching risk. Changing it costs '+fmt(3e6*cpiF())+'.'));
+  s.append(seg([['none','None'],...Object.entries(NAT_ZONE).map(([k,z])=>[k,z.ic+' '+z.n])],N.zone||'none',v=>{v=v==='none'?null:v;if(v===N.zone)return;const c=Math.round(3e6*cpiF());if(N.bal<c){toast('The treasury needs '+fmt(c)+' for that.');return;}N.bal-=c;N.zone=v;if(v)nM(N,{rep:NAT_ZONE[v].rep||0});stay(v?`${N.name} now focuses on ${NAT_ZONE[v].n.toLowerCase()}.`:`${N.name} dropped its economic focus.`);}));
+  if(N.zone)s.append(h('p',{className:'sub'},`Risk: ${NAT_ZONE[N.zone].vuln}.`));
+  if(N.proj.length){s.append(h('h4',{},'Under construction'));N.proj.forEach(p=>{const P=NAT_PROJ[p.k];s.append(row(`${P.ic} ${P.n}`,`${p.left} year${p.left>1?'s':''} to go. ${p.me?'Funded by me':'Treasury pays '+fmt(natPjCost(p.k)/P.yrs)+' a year'}`,'',null,true));});}
+  const dn=Object.keys(N.done);
+  if(dn.length){s.append(h('h4',{},'Built'));dn.forEach(k=>{const P=NAT_PROJ[k];s.append(row(`${P.ic} ${P.n}`,`Earns about ${fmt(natPjRev(N,k))}, upkeep ${fmt(P.up*cpiF())}${N.inv[k]?'. I own 40% of the profit':''}`,'',null,true));});}
+  s.append(h('h4',{},'Start a project'),h('p',{className:'sub'},'Up to 2 at once. The treasury pays in yearly instalments, or I can fund one myself and keep 40% of its profit.'));
+  Object.entries(NAT_PROJ).forEach(([k,P])=>{
+    if(N.done[k]||N.proj.some(p=>p.k===k))return;
+    const c=natPjCost(k),why=pop<P.pop?`Needs ${P.pop.toLocaleString()} citizens.`:P.minrep&&N.m.rep<P.minrep?`Needs Reputation ${P.minrep}.`:N.proj.length>=2?'Two projects are already underway.':'';
+    s.append(row(`${P.ic} ${P.n}`,`${why||P.h} ${P.yrs} years. About ${fmt(P.rev*cpiF())} a year in income, upkeep ${fmt(P.up*cpiF())}.`,fmt(c),()=>choiceModal(`Build the ${P.n.toLowerCase()}?`,`Total cost ${fmt(c)} over ${P.yrs} years.`,[
+      [`The treasury pays (${fmt(c/P.yrs)} a year)`,()=>{N.proj.push({k,left:P.yrs,me:false});stay(`${N.name} began building a ${P.n.toLowerCase()}.`);}],
+      [`I fund it for 40% of the profit (${fmt(c)} now)`,()=>{S.money-=c;N.proj.push({k,left:P.yrs,me:true});stay(`I am funding a ${P.n.toLowerCase()} in ${N.name}.`);},()=>S.money<c],
+      ['Not now',()=>{}]]),ro||!!why));
+  });
+}
 function natTre(s,N,ro){
   const f=N.fin,res=natReserve(N);
   s.append(h('dl',{},h('dt',{},'Treasury'),h('dd',{},fmt(N.bal)),h('dt',{},'Reserve to keep'),h('dd',{},fmt(res)),h('dt',{},'My money'),h('dd',{},fmt(S.money)),h('dt',{},'Market debt'),h('dd',{},fmt(N.debt)),
     h('dt',{},'Owed to me'),h('dd',{},fmt(N.loans.reduce((t,l)=>t+l.bal,0)))));
-  if(f)s.append(h('h4',{},'Last year'),h('dl',{},h('dt',{},'Taxes'),h('dd',{},fmt(f.tax+f.corp)),h('dt',{},'Citizenship fees'),h('dd',{},fmt(f.visa)),h('dt',{},'Tourism'),h('dd',{},fmt(f.tour)),
+  if(f)s.append(h('h4',{},'Last year'),h('dl',{},h('dt',{},'Projects and licences'),h('dd',{},fmt((f.pj||0)+(f.lic||0))),h('dt',{},'Project dividends to me'),h('dd',{},fmt(f.div||0)),h('dt',{},'Project upkeep'),h('dd',{},fmt(f.costs.pup||0)),h('dt',{},'Taxes'),h('dd',{},fmt(f.tax+f.corp)),h('dt',{},'Citizenship fees'),h('dd',{},fmt(f.visa)),h('dt',{},'Tourism'),h('dd',{},fmt(f.tour)),
     h('dt',{},'Running costs'),h('dd',{},fmt(f.costs.adm+f.costs.cab+f.costs.svc)),h('dt',{},'Institutions'),h('dd',{},fmt(f.costs.inst)),h('dt',{},'Welfare, health and education'),h('dd',{},fmt(f.costs.wel)),h('dt',{},'Paid to me as salary'),h('dd',{},fmt(f.sal)),h('dt',{},'Loan repayments to me'),h('dd',{},fmt(f.loanPaid))));
   s.append(h('h4',{},'Put money in'));
   s.append(row('🎁 Donate','A gift to the nation. Lifts Legitimacy and Reputation a little. I will not get it back','',()=>amountModal({title:'Donate to the treasury',sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,Math.round(5e6*cpiF())),btn:a=>`Donate ${fmt(a)}`,onOk:a=>{S.money-=a;N.bal+=a;N.don=Math.min(8,N.don+Math.round(a/natRevEst(N)*6));const x=Math.max(1,Math.min(5,Math.round(a/natRevEst(N)*4)));nM(N,{leg:x,rep:Math.ceil(x/2)});stay(`I donated ${fmt(a)} to ${N.name}.`,'good');}}),ro||S.money<1e5));
   s.append(row('🏦 Lend to the nation','I set the rate. The treasury repays from revenue. If it defaults, I lose the rest','',()=>amountModal({title:'Loan to the nation',sub:`I have ${fmt(S.money)}.`,max:S.money,init:Math.min(S.money,Math.round(5e6*cpiF())),btn:a=>`Lend ${fmt(a)}`,onOk:a=>choiceModal('Interest rate','What does the nation pay me each year?',[0,.03,.06,.09,.12].map(r=>[`${Math.round(r*100)}% a year`,()=>{S.money-=a;N.bal+=a;N.loans.push({bal:a,rate:r,late:0,age:S.age});stay(`I lent ${fmt(a)} to ${N.name} at ${Math.round(r*100)}%.`);}]))}),ro||S.money<1e5));
+  s.append(h('h4',{},'Borrow and repay'));
+  const rt=natRate(N),bcap=Math.max(0,Math.round(natRevEst(N)*rt[3]-N.debt));
+  s.append(row('🏛️ Borrow on the market',`Rating ${rt[0]}, interest ${Math.round(rt[2]*100)}%. Room to borrow ${fmt(bcap)}`,'',()=>amountModal({title:'Borrow for the nation',sub:`Interest ${Math.round(rt[2]*100)}% a year.`,max:bcap,init:Math.round(bcap/3),btn:a=>`Borrow ${fmt(a)}`,onOk:a=>{N.debt+=a;N.bal+=a;stay(`${N.name} borrowed ${fmt(a)}.`);}}),ro||bcap<1e5));
+  if(N.debt>0)s.append(row('💳 Repay market debt',`Owed ${fmt(N.debt)}`,'',()=>amountModal({title:'Repay debt',sub:`Treasury ${fmt(N.bal)}.`,max:Math.min(N.debt,Math.max(0,N.bal-res)),init:Math.min(N.debt,Math.max(0,N.bal-res)),btn:a=>`Repay ${fmt(a)}`,onOk:a=>{N.debt-=a;N.bal-=a;stay();}}),ro||N.bal-res<1e5));
   s.append(h('h4',{},'Take money out'));
   const room=Math.max(0,N.bal-res);
   s.append(row('🧾 Salary',`Set under Government. Now ${N.sal?fmt(natSalary(N)):'none'} a year.`,'',null,true));
-  s.append(row('🤝 Dividends','Only from national companies I part-own. They arrive in a later stage','',null,true));
+  const dv=Object.keys(N.inv).filter(k=>N.done[k]);
+  s.append(row('🤝 Dividends',dv.length?`I part-own: ${dv.map(k=>NAT_PROJ[k].n).join(', ')}. Paid each year`:'From projects I part-own. Fund one personally under Economy','',null,true));
   s.append(row('⚠️ Take money directly',`Up to ${fmt(room)} while keeping the reserve. This is corruption: it can leak, hurts Legitimacy, and can bring an investigation`,'',()=>amountModal({title:'Take money from the treasury',sub:`This is corruption. The treasury must keep ${fmt(res)}.`,max:room,init:Math.round(room*.2),btn:a=>`Take ${fmt(a)}`,onOk:a=>{
     const rev=natRevEst(N);N.bal-=a;S.money+=a;N.grab+=a;N.corr=Math.min(100,N.corr+Math.max(4,Math.round(a/rev*60)));nM(N,{leg:-Math.min(8,Math.max(1,Math.round(a/rev*10)))});stay(`I took ${fmt(a)} from the ${N.name} treasury.`,'bad');}}),ro||room<1e5));
   if(N.loans.length){s.append(h('h4',{},'My loans'));N.loans.forEach(L=>s.append(row(`${fmt(L.bal)} outstanding`,`${Math.round(L.rate*100)}% a year, lent at age ${L.age}${L.late?`, ${L.late} late year${L.late>1?'s':''}`:''}`,'',null,true)));}
