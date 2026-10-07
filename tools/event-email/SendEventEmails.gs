@@ -24,6 +24,12 @@ const CONFIG = {
   senderName: 'Beyond Insights',                     // TODO: confirm
   replyTo: '',                                       // optional
   copyToSheet: 'A',                                  // tab that receives the Yes rows
+  calendarSentHeader: 'Calendar invited',           // created automatically if missing
+  eventTitle: 'Our Event',                           // TODO: edit
+  eventStart: '2026-10-28T20:00:00+08:00',           // TODO: edit (date, time, timezone)
+  eventEnd: '2026-10-28T21:00:00+08:00',             // TODO: edit
+  eventDescription: 'Join link: [add Zoom link here]', // TODO: edit
+  eventLocation: '',                                 // optional, e.g. the Zoom link
   runHour: 9,                                        // daily run time (script time zone)
   subject: 'You are confirmed for our event',        // TODO: edit
   noSubject: 'Can we ask why you cannot join?'       // TODO: edit
@@ -101,6 +107,7 @@ function sendEventEmails() {
   });
 
   copyYesToTab();
+  inviteYesToCalendar();
 }
 
 /** Copies every "Yes" row (without the Email sent column) into tab A. Skips rows already copied. */
@@ -148,6 +155,68 @@ function copyYesToTab() {
 }
 
 /** Run once: creates the daily trigger (replaces any existing one for this script). */
+/** Adds every "Yes" person to ONE shared calendar event (created on first use) and marks them Done. */
+function inviteYesToCalendar() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(CONFIG.sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return;
+
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
+  const col = h => headers.indexOf(h);
+
+  let calCol = col(CONFIG.calendarSentHeader);
+  if (calCol === -1) {
+    calCol = lastCol;
+    sheet.getRange(1, calCol + 1).setValue(CONFIG.calendarSentHeader);
+  }
+  const emailCol = col(CONFIG.emailHeader);
+  const fallbackCol = col(CONFIG.fallbackEmailHeader);
+  const answerCol = col(CONFIG.answerHeader);
+  if (answerCol === -1 || (emailCol === -1 && fallbackCol === -1)) return;
+
+  const width = Math.max(lastCol, calCol + 1);
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, width).getValues();
+
+  const pending = [];
+  rows.forEach((row, i) => {
+    if (String(row[answerCol]).trim().toLowerCase() !== CONFIG.yesValue.toLowerCase()) return;
+    if (String(row[calCol] || '').trim().toLowerCase() === CONFIG.sentValue.toLowerCase()) return;
+    let to = emailCol > -1 ? String(row[emailCol]).trim() : '';
+    if (!to && fallbackCol > -1) to = String(row[fallbackCol]).trim();
+    if (to) pending.push({ rowNumber: i + 2, email: to });
+  });
+  if (!pending.length) return;
+
+  const event = getOrCreateEvent_();
+  pending.forEach(p => {
+    try {
+      event.addGuest(p.email);
+      sheet.getRange(p.rowNumber, calCol + 1).setValue(CONFIG.sentValue);
+      SpreadsheetApp.flush();
+    } catch (err) {
+      console.error('Calendar row ' + p.rowNumber + ' (' + p.email + '): ' + err);
+    }
+  });
+}
+
+function getOrCreateEvent_() {
+  const props = PropertiesService.getScriptProperties();
+  const cal = CalendarApp.getDefaultCalendar();
+  const savedId = props.getProperty('EVENT_ID');
+  if (savedId) {
+    const existing = cal.getEventById(savedId);
+    if (existing) return existing;
+  }
+  const event = cal.createEvent(
+    CONFIG.eventTitle,
+    new Date(CONFIG.eventStart),
+    new Date(CONFIG.eventEnd),
+    { description: CONFIG.eventDescription, location: CONFIG.eventLocation }
+  );
+  props.setProperty('EVENT_ID', event.getId());
+  return event;
+}
+
 function setup() {
   ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === 'sendEventEmails')
@@ -162,6 +231,7 @@ function onOpen() {
     .createMenu('Event emails')
     .addItem('Send to new people now', 'sendNow_')
     .addItem('Copy Yes rows to tab A', 'copyYesToTab')
+    .addItem('Invite Yes people to calendar', 'inviteYesToCalendar')
     .addToUi();
 }
 
