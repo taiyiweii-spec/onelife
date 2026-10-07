@@ -5843,6 +5843,7 @@ function capBlock(s,b,ro){
   if(b.loan.bal>0)s.append(h('p',{className:'sub'},`Bank covenant: the loan needs profit to cover its payments at least 1.1 times. Right now about ${((b.lastPre+b.loan.bal*b.loan.rate)/Math.max(1,b.loan.pay)).toFixed(1)} times.`));
 }
 function yrCapital(){
+  S.biz.forEach(b=>{if(b.autoCeo&&!b.ceo&&!b.ousted&&b.life!=='hands'&&!S.jail){line(`🧑‍💼 ${ceoAuto(b)}`,'good');}});
   // deferred sale payments
   if(S.earn&&S.earn.length){S.earn.forEach(e=>{if(e.left>0){e.left--;const part=Math.round(e.amt/e.yrs);if(e.sure||rnd()<.8){S.money+=part;line(`💼 I received ${fmt(part)} of the deferred payment for ${e.n}.`,'good');}else line(`💼 The new owner of ${e.n} missed this year's deferred payment of ${fmt(part)}.`,'bad');}});S.earn=S.earn.filter(e=>e.left>0);}
   S.biz.slice().forEach(b=>{
@@ -7744,7 +7745,9 @@ function runnerBlock(s,b){const r=runBy(b),busy=S.job||S.edu.major||S.age>72;
     ceoPickFor=null;}
   else{s.append(h('p',{className:'flash'},`Nobody is in charge of ${b.name}. It keeps running as it is, with no bonus. Running it myself or hiring a CEO can lift quality, customers and costs.`));
     s.append(row('🙋 Run it myself',busy?'Not with a job or while studying':'Costs 1 energy a year','',()=>{b.life='hands';stay(`I'm running ${b.name} myself now.`,'good')},busy),
-      row('🧑‍💼 Hire a CEO','See this year\'s candidates','',()=>{ceoPickFor=b.id;stay()}));}
+      row('🧑‍💼 Hire a CEO','See this year\'s candidates','',()=>{ceoPickFor=b.id;stay()}),
+      row('⚡ Auto hire a CEO','Pick the best candidate for me, one tap','',()=>stay(ceoAuto(b),'good'),b.ousted));}
+  s.append(tog('🔁 Auto-hire a new CEO if mine leaves','When the CEO quits or is fired, the best available candidate is hired automatically',!!b.autoCeo,()=>{b.autoCeo=!b.autoCeo;stay();},b.ousted));
   if(r!=='ceo'&&ceoPickFor===b.id){
     if(!b.ceoCands||b.ceoCands.age!==S.age)b.ceoCands={age:S.age,list:[makeCEO(b),makeCEO(b),makeCEO(b)]};
     s.append(h('p',{className:'label',style:'margin-top:10px'},'CEO candidates this year'));
@@ -7788,6 +7791,12 @@ const runBy=b=>b.life==='hands'?'me':b.ceo?'ceo':'none';
 function ceoWage(b,c){const T=Tof(b);const rev=b.yrs>0?Math.max(0,b.lastRev):T.base*b.locs;
   const base=rev<=1e6?rev*.12:rev<=28e6?120000+(rev-1e6)*.04:1200000+(rev-28e6)*.008;const avg=(c.ops+c.sales+c.people+c.integ)/4;
   return Math.round(Math.max(30000*cty(b).wage,base*.8)*(.6+avg/125)/1000)*1000;}
+function ceoAuto(b){
+  const cands=[makeCEO(b,45,88),makeCEO(b,45,88),makeCEO(b,45,88),makeCEO(b,45,88)];
+  const sc=c=>(c.ops+c.sales+c.people)/3+c.integ*.35+c.loyal*.12-c.wage/Math.max(60000,Tof(b).wage*2)*8;
+  const best=cands.sort((x,y)=>sc(y)-sc(x))[0];
+  b.ceo={...best,yrs:0};b.life='delegate';b.ceoCands=null;mile(`Hired ${best.name} as CEO of ${b.name}`);
+  return `I hired ${best.name} as CEO of ${b.name} for ${fmt(best.wage)} a year (operations ${best.ops}, sales ${best.sales}, people ${best.people}, integrity ${best.integ}).`;}
 function makeCEO(b,lo=30,hi=85){const st=()=>Math.max(5,Math.min(99,R(lo,hi)));const c={id:uid(),name:fullName(pick(['M','F'])),ops:st(),sales:st(),people:st(),integ:st(),loyal:R(20,90),pers:pick(Object.keys(PERS)),yrs:0};c.wage=ceoWage(b,c);return c;}
 // Older saves: a Manager on the team becomes the CEO, other managers become specialists.
 function ensureRunner(b){if(b.life==='absent')b.life='delegate';if(b.ceo&&b.ceo.loyal==null)b.ceo.loyal=R(40,80);
