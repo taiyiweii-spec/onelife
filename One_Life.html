@@ -8605,13 +8605,13 @@ function drawBiz(s,b){
   s.append(h('button',{className:'back',on:()=>{bizView=null;flash=null;drawSheet(true)}},'‹ All businesses'));
   s.append(h('h3',{},`${T.ic} ${b.name}`),h('p',{className:'sub'},`${b.cty&&COUNTRIES[b.cty]?COUNTRIES[b.cty].ic+' '+COUNTRIES[b.cty].n+'. ':''}${T.n}, ${b.yrs} yr${b.yrs===1?'':'s'} old${b.gens>1?`, family-owned for ${b.gens} generations`:''}. I own ${Math.round(b.own*100)}%${b.co?`, ${fname(b.co.name)} owns ${Math.round(b.co.share*100)}%`:''}${b.inv>0?`, investors own ${Math.round(b.inv*100)}%`:''}.${b.pub?' Publicly traded.':''}`));
   if(b.ousted)s.append(h('p',{className:'flash bad'},'🪑 The board removed me as CEO. A hired CEO runs things. I can sell my stake or buy out the investors to take back control.'));
-  ensureGoods(b);s.append(h('div',{className:'tabs'},(b.mode==='simple'?[['over','Overview'],['people','CEO'],['grow','Growth'],['fin','Finance'],['risk','Risk']]:[['over','Overview'],...(isGoods(b)?[['prod',isSvc(b)?'Services':'Products']]:[]),...((SPEC[b.type]||LAYER[b.type])?[['spec',(SPEC[b.type]||LAYER[b.type]).tab]]:[]),['strat','Strategy'],['mkt','Marketing'],['people','People'],['fin','Finance'],['risk','Risk']]).map(([k,l])=>h('button',{'aria-pressed':String(bTab===k||(k==='over'&&bTab==='fins')),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
+  ensureGoods(b);s.append(h('div',{className:'tabs'},(b.mode==='simple'?[['over','Overview'],['people','CEO'],['grow','Growth'],['fin','Finance']]:[['over','Overview'],['prod','Operations'],...((SPEC[b.type]||LAYER[b.type])?[['spec',(SPEC[b.type]||LAYER[b.type]).tab]]:[]),['mkt','Marketing'],['people','People'],['fin','Finance']]).map(([k,l])=>h('button',{'aria-pressed':String(bTab===k||(k==='over'&&bTab==='fins')),on:()=>{bTab=k;flash=null;drawSheet(true)}},l))));
   const bars=(l,v,c)=>[h('p',{className:'label'},`${l} ${v}%`),h('div',{className:'bar',style:'margin:0 0 10px'},h('i',{style:`width:${v}%;background:var(--${c})`}))];
-  if(bTab==='prod'&&!isGoods(b))bTab='over';
+  if(bTab==='risk')bTab='fin';if(bTab==='strat')bTab='prod';
   if(bTab==='spec'&&((!SPEC[b.type]&&!LAYER[b.type])||b.mode==='simple'))bTab='over';
   if(b.mode==='simple'&&['prod','strat','fins','mkt'].includes(bTab))bTab='over';
-  if(b.mode!=='simple'&&bTab==='grow')bTab='strat';
-  if(bTab==='prod'){tabProducts(s,b,lock);return;}
+  if(b.mode!=='simple'&&bTab==='grow')bTab='prod';
+  if(bTab==='prod'&&isGoods(b)){tabProducts(s,b,lock);if(!lock)s.append(h('h4',{},'Strategy'));}
   if(bTab==='over'){{const t=bizTip(b);if(t)s.append(h('p',{className:'flash'},`💡 ${t}`));}
     s.append(...bars('Reputation',b.rep,'happy'),...bars('Quality',b.q,'smarts'),...bars('Staff morale',b.morale,'health'));
     const units=isGoods(b)?(b.products||[]).reduce((a,p)=>a+(p.last?p.last.sold:0),0):Math.round(b.lastRev/T.unit[1]);
@@ -8633,7 +8633,7 @@ function drawBiz(s,b){
     return;}
   if(lock&&bTab!=='fin'){s.append(h('p',{className:'sub'},S.jail?"The business runs without me while I'm in prison.":S.age<18?'A trustee runs this until I turn 18.':'The board is in charge.'));return;}
   if(bTab==='spec'){(SPEC[b.type]||LAYER[b.type]).panel(s,b,lock);return;}
-  if(bTab==='strat'){
+  if(bTab==='prod'){
     if(!isGoods(b))s.append(h('p',{className:'label'},'Prices'),seg(Object.entries(PRICE).map(([k,p])=>[k,p.l]),b.price,x=>{b.price=x;stay()}));
     else s.append(h('p',{className:'sub'},'Prices, suppliers and quantities are set per product in the Products tab.'));
     s.append(h('p',{className:'label'},T.lever.t),seg(Object.entries(T.lever.o).map(([k,o])=>[k,o.l]),b.lever,x=>{b.lever=x;stay()}),h('p',{className:'sub',style:'margin:-4px 0 10px'},levText(b,T.lever.o[b.lever])));
@@ -8676,8 +8676,8 @@ function drawBiz(s,b){
   if(bTab==='grow'){growthBlock(s,b,T);return;}
   if(bTab==='fins'){s.append(h('button',{className:'back',on:()=>{bTab='over';flash=null;drawSheet(true)}},'‹ Overview'));finsTab(s,b);return;}
   if(bTab==='mkt'){mkTab(s,b);return;}
-  if(bTab==='fin'){finTab(s,b);return;}
-  if(bTab==='risk'){
+  if(bTab==='fin'){finTab(s,b);if(lock)return;s.append(h('h4',{},'Risk and shortcuts'));}
+  if(bTab==='fin'){
     s.append(h('p',{className:'sub'},'Shortcuts that save money now. Each one raises the odds of fines, lawsuits, or worse.'));
     s.append(tog('Skip safety inspections','Save money. Lower quality, more accidents, lawsuits and failed inspections',b.skipQC,()=>{b.skipQC=!b.skipQC;stay()}));
     s.append(tog('Creative accounting','Pay 8% tax instead of the real rate. Audits can mean prison',b.taxDodge,()=>{b.taxDodge=!b.taxDodge;stay()}));
