@@ -637,6 +637,8 @@ const ACH={
  natfound:['🏝️','Head of state','Found my own micronation'],
  natpop1k:['🏘️','A thousand citizens','Reach 1,000 citizens in my nation'],
  natdecade:['🎂','A decade of rule','Rule my nation for 10 years'],
+ natend:['🏁','A nation story','See a nation reach its ending'],
+ natthrive:['🌅','A thriving legacy','Hand over a strong nation (score 150 or more)'],
  medtop:['🥇','Industry leader','Become the top media company in the industry'],
  medacq:['🤝','Acquirer','Acquire a rival company'],
  cofirst:['🧢','On the touchline','Coach a team for a season'],
@@ -1793,7 +1795,7 @@ const NAT_ZONE={
   res:{n:'Research',ic:'🔭',mul:{},pj:['univ','launch'],vuln:'a brain drain',rep:2},
   trade:{n:'Trade',ic:'🚢',mul:{},pj:['port','ftz'],vuln:'a customs blockade'}};
 const NAT_RATING=[['AAA',85,.03,3],['AA',75,.04,2.5],['A',66,.05,2],['BBB',57,.065,1.5],['BB',48,.085,1],['B',39,.11,.6],['CCC',30,.15,.3],['D',-999,.25,0]];
-function natEnsure(N){if(!N.proj)Object.assign(N,{zone:null,proj:[],done:{},inv:{},rate:3});if(!N.riv)natWorldInit(N);return N;}
+function natEnsure(N){if(!N.proj)Object.assign(N,{zone:null,proj:[],done:{},inv:{},rate:3});if(!N.riv)natWorldInit(N);if(!N.ch)Object.assign(N,{ch:[],log:[],exp:[],elec:N.style==='mon'?'none':'free',eIn:4});return N;}
 const natPjCost=k=>Math.round(NAT_PROJ[k].cost*cpiF());
 function natPjRev(N,k){const P=NAT_PROJ[k],Z=N.zone&&NAT_ZONE[N.zone];let r=P.rev*cpiF()*(.6+N.m.rep/125+N.m.pro/250);if(Z&&Z.pj.includes(k))r*=1.4;return r;}
 function natRating(N){
@@ -1868,7 +1870,7 @@ function natRevenue(N,inflow){
   const tour=(natPop(N)*400+600e3*T.tour)*c*(m.rep/50)*Math.min(1.3,m.ord/60);
   let tm=1;Object.keys(N.done||{}).forEach(k=>{tm+=NAT_PROJ[k].tour||0;});
   let pj=0;Object.keys(N.done||{}).forEach(k=>pj+=natPjRev(N,k));
-  const o={tax:tax*fm,corp:corp*fm*zm('corp'),visa,tour:tour*tm*zm('tour'),pj,lic:Math.max(0,3-natV(N,'reg'))*.25e6*c*(natPop(N)/500),trd:N.treat?natTrd(N):0};o.rev=o.tax+o.corp+o.visa+o.tour+o.pj+o.lic+o.trd;return o;
+  const o={tax:tax*fm,corp:corp*fm*zm('corp'),visa,tour:tour*tm*zm('tour'),pj,lic:Math.max(0,3-natV(N,'reg'))*.25e6*c*(natPop(N)/500),trd:N.treat?natTrd(N):0,oil:N.oil&&N.oil.y>0?N.oil.rev*c:0};o.rev=o.tax+o.corp+o.visa+o.tour+o.pj+o.lic+o.trd+o.oil;return o;
 }
 function natMigrate(N){
   const T=NAT_SITES[N.site],imm=natV(N,'imm'),cit=Math.round(natV(N,'cit')),immF=natLerp([0,.25,.6,1,1.4],imm)*[.3,.7,1,1.1,1.3][cit];
@@ -2088,6 +2090,142 @@ function natWorldTab(s,N,ro){
   s.append(h('h4',{},'Relations'));
   N.riv.forEach(x=>s.append(row(`${x.t==='host'?'🏠':x.t==='state'?'🏳️':'🎭'} ${x.n}`,`${x.t==='host'?'Our host country':x.t==='state'?'A foreign state':'A rival micronation'}. ${natAtt(x.att)}. ${N.recog.includes(x.n)?'Recognises us. ':''}${N.treat.some(t=>t.n===x.n)?'Trade deal in place.':''}`,`Strength ${Math.round(x.str)}`,null,true)));
 }
+/* ---- Nation stage 4: elections, event chains, endings, dynasty links. N.elec is the election law ('none', 'free', 'managed'),
+   N.eIn years to the next vote, N.ch pending chain steps ({k,left,d}), N.exp world-first experiments adopted, N.log the events log. ---- */
+const NAT_ELEC={none:'No elections',free:'Free elections',managed:'Managed elections'};
+function natNote(N,t,c){line(t,c||'');N.log.push({age:S.age,t});if(N.log.length>40)N.log.shift();}
+function natEnd(N,kind){
+  const sc=natScore(N),nm=N.name;
+  const T={overthrown:['was overthrown',`💥 ${nm} was overthrown and I was forced out.`,0],merged:['merged into its neighbour',`🧳 ${nm} dwindled and was folded into its neighbour.`,0],collapsed:['collapsed under its debts',`📉 ${nm} collapsed under its debts. Creditors took over.`,0],
+    annexed:['was taken over by a foreign power',`🪖 ${nm} was taken over by a foreign power.`,0],handover:['passed to a peaceful successor',`🕊️ I handed ${nm} to a peaceful successor.`,1],
+    conceded:['accepted a lost election',`🗳️ I lost the vote and handed ${nm} to the winners.`,1],dissolved:['was dissolved',`🕊️ I dissolved ${nm}.`,0]}[kind];
+  const bonus=T[2]?Math.min(12,Math.round(sc/25)):Math.min(3,Math.round(sc/80));
+  S.pres=Math.min(100,(S.pres||0)+bonus);
+  if(!S.natHist)S.natHist=[];S.natHist.push({name:nm,kind,score:sc,yrs:N.yrs});
+  mile(`${nm} ${T[0]}`);line(T[1]+` Nation score ${sc}.${bonus?` It added ${bonus} to my family prestige.`:''}`,T[2]?'good':'bad');
+  if(kind==='handover'||kind==='conceded'){S.money+=Math.round(Math.max(0,N.bal)*.1);}
+  if(kind!=='dissolved')unlock('natend');if(T[2]&&sc>=150)unlock('natthrive');
+  S.nat=null;
+}
+function natHeir(N){N.dyn=(N.dyn||0)+1;N.m.leg=Math.min(100,N.m.leg+(natScore(N)>=120?5:0));line(`🏝️ I took over ${N.name} from my parent${N.dyn>1?` (generation ${N.dyn+1} of the family)`:''}.`);}
+function natElection(N){
+  const win=N.elec==='managed'||(N.m.leg+(N.m.pro-50)*.2+R(-15,15))>=40;
+  if(N.elec==='managed'){nM(N,{leg:-2,fre:-2});if(rnd()<.25){nM(N,{leg:-8,rep:-5});natNote(N,'📰 Observers said the election was a sham.','bad');}else natNote(N,`🗳️ The managed election returned me with a huge majority.`);return;}
+  if(win){nM(N,{leg:3});natNote(N,`🗳️ I won the election in ${N.name}.`,'good');return;}
+  Q.push({text:`🗳️ I lost the vote in ${N.name}. The opposition has won.`,ch:[
+    ['Accept the result and hand over',()=>{natEnd(N,'conceded');return 'I accepted the result. It was a dignified end.';}],
+    ['Rig the count',()=>{N.corr=Math.min(100,N.corr+15);if(rnd()<(.25+natV(N,'press')*.1)){nM(N,{leg:-15,rep:-10,fre:-4});return 'The fraud was exposed. People took to the streets.';}nM(N,{leg:-3});return 'The count was adjusted. I stayed in office.';}],
+    ['Abolish elections',()=>{N.elec='none';nM(N,{leg:-12,fre:-10,rep:-6,ord:2});N.g.activ=Math.round(N.g.activ*.7);return 'I cancelled elections. The activists did not take it well.';}]]});
+}
+function natChainNew(N,k,left,d){if(N.ch.some(c=>c.k===k))return;N.ch.push({k,left,d:d||{}});}
+function natChains(N){
+  N.ch.slice().forEach(c=>{if(--c.left>0)return;N.ch=N.ch.filter(x=>x!==c);
+    if(c.k==='coup'){const army=natArmyBonus(N);const p=Math.max(.03,.45-N.m.leg/200-(c.d.guard||0)-army.coup);
+      if(rnd()<p){natNote(N,'💥 Soldiers seized the palace.','bad');natEnd(N,'overthrown');}
+      else{nM(N,{leg:3,ord:2});natNote(N,'🛡️ The coup attempt failed. The plotters were arrested.','good');}}
+    else if(c.k==='revolt'){const p=Math.max(.05,.55-N.m.leg/150-(c.d.conc||0)*.2-(c.d.crack||0)*.15);
+      if(rnd()<p){natNote(N,'✊ The protests became a revolution.','bad');natEnd(N,'overthrown');}else{nM(N,{leg:4});natNote(N,'🕊️ The protests faded.','good');}}
+    else if(c.k==='olymp'){const p=.2+N.m.rep/200+(N.rl>=5?.15:0);
+      if(rnd()<p){const x=Math.round(25e6*cpiF());N.bal-=x;nM(N,{rep:10,leg:5,pro:3});N.g.work+=60;natNote(N,`🏅 ${N.name} won the right to host the games. The bill was ${fmt(x)}.`,'good');}else{nM(N,{rep:1});natNote(N,'🏅 The Olympic bid was unsuccessful. The attempt still raised our profile.');}}
+    else if(c.k==='vote'){const L=NAT_LAWS[c.d.law],lv=Math.max(0,Math.min(4,Math.round(natV(N,c.d.law))+c.d.dir)),yes=rnd()<.62;
+      Q.push({text:`🗳️ The referendum on ${L.n.toLowerCase()} is counted: ${yes?'YES':'NO'} wins on moving to "${L.lv[lv]}".`,ch:[
+        yes?['Honour the result',()=>{const l=N.lw[c.d.law];l.to=lv;l.left=2;nM(N,{leg:4,fre:1});return 'The law will change over the next 2 years.';}]:['Accept the result',()=>{nM(N,{leg:2});return 'Nothing changes. The people had their say.';}],
+        ['Ignore it',()=>{nM(N,{leg:-7,fre:-3});return 'People felt cheated.';}]]});}
+    else if(c.k==='leak'){nM(N,{leg:-8,rep:-6});natNote(N,'📰 The evidence about the treasury went public.','bad');}
+    else if(c.k==='annex'){const host=N.riv.find(x=>x.t==='host'),ar=natArmyBonus(N);const p=Math.max(.05,.7-ar.def-(c.d.allies?.45:0)-(c.d.tribute?.25:0));
+      if(rnd()<p){natNote(N,`🪖 ${host.n} moved in and took ${N.name}.`,'bad');natEnd(N,'annexed');}else{nM(N,{leg:5,rep:3});host.att+=5;natNote(N,`🛡️ ${host.n} backed off. We stayed independent.`,'good');}}
+  });
+  if(N.ubi){N.bal-=Math.round(natPop(N)*3000*cpiF());N.don=Math.min(10,N.don+2);}
+  if(N.oil&&N.oil.y>0)N.oil.y--;
+}
+function natPolity(N){
+  natEnsure(N);
+  // elections
+  if(N.elec!=='none'){if(--N.eIn<=0){N.eIn=4;natElection(N);if(S.nat!==N)return;}}
+  natChains(N);if(S.nat!==N)return;
+  const ph=N.ch.length;
+  // coup and revolt warnings
+  if(N.m.leg<30&&N.yrs>2&&rnd()<.2&&!N.ch.some(c=>c.k==='coup'))
+    Q.push({text:`🕶️ My guards warn of a plot against me. Legitimacy is low and officers are talking.`,ch:[
+      [`Pay off the guard (${fmt(1.5e6*cpiF())})`,()=>{N.bal-=Math.round(1.5e6*cpiF());natChainNew(N,'coup',1,{guard:.2});return 'The guard was paid. Loyalty bought, for now.';}],
+      ['Purge the suspects',()=>{nM(N,{fre:-6,leg:-2,ord:2});natChainNew(N,'coup',1,{guard:.15});return 'Arrests were made. Some were innocent.';}],
+      ['Dismiss it',()=>{natChainNew(N,'coup',1,{guard:0});return 'I took no action.';}]]});
+  if(N.m.leg<22&&N.m.fre<30&&rnd()<.25&&!N.ch.some(c=>c.k==='revolt'))
+    Q.push({text:`✊ Crowds fill the squares of ${N.name}. They want change.`,ch:[
+      ['Make real concessions',()=>{N.lw.press.to=Math.min(4,N.lw.press.to+1);N.lw.press.left=1;N.elec='free';natChainNew(N,'revolt',1,{conc:1});nM(N,{leg:4});return 'I opened the press and promised free elections.';}],
+      ['Crack down',()=>{nM(N,{ord:3,fre:-6,rep:-5});natChainNew(N,'revolt',1,{crack:1});return 'The police cleared the squares.';}],
+      ['Negotiate with the leaders',()=>{natChainNew(N,'revolt',1,{conc:.5});nM(N,{leg:2});return 'Talks began. Nothing is settled yet.';}]]});
+  // annexation threat
+  const host=N.riv.find(x=>x.t==='host');
+  if(host&&host.att<-5&&N.rl<=3&&rnd()<.1&&!N.ch.some(c=>c.k==='annex'))
+    Q.push({text:`🪖 ${host.n} sends an ultimatum: accept its authority over ${N.name} or face the consequences.`,ch:[
+      ['Appeal to our friends abroad',()=>{if(N.fav>=3){N.fav-=3;natChainNew(N,'annex',1,{allies:1});return 'Friendly states promised to speak up for us.';}natChainNew(N,'annex',1,{});return 'I had too few favours to call in.';}],
+      [`Offer tribute (${fmt(4e6*cpiF())})`,()=>{N.bal-=Math.round(4e6*cpiF());natChainNew(N,'annex',1,{tribute:1});return 'A heavy payment bought some time.';}],
+      ['Stand firm',()=>{natChainNew(N,'annex',1,{});nM(N,{leg:2});return 'I refused. Now we wait.';}],
+      ['Concede',()=>{natEnd(N,'annexed');return 'I gave in.';}]]});
+  // other events
+  if(rnd()<.35){
+    const pool=[
+      ()=>N.exp&&N.exp.length>=4?null:natExperiment(N),
+      ()=>{if(N.oil||rnd()<.5)return null;return {text:'🛢️ Surveyors have found oil under our waters.',ch:[
+        ['State-owned, keep the profits',()=>{N.oil={y:10,rev:Math.round(6e6)};nM(N,{pro:4,ord:-1});N.corr=Math.min(100,N.corr+3);return 'About $6M a year for 10 years, and a temptation for everyone near the money.';}],
+        ['Sell the rights',()=>{N.bal+=Math.round(25e6*cpiF());nM(N,{pro:2});return `We sold the rights for ${fmt(25e6*cpiF())}.`;}],
+        ['Leave it in the ground',()=>{nM(N,{rep:3,leg:2});N.g.activ+=6;return 'The eco-minded cheered.';}]]};},
+      ()=>({text:'🌟 A famous visitor wants to stay a week and be seen with me.',ch:[
+        ['Host them lavishly',()=>{N.bal-=Math.round(.8e6*cpiF());nM(N,{rep:4});N.g.remote+=8;return 'Their posts sent tourists our way.';}],
+        ['Keep it simple',()=>{nM(N,{rep:1});return 'A quiet, pleasant visit.';}]]}),
+      ()=>{if(N.rl<4||natPop(N)<3000||N.ch.some(c=>c.k==='olymp'))return null;return {text:'🏅 A sports body invites us to bid for the Olympic Games.',ch:[
+        [`Bid (${fmt(4e6*cpiF())} now)`,()=>{N.bal-=Math.round(4e6*cpiF());natChainNew(N,'olymp',3,{});return 'The bid is in. We hear in 3 years.';}],['Decline',()=>{return 'We passed.';}]]};},
+      ()=>{const l=pick(Object.keys(NAT_LAWS));if(N.ch.some(c=>c.k==='vote'))return null;return {text:`📜 Citizens ask for a referendum on ${NAT_LAWS[l].n.toLowerCase()}.`,ch:[
+        ['Move toward more',()=>{natChainNew(N,'vote',1,{law:l,dir:1});nM(N,{leg:2});return 'The vote will be counted next year.';}],
+        ['Move toward less',()=>{natChainNew(N,'vote',1,{law:l,dir:-1});nM(N,{leg:2});return 'The vote will be counted next year.';}],['No referendum',()=>{nM(N,{leg:-2});return 'Some were disappointed.';}]]};},
+      ()=>{if(N.g.invest<20&&N.zone!=='fin')return null;return {text:'🏦 A bank run begins after a rumour that our banks are short of cash.',ch:[
+        ['Guarantee deposits',()=>{const x=Math.round(natRevEst(N)*.3);N.bal-=x;nM(N,{rep:2,leg:2});return `The guarantee cost ${fmt(x)} and calmed things.`;}],
+        ['Freeze withdrawals',()=>{nM(N,{rep:-6,pro:-4,fre:-3});N.g.invest=Math.round(N.g.invest*.8);return 'Panic ended, and so did some trust.';}],
+        ['Let the market sort it out',()=>{nM(N,{pro:-5,leg:-3});N.g.invest=Math.round(N.g.invest*.9);return 'Two small banks failed.';}]]};},
+      ()=>{if(S.money<5e8||rnd()<.5)return null;return {text:'💰 A rival billionaire is funding a smear campaign against our nation.',ch:[
+        ['Fight back in the press',()=>{N.bal-=Math.round(.6e6*cpiF());nM(N,{rep:-1});return 'The war of words ended in a draw.';}],
+        ['Sue them',()=>{if(rnd()<.55){nM(N,{rep:2});return 'The court agreed with us.';}S.money-=Math.round(2e6*cpiF());nM(N,{rep:-3});return 'We lost, and I paid the costs.';}],
+        ['Ignore it',()=>{nM(N,{rep:-3});return 'The mud stuck for a while.';}]]};},
+      ()=>{const c=N.cits.find(x=>x.fr&&!Object.values(N.cab).includes(x.id));if(!c)return null;const fn=c.n.split(' ')[0];
+        return N.m.leg>=45?{text:`🤝 My old friend ${c.n} asks for a ministry. They want to help.`,ch:[
+          ['Give them a post',()=>{const p=Object.keys(N.cab).find(q=>!N.cab[q])||'cul';N.cab[p]=c.id;c.loy=Math.min(100,c.loy+10);return `${fn} is now my minister for ${NAT_POST[p].n.toLowerCase()}.`;}],
+          ['Politely decline',()=>{c.loy-=8;return `${fn} was hurt.`;}]]}:{text:`😕 ${c.n}, my old friend, tells me in private that people are unhappy with how I rule.`,ch:[
+          ['Listen and change course',()=>{nM(N,{leg:3,fre:2});c.loy+=10;return 'It was hard to hear. It helped.';}],['Brush it off',()=>{c.loy-=10;return `${fn} went quiet.`;}]]};},
+      ()=>{const c=N.cits.find(x=>(x.role==='Rebel'||x.role==='Journalist')&&x.loy<45);if(!c||N.corr<15)return null;return {text:`📁 ${c.n} has evidence about the treasury and is thinking of going public.`,ch:[
+        ['Pay for silence',()=>{const x=Math.round(natRevEst(N)*.1);N.bal-=x;N.corr=Math.min(100,N.corr+5);c.loy=60;return `It cost ${fmt(x)}, and the secret is now bigger.`;}],
+        ['Invite an audit',()=>{N.corr=Math.round(N.corr*.4);nM(N,{leg:3,rep:2});N.inst.courts=Math.max(N.inst.courts,1);return 'The audit cleaned the books. It was uncomfortable.';}],
+        ['Do nothing',()=>{natChainNew(N,'leak',1,{});N.corr=Math.min(100,N.corr+10);return 'The story is coming.';}]]};}];
+    const ev=pool[R(0,pool.length-1)]();if(ev)Q.push(ev);
+  }
+  // legacy and links
+  S.pres=Math.min(100,(S.pres||0)+.4);if(S.pol)S.pol.pop=Math.min(100,S.pol.pop+(rnd()<.3?1:0));
+  // endings by decline
+  if(natPop(N)<25)N.tiny=(N.tiny||0)+1;else N.tiny=0;
+  if(N.tiny>=2){natEnd(N,'merged');return;}
+  if(N.rate===7)N.junk=(N.junk||0)+1;else N.junk=0;
+  if(N.junk>=3||N.debt>natRevEst(N)*6){N.junk=3;natEnd(N,'collapsed');return;}
+}
+function natExperiment(N){
+  const all=[['ubi','Universal basic income'],['week','A four-day week'],['judge','An AI judge'],['cars','A car ban']].filter(x=>!(N.exp||[]).includes(x[0]));
+  if(!all.length)return null;const [k,nm]=pick(all);
+  const adopt={ubi:()=>{N.ubi=true;nM(N,{leg:6,pro:2});N.g.work+=15;return `UBI began. It costs about ${fmt(natPop(N)*3000*cpiF())} a year.`;},
+    week:()=>{nM(N,{leg:3,fre:2,rep:3,pro:-2});N.g.remote+=15;return 'The four-day week made headlines.';},
+    judge:()=>{if(rnd()<.5){nM(N,{ord:4,rep:4,fre:-2});return 'The AI judge was praised for speed and fairness.';}nM(N,{ord:-2,rep:-5,leg:-3});return 'The AI judge made a bad ruling that went viral.';},
+    cars:()=>{nM(N,{ord:1,rep:3,pro:-2});N.g.retire=Math.round(N.g.retire*.85);N.g.activ+=8;return 'The streets went quiet and green. Some retirees left.';}};
+  return {text:`🧪 My advisers suggest a world-first experiment: ${nm.toLowerCase()}.`,ch:[[`Try it`,()=>{N.exp=[...(N.exp||[]),k];natNote(N,`🧪 ${nm} began in ${N.name}.`);return adopt[k]();}],['Not now',()=>{return 'We kept things as they were.';}]]};
+}
+function natGovExtra(s,N,ro){
+  s.append(h('h4',{},'Elections'),h('p',{className:'sub'},`${NAT_ELEC[N.elec]}. ${N.elec==='none'?'':`The next vote is in ${N.eIn} year${N.eIn===1?'':'s'}.`} Free elections can be lost. Managed ones raise scandal risk. Abolishing them costs Legitimacy.`));
+  s.append(seg(Object.entries(NAT_ELEC),N.elec,v=>{if(v===N.elec)return;if(v==='none'){nM(N,{leg:-10,fre:-6});N.g.activ=Math.round(N.g.activ*.8);}if(N.elec==='none'){N.eIn=4;}N.elec=v;stay(`${N.name} now has: ${NAT_ELEC[v].toLowerCase()}.`);}));
+}
+function natLogTab(s,N){
+  if(!N.log.length)return s.append(h('p',{className:'sub'},'Nothing has happened yet that is worth a record.'));
+  s.append(h('p',{className:'sub'},`${N.log.length} entries.`));
+  N.log.slice().reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 6px'},`Age ${x.age}: ${x.t}`)));
+  if(S.natHist&&S.natHist.length){s.append(h('h4',{},'Past nations'));S.natHist.forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`${x.name} ${x.yrs} years, score ${x.score}, ${x.kind}`)));}
+}
+function natArmyBonus(N){return {coup:0,def:0};}
 function natProjects(N){
   N.proj.slice().forEach(p=>{const P=NAT_PROJ[p.k],inst=Math.round(natPjCost(p.k)/P.yrs);
     if(p.me)p.left--;else if(N.bal>=inst){N.bal-=inst;p.left--;}else line(`🏗️ Work on the ${P.n.toLowerCase()} in ${N.name} stalled: the treasury could not pay.`,'bad');
@@ -2126,7 +2264,7 @@ function natYear(N){
   if(N.sal>0){sal=Math.min(natSalary(N),Math.max(0,N.bal-natReserve(N)));N.bal-=sal;S.money+=sal;}
   N.fin.sal=sal;N.fin.net=rv.rev-co.tot-debtInt;N.fin.loanPaid=paid;
   if(N.debt>0&&N.bal>natReserve(N)){const x=Math.min(N.debt,N.bal-natReserve(N));N.debt-=x;N.bal-=x;}
-  natProjects(N);natWorld(N);N.late=Math.max(0,N.late-.25);N.rate=natRating(N);
+  natProjects(N);natWorld(N);natPolity(N);if(S.nat!==N)return;N.late=Math.max(0,N.late-.25);N.rate=natRating(N);
   natCorruption(N);
   // events: at most 3 cards a year in total
   natDecisions(N);if(rnd()<.4)natStory(N);if(N.zone&&rnd()<.14)natShock(N);
@@ -2138,7 +2276,7 @@ function natYear(N){
   // endings and records
   const pop=natPop(N);
   if(N.m.leg<8)N.low++;else N.low=0;
-  if(N.low>=3){N.end='overthrown';mile(`${N.name} was overthrown`);line(`💥 After years of anger, the people of ${N.name} rose up and I was forced out.`,'bad');S.nat=null;return;}
+  if(N.low>=3){natEnd(N,'overthrown');return;}
   if(N.m.leg<20&&rnd()<.25)line(`✊ Unrest is growing in ${N.name}. My Legitimacy is dangerously low.`,'bad');
   if(pop>=1000)unlock('natpop1k');if(N.yrs>=10)unlock('natdecade');
   const d=pop-before;
@@ -2157,8 +2295,8 @@ function drawNat(s){
   if(!N)return natFound(s,ro);
   s.append(h('p',{className:'sub'},`${N.flag} ${N.name}, "${N.motto}". Year ${N.yrs} of my rule.`));
   ['pro','ord','fre','leg','rep'].forEach(k=>s.append(...mbar({pro:'Prosperity',ord:'Order',fre:'Freedom',leg:'Legitimacy',rep:'Reputation'}[k],N.m[k],k==='ord'?'smarts':k==='fre'?'looks':k==='rep'?'happy':'health')));
-  s.append(h('div',{className:'tabs'},[['over','Overview'],['gov','Government'],['cit','Citizens'],['eco','Economy'],['wld','World'],['tre','Treasury']].map(([v,l])=>h('button',{'aria-pressed':String(natTab===v),on:()=>{natTab=v;drawSheet();}},l))));
-  if(natTab==='over')natOver(s,N,ro);else if(natTab==='gov')natGov(s,N,ro);else if(natTab==='cit')natCit(s,N,ro);else if(natTab==='eco')natEco(s,N,ro);else if(natTab==='wld')natWorldTab(s,N,ro);else natTre(s,N,ro);
+  s.append(h('div',{className:'tabs'},[['over','Overview'],['gov','Government'],['cit','Citizens'],['eco','Economy'],['wld','World'],['log','Events'],['tre','Treasury']].map(([v,l])=>h('button',{'aria-pressed':String(natTab===v),on:()=>{natTab=v;drawSheet();}},l))));
+  if(natTab==='over')natOver(s,N,ro);else if(natTab==='gov')natGov(s,N,ro);else if(natTab==='cit')natCit(s,N,ro);else if(natTab==='eco')natEco(s,N,ro);else if(natTab==='wld')natWorldTab(s,N,ro);else if(natTab==='log')natLogTab(s,N);else natTre(s,N,ro);
 }
 function natFound(s,ro){
   const nw=netWorth();
@@ -2190,6 +2328,7 @@ function natOver(s,N,ro){
   if(N.corr>=25)s.append(h('p',{className:'sub warn'},'There are rumours about the treasury.'));
   if(N.m.leg<25)s.append(h('p',{className:'sub warn'},'Legitimacy is dangerously low. Unrest could end my rule.'));
   if(N.rec.length){s.append(h('h4',{},'Recent years'));N.rec.slice(-6).reverse().forEach(x=>s.append(h('p',{className:'sub',style:'margin:0 0 4px'},`Age ${x.age}: ${x.pop.toLocaleString()} citizens, Legitimacy ${x.m.leg}, treasury ${fmt(x.bal)}`)));}
+  s.append(row('🤝 Hand over peacefully',N.yrs>=5?'Step down in favour of a successor. A strong nation adds to my family legacy':'Possible after 5 years of rule','',()=>choiceModal('Hand over '+N.name+'?','I will step down for good. The nation continues without me, and its score counts toward my legacy.',[['Hand it over',()=>{natEnd(N,'handover');stay();}],['Stay',()=>{}]]),ro||N.yrs<5));
   s.append(row('🕊️ Dissolve the nation','Close it down. The treasury balance returns to me, less a quarter in costs','',()=>choiceModal('Dissolve '+N.name+'?','The citizens will disperse and the flag will be lowered.',[['Dissolve it',()=>{const x=Math.round(Math.max(0,N.bal)*.75);S.money+=x;mile(`Dissolved ${N.name}`);S.nat=null;stay(`I dissolved ${N.name} and took back ${fmt(x)}.`);}],['Keep it',()=>{}]]),ro));
 }
 function natGov(s,N,ro){
@@ -2198,6 +2337,7 @@ function natGov(s,N,ro){
     const l=N.lw[k];
     s.append(h('p',{className:'label',style:'margin:10px 0 2px'},`${L.n}: ${L.lv[Math.round(l.v)]}${l.v!==l.to?` (moving to ${L.lv[l.to]})`:''}`),seg(L.lv.map((t,i)=>[i,t]),l.to,v=>natLawChange(N,k,v)),h('p',{className:'sub',style:'margin:2px 0 0'},L.h));
   });
+  natGovExtra(s,N,ro);
   s.append(h('h4',{},'Institutions'));
   Object.entries(NAT_INST).forEach(([k,I])=>{
     const lv=N.inst[k],up=lv<3?Math.round(NAT_UPG[lv]*natSc(N)):0;
@@ -6940,6 +7080,7 @@ function continueAs(k){
   const oldTal=k.life&&k.life.tal,eqShare=1/Math.max(1,heirs),short=otherKids.filter(p=>W.mode==='custom'&&(sh[p.id]||0)<eqShare*.5);
   const gen0=S.gen,pres0=S.pres||0,style0=S.pstyle||'support';
   newLife({name:k.name,gender:k.gender,last:k.name.split(' ').slice(1).join(' '),age:k.age,city:S.city,money:cash,assets,dev:inh.dev,col:inh.col,cm:S.cm,cmHot:S.cmHot,club:inh.club,med:inh.med,nat:S.nat,biz:S.biz,gen:S.gen+1,parents,siblings:sibs,mkt:S.mkt,econ:S.econ,cecon:S.cecon,homeIdx:S.homeIdx,cpi:S.cpi,dyn:S.dyn,seed:S.seed,inherit:S.traits,trend:S.trend,regs:S.regs,supIdx:S.supIdx,rivals:S.rivals,pres:Math.round(pres0*.85),pstyle:style0,dt:nd,fo:nfo,fdn:nf});
+  if(S.nat)natHeir(S.nat);
   if(E.tax)line(`🏛️ Estate tax took ${fmt(E.tax)}.${soldNote}`,'bad');else if(soldNote)line(soldNote.trim());
   if(E.charity&&S.fdn)line(`🎗️ ${fmt(E.charity)} went to the ${S.fdn.name}.`);
   inh.notes.forEach(t=>line(`📜 ${t}.`));
