@@ -78,7 +78,8 @@ def to_row(el):
 
 
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else "cheras_fnb.csv"
+    csv_args = [a for a in sys.argv[1:] if a.endswith(".csv")]   # ignores notebook/Colab arguments
+    out = csv_args[0] if csv_args else "cheras_fnb.csv"
     elements = fetch(build_query()).get("elements", [])
     rows = [to_row(el) for el in elements]
     rows = [r for r in rows if r["name"]]          # drop unnamed entries
