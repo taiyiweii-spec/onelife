@@ -1888,12 +1888,21 @@ function natMigrate(N){
   if(pop>cap){const f=cap/pop;NAT_GK.forEach(k=>N.g[k]=Math.floor(N.g[k]*f));}
   return inflow;
 }
+/* a confirm screen that shows what changes: each row is [label, before, after, formatter, higherIsGood] */
+function fxModal(title,text,rows,okLabel,onOk){
+  const d=h('dl',{},...rows.flatMap(([l,a,b,f,up])=>{f=f||fmt;const c=a===b?'':((b>a)===(up!==false))?'good':'bad';return [h('dt',{},l),h('dd',{className:c},`${f(a)} → ${f(b)}`)];}));
+  choiceModal(title,text,[[okLabel,onOk],['Cancel',()=>{}]],d);}
 function natLawChange(N,k,to){
   const L=N.lw[k],d=Math.abs(to-L.v);if(!d||to===L.to)return;
   const cost=Math.round(300e3*(1+natPop(N)/1000)*d*cpiF());
   if(N.bal<cost){toast('The treasury cannot cover the '+fmt(cost)+' it costs to change this law.');return;}
-  N.bal-=cost;L.to=to;L.left=2;
-  stay(`I proposed a change to ${NAT_LAWS[k].n.toLowerCase()}. It will settle over 2 years and cost the treasury ${fmt(cost)}.`);
+  const t0=natTargets(N),keep=L.v;L.v=to;const t1=natTargets(N);L.v=keep;
+  const nm={pro:'Prosperity',ord:'Order',fre:'Freedom',leg:'Legitimacy',rep:'Reputation'},rows=[['Treasury',N.bal,N.bal-cost]];
+  Object.keys(nm).forEach(m=>{const a=Math.round(Math.max(0,Math.min(100,t0[m]))),b=Math.round(Math.max(0,Math.min(100,t1[m])));if(a!==b)rows.push([nm[m]+' (where it heads)',a,b,x=>String(x)]);});
+  const lv=NAT_LAWS[k].lv;
+  fxModal(`${NAT_LAWS[k].n}: ${lv[Math.round(L.v)]} → ${lv[to]}`,'The change settles over 2 years. Meters move toward the new levels, not all at once. Citizens who dislike it may leave.',rows,`Change it (${fmt(cost)})`,()=>{
+    N.bal-=cost;L.to=to;L.left=2;
+    stay(`I proposed a change to ${NAT_LAWS[k].n.toLowerCase()}. It will settle over 2 years and cost the treasury ${fmt(cost)}.`);});
 }
 /* the yearly decisions: each returns an event for Q */
 function nM(N,d){Object.keys(d).forEach(k=>N.m[k]=Math.max(0,Math.min(100,N.m[k]+d[k])));}
@@ -2334,7 +2343,7 @@ function natDefTab(s,N,ro){
   s.append(...mbar('Deterrence',det,'smarts'));
   NAT_DEF.forEach(([n,d],lv)=>{
     if(lv===M.lv)return;
-    s.append(row(`${['⭕','🚧','🪖','🛡️','🗡️','🤝'][lv]} ${n}`,d,'',()=>{if(lv===5){const st=N.riv.filter(x=>x.t!=='micro'&&x.att>=20);choiceModal('Protection pact with',st.length?'Choose the power.':'No state is friendly enough yet. Raise relations first.',[...st.map(x=>[`${x.n} (${natAtt(x.att)})`,()=>natMilSet(N,5,x)]),['Cancel',()=>{}]]);}else natMilSet(N,lv);},ro||!!N.war||(lv===5&&N.rl<2)));
+    s.append(row(`${['⭕','🚧','🪖','🛡️','🗡️','🤝'][lv]} ${n}`,d,'',()=>{if(lv===5){const st=N.riv.filter(x=>x.t!=='micro'&&x.att>=20);choiceModal('Protection pact with',st.length?'Choose the power.':'No state is friendly enough yet. Raise relations first.',[...st.map(x=>[`${x.n} (${natAtt(x.att)})`,()=>natMilSet(N,5,x)]),['Cancel',()=>{}]]);}else{const sc0=Math.round([0,1e6,8e6,2e6,1e6,1e6][lv]*cpiF());fxModal(`Switch to ${n.toLowerCase()}?`,d,[['Treasury',N.bal,N.bal-sc0],['Defence level',M.lv,lv,x=>NAT_DEF[x][0],true]],`Switch (${fmt(sc0)})`,()=>natMilSet(N,lv));}},ro||!!N.war||(lv===5&&N.rl<2)));
   });
   if(M.lv>=1&&M.lv!==5){
     s.append(h('h4',{},'The force'),h('dl',{},h('dt',{},'Size'),h('dd',{},String(Math.round(M.size))),h('dt',{},'Equipment'),h('dd',{},String(Math.round(M.equip))),h('dt',{},'Training'),h('dd',{},String(Math.round(M.train))),h('dt',{},'Morale'),h('dd',{},String(Math.round(M.morale))),h('dt',{},'Readiness'),h('dd',{},String(Math.round(M.ready))),h('dt',{},'Strength'),h('dd',{},String(Math.round(natStrength(N))))));
@@ -2474,7 +2483,7 @@ function natGov(s,N,ro){
   s.append(h('h4',{},'Institutions'));
   Object.entries(NAT_INST).forEach(([k,I])=>{
     const lv=N.inst[k],up=lv<3?Math.round(NAT_UPG[lv]*natSc(N)):0;
-    s.append(row(`${I.ic} ${I.n}`,`Level ${lv} of 3. ${I.h} Upkeep ${fmt(NAT_UP[lv]*I.w*natSc(N))} a year.`,lv<3?`Upgrade ${fmt(up)}`:'Top level',()=>{N.bal-=up;N.inst[k]++;stay(`${N.name} upgraded its ${I.n.toLowerCase()}.`);},ro||lv>=3||N.bal<up));
+    s.append(row(`${I.ic} ${I.n}`,`Level ${lv} of 3. ${I.h} Upkeep ${fmt(NAT_UP[lv]*I.w*natSc(N))} a year.`,lv<3?`Upgrade ${fmt(up)}`:'Top level',()=>fxModal(`Upgrade the ${I.n.toLowerCase()}?`,I.h,[['Treasury',N.bal,N.bal-up],['Level',lv,lv+1,x=>String(x)],['Upkeep a year',Math.round(NAT_UP[lv]*I.w*natSc(N)),Math.round(NAT_UP[lv+1]*I.w*natSc(N)),fmt,false]],`Upgrade (${fmt(up)})`,()=>{N.bal-=up;N.inst[k]++;stay(`${N.name} upgraded its ${I.n.toLowerCase()}.`);}),ro||lv>=3||N.bal<up));
   });
   s.append(h('h4',{},'My salary'),h('p',{className:'sub'},'Paid from the treasury each year, while it keeps a 3-month reserve. A very high salary hurts Legitimacy.'),
     seg(['None','$250,000','$1,000,000','$3,000,000','$10,000,000'].map((t,i)=>[i,t]),N.sal,v=>{N.sal=v;stay();}));
@@ -2499,7 +2508,7 @@ function natEco(s,N,ro){
   const rt=natRate(N),pop=natPop(N);
   s.append(h('p',{className:'sub'},`Credit rating ${rt[0]}. Borrowing costs ${Math.round(rt[2]*100)}% a year. The rating falls with debt, an empty treasury, low Legitimacy, corruption and defaults.`));
   s.append(h('h4',{},'Economic focus'),h('p',{className:'sub'},'A focus lifts that sector and its projects by about 40%, and brings a matching risk. Changing it costs '+fmt(3e6*cpiF())+'.'));
-  s.append(seg([['none','None'],...Object.entries(NAT_ZONE).map(([k,z])=>[k,z.ic+' '+z.n])],N.zone||'none',v=>{v=v==='none'?null:v;if(v===N.zone)return;const c=Math.round(3e6*cpiF());if(N.bal<c){toast('The treasury needs '+fmt(c)+' for that.');return;}N.bal-=c;N.zone=v;if(v)nM(N,{rep:NAT_ZONE[v].rep||0});stay(v?`${N.name} now focuses on ${NAT_ZONE[v].n.toLowerCase()}.`:`${N.name} dropped its economic focus.`);}));
+  s.append(seg([['none','None'],...Object.entries(NAT_ZONE).map(([k,z])=>[k,z.ic+' '+z.n])],N.zone||'none',v=>{v=v==='none'?null:v;if(v===N.zone)return;const c=Math.round(3e6*cpiF());if(N.bal<c){toast('The treasury needs '+fmt(c)+' for that.');return;}fxModal(v?`Focus on ${NAT_ZONE[v].n.toLowerCase()}?`:'Drop the economic focus?',v?`That sector and its projects earn about 40% more. The risk: ${NAT_ZONE[v].vuln}.`:'The sector bonus and its risk both go away.',[['Treasury',N.bal,N.bal-c]],`Confirm (${fmt(c)})`,()=>{N.bal-=c;N.zone=v;if(v)nM(N,{rep:NAT_ZONE[v].rep||0});stay(v?`${N.name} now focuses on ${NAT_ZONE[v].n.toLowerCase()}.`:`${N.name} dropped its economic focus.`);});}));
   if(N.zone)s.append(h('p',{className:'sub'},`Risk: ${NAT_ZONE[N.zone].vuln}.`));
   if(N.proj.length){s.append(h('h4',{},'Under construction'));N.proj.forEach(p=>{const P=NAT_PROJ[p.k];s.append(row(`${P.ic} ${P.n}`,`${p.left} year${p.left>1?'s':''} to go. ${p.me?'Funded by me':'Treasury pays '+fmt(natPjCost(p.k)/P.yrs)+' a year'}`,'',null,true));});}
   const dn=Object.keys(N.done);
