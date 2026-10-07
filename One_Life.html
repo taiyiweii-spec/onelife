@@ -2925,6 +2925,7 @@ function render(){
   const em=energyMax(),el=energyLeft();$('energy').textContent=S.alive?'⚡'.repeat(el)+'○'.repeat(Math.max(0,em-el)):'';$('energy').title=`${el} of ${em} energy left this year`;
   const log=$('log');log.innerHTML='';
   if(saveFail)log.append(h('div',{className:'yr'},h('p',{className:'bad'},'Warning: this life could not be saved. Storage may be full. Back up your life from the menu.')));
+  {const A=attnItems();if(A.length)log.append(h('div',{className:'flash',style:'margin:0 0 12px'},h('p',{className:'label',style:'margin:0 0 6px'},'Needs me now'),...A.map(a=>h('button',{className:'row compact',on:a.go},h('span',{},`${a.ic} ${a.t}`),h('span',{className:'r'},'›')))));}
   S.log.forEach(y=>log.append(h('div',{className:'yr'},h('h2',{},`Age ${y.age}`),y.lines.map(l=>h('p',{className:l.c},l.t)))));
   log.scrollTop=log.scrollHeight;
   const st=$('stats');st.innerHTML='';
@@ -2938,6 +2939,23 @@ function render(){
   ub.textContent=canUndo()?`\u21a9 Undo age ${undoSnap.age+1}`:'\u21a9 Undo year';
   pops();
 }
+/* ---- the "needs me" card at the top of the log: the most urgent things, one tap each ---- */
+function attnItems(){
+  if(!S||!S.alive)return [];const out=[],add=(w,ic,t,go)=>out.push({w,ic,t,go});
+  if(S.money<0)add(9,'💳',`I am ${fmt(-S.money)} in debt. Card interest is building.`,moneySheet);
+  if(S.jail)add(6,'⛓️',`In prison with ${S.jail} year${S.jail>1?'s':''} left.`,jobSheet);
+  if(S.job&&S.job.warn)add(8,'⚠️','A formal warning at work. One more and I am fired.',()=>{wbTab='work';jobSheet();});
+  S.biz.forEach(b=>{const n=bizNeedsAttention(b);if(n.length)add(7,n[0][0],`${b.name}: ${n[0][1]}.`,()=>{wbTab='biz';bizView=b.id;bTab='over';flash=null;openSheet(drawWork);});});
+  const N=S.nat;if(N){const go=()=>{wbTab='careers';natTab='over';natSheet();};
+    if(N.m.leg<30)add(9,'🏝️',`${N.name}: Legitimacy is ${N.m.leg}. Unrest could end my rule.`,go);
+    if(N.bal<0)add(9,'🏝️',`${N.name}'s treasury is empty.`,go);else if(N.fin&&N.bal<N.fin.cost/4)add(6,'🏝️',`${N.name}'s treasury is below its 3-month reserve.`,go);
+    if(N.war)add(8,'⚔️',`${N.name} is at war with ${N.war.foe}.`,()=>{natTab='wld';natSheet();});}
+  if(S.club){const C=S.club,ex=C.squad.filter(p=>p.exp).length;if(C.cash<0)add(7,'🏟️',`${C.team} is out of cash.`,()=>{wbTab='careers';clubSheet();});else if(ex)add(4,'🏟️',`${ex} contract${ex>1?'s':''} at ${C.team} expiring.`,()=>{clTab='squad';clubSheet();});}
+  if(S.med&&S.med.cash<0)add(7,'🎬',`${S.med.name} is overdrawn.`,medSheet);
+  if(S.hl&&S.hl.c.some(c=>!c.cured&&c.dx&&c.tx==='none'&&c.sev>=2))add(8,'🩺','A health condition is getting worse and is not being treated.',healthSheet);
+  if(S.st.happy<25)add(5,'😔','Happiness is very low.',actSheet);
+  if(S.st.health<25)add(8,'🩺','Health is dangerously low.',healthSheet);
+  return out.sort((a,b)=>b.w-a.w).slice(0,3);}
 function openSheet(build){curSheet=build;flash=null;drawSheet(true);$('sheetWrap').classList.add('open');}
 function drawSheet(top){const s=$('sheet');const y=s.scrollTop;s.innerHTML='';if(flash)s.append(h('p',{className:'flash '+flash.c},flash.t));curSheet(s);s.append(h('button',{className:'close',on:closeSheet},'Close'));s.scrollTop=top?0:y;}
 function closeSheet(){$('sheetWrap').classList.remove('open');curSheet=null;}
