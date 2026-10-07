@@ -187,37 +187,29 @@ function inviteYesToCalendar() {
   });
   if (!pending.length) return;
 
-  const event = getOrCreateEvent_();
+  const cal = CalendarApp.getDefaultCalendar();
   pending.forEach(p => {
     try {
-      event.addGuest(p.email);
+      const event = cal.createEvent(
+        CONFIG.eventTitle,
+        new Date(CONFIG.eventStart),
+        new Date(CONFIG.eventEnd),
+        {
+          description: CONFIG.eventDescription,
+          location: CONFIG.eventLocation,
+          guests: p.email,
+          sendInvites: true
+        }
+      );
+      event.setGuestsCanSeeGuests(false);
+      event.setGuestsCanInviteOthers(false);
+      event.setGuestsCanModify(false);
       sheet.getRange(p.rowNumber, calCol + 1).setValue(CONFIG.sentValue);
       SpreadsheetApp.flush();
     } catch (err) {
       console.error('Calendar row ' + p.rowNumber + ' (' + p.email + '): ' + err);
     }
   });
-}
-
-function getOrCreateEvent_() {
-  const props = PropertiesService.getScriptProperties();
-  const cal = CalendarApp.getDefaultCalendar();
-  const savedId = props.getProperty('EVENT_ID');
-  let event = savedId ? cal.getEventById(savedId) : null;
-  if (!event) {
-    event = cal.createEvent(
-      CONFIG.eventTitle,
-      new Date(CONFIG.eventStart),
-      new Date(CONFIG.eventEnd),
-      { description: CONFIG.eventDescription, location: CONFIG.eventLocation }
-    );
-    props.setProperty('EVENT_ID', event.getId());
-  }
-  // keep the guest list private: guests cannot see each other, invite others or edit the event
-  event.setGuestsCanSeeGuests(false);
-  event.setGuestsCanInviteOthers(false);
-  event.setGuestsCanModify(false);
-  return event;
 }
 
 function setup() {
