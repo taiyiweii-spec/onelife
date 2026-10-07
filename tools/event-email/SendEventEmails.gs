@@ -23,6 +23,7 @@ const CONFIG = {
   sentValue: 'Done',
   senderName: 'Beyond Insights',                     // TODO: confirm
   replyTo: '',                                       // optional
+  copyToSheet: 'A',                                  // tab that receives the Yes rows
   runHour: 9,                                        // daily run time (script time zone)
   subject: 'You are confirmed for our event',        // TODO: edit
   noSubject: 'Can we ask why you cannot join?'       // TODO: edit
@@ -98,6 +99,52 @@ function sendEventEmails() {
       console.error('Row ' + (i + 2) + ' (' + to + '): ' + err);
     }
   });
+
+  copyYesToTab();
+}
+
+/** Copies every "Yes" row (without the Email sent column) into tab A. Skips rows already copied. */
+function copyYesToTab() {
+  const ss = SpreadsheetApp.getActive();
+  const src = ss.getSheetByName(CONFIG.sheetName);
+  const dest = ss.getSheetByName(CONFIG.copyToSheet) || ss.insertSheet(CONFIG.copyToSheet);
+  if (!src || src.getLastRow() < 2) return;
+
+  const lastCol = src.getLastColumn();
+  const data = src.getRange(1, 1, src.getLastRow(), lastCol).getValues();
+  const headers = data[0].map(h => String(h).trim());
+  const answerCol = headers.indexOf(CONFIG.answerHeader);
+  if (answerCol === -1) return;
+
+  // keep every column except the "Email sent" tracking column(s)
+  const keep = [];
+  headers.forEach((h, c) => {
+    if (h.toLowerCase() !== CONFIG.sentHeader.toLowerCase()) keep.push(c);
+  });
+  const pick = row => keep.map(c => row[c]);
+
+  if (dest.getLastRow() === 0) dest.appendRow(pick(headers));
+
+  // rows already copied, identified by their first column (Timestamp) + second column
+  const existing = {};
+  if (dest.getLastRow() > 1) {
+    dest.getRange(2, 1, dest.getLastRow() - 1, Math.min(2, keep.length)).getValues()
+      .forEach(r => { existing[r.join('|')] = true; });
+  }
+
+  const toAdd = [];
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    if (String(row[answerCol]).trim().toLowerCase() !== CONFIG.yesValue.toLowerCase()) continue;
+    const picked = pick(row);
+    const key = picked.slice(0, Math.min(2, picked.length)).join('|');
+    if (existing[key]) continue;
+    existing[key] = true;
+    toAdd.push(picked);
+  }
+  if (toAdd.length) {
+    dest.getRange(dest.getLastRow() + 1, 1, toAdd.length, toAdd[0].length).setValues(toAdd);
+  }
 }
 
 /** Run once: creates the daily trigger (replaces any existing one for this script). */
@@ -114,6 +161,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Event emails')
     .addItem('Send to new people now', 'sendNow_')
+    .addItem('Copy Yes rows to tab A', 'copyYesToTab')
     .addToUi();
 }
 
