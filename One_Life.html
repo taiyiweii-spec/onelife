@@ -660,6 +660,8 @@ const ACH={
  ceoplan:['📋','Plan delivered','Have a CEO meet a 3 year strategy plan'],
  wprival:['🥊','Office survivor','Outwork a rival colleague for a promotion'],
  wpmentor:['🤝','Under a wing','Be taken on by a mentor'],
+ frcircle:['👥','Surrounded by friends','Have 5 close friends at once'],
+ frlife:['🥂','Lifelong friend','Stay close to a friend for 20 years'],
  techexit:['🏁','Exit','Sell a tech startup to a buyer'],
  techseriesa:['📈','Series A','Raise a Series A round'],
  techunicorn:['🦄','Unicorn','Build a tech company worth $1 billion'],
@@ -813,6 +815,7 @@ function fillDefaults(s){
   if(s.soc===undefined)s.soc=null;
   if(s.club===undefined)s.club=null;
   if(s.med===undefined)s.med=null;
+  if(s.fr===undefined)s.fr=null;
   if(!Array.isArray(s.earn))s.earn=[];
   if(s.old===undefined)s.old=null;
   if(s.crm===undefined)s.crm=null;
@@ -1651,7 +1654,8 @@ const IVQ=[
 ];
 function applyJob(o){const C=CAREERS[o.c],t=C.t[o.lvl][0];
   const finish=bonus=>{S.used.apps=(S.used.apps||0)+1;const had=S.job;
-    if(rnd()<hireChance(o,bonus)){wpOffer(o,had,t);}
+    const rf=S.flags.refer;S.flags.refer=0;
+    if(rnd()<hireChance(o,bonus+(rf?.15:0))){wpOffer(o,had,t);}
     else{o.gone=1;S.st.happy-=2;stay(pick([`They went with someone else for the ${t} role.`,`I interviewed to be a ${t} but didn't get it.`,`The ${t} role went to an internal candidate.`]),'bad');}};
   if(C.sm===0&&!C.deg&&o.lvl===0)return finish(0);
   const q=pick(IVQ),lvlNote=o.lvl>0?' It\'s a senior role, so they dig deep.':'';
@@ -1897,7 +1901,7 @@ function yrDeath(){ checkDeath(); }
 function yrWrapUp(){ checkAch();save(); }
 const YEAR_PHASES=[
   ['tick',yrTick],['people',yrPeople],['dynasty',yrDynasty],['old',yrOld],['stats',yrStats],['health',yrHealth],['prison',yrPrison],['crime',yrCrime],['school',yrSchool],
-  ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['workplace',yrWorkplace],['pension',yrPension],['gig',yrGig],
+  ['econ',yrEcon],['stockdiv',yrStockDiv],['margin',yrMargin],['shorts',yrShorts],['sec',yrSEC],['college',yrCollege],['work',yrWork],['workplace',yrWorkplace],['friends',yrFriends],['pension',yrPension],['gig',yrGig],
   ['business',yrBiz],['capital',yrCapital],['angels',yrAngels],['acting',yrActing],['sports',yrSports],['social',yrSocial],['club',yrClub],['coach',yrCoach],['agent',yrAgent],['intl',yrIntl],['rival',()=>spRivalYear(S.spt)],['media',yrMedia],['media2',yrMediaPlus],['politics',yrPolitics],['property',yrProperty],['land',yrLand],['collect',yrCollect],['normalise',yrNormalise],
   ['events',yrEvents],['history',yrHistory],['decade',yrDecade],['death',yrDeath],['wrapup',yrWrapUp]
 ];
@@ -2573,6 +2577,7 @@ function tabRet(s){
 /* ================= People ================= */
 function relSheet(){openSheet(s=>{
   s.append(h('h3',{},'People'),h('p',{className:'sub'},`⚡ ${energyLeft()} of ${energyMax()} energy left this year.`));const alive=S.rels.filter(p=>p.alive);
+  s.append(row('🤝 Friends and social life',`${frEnsure().list.length} friend${frEnsure().list.length===1?'':'s'}, ${frClose()} close`,'',friendsSheet,!S.alive));
   s.append(row('👪 Family hub',`Generation ${S.gen}. Children, wills, trusts and the family name`,'',familySheet,!S.alive));
   if(!alive.length)s.append(h('p',{className:'sub'},'No one right now.'));
   alive.forEach(p=>s.append(h('button',{className:'row',on:()=>personSheet(p)},h('span',{},h('b',{},p.name),h('small',{},`${p.type}, age ${p.age}${p.type==='Child'&&p.life&&p.age>=18?` · ${p.life.job?CAREERS[p.life.job.c].t[p.life.job.lvl][0]:p.life.major?'Studying '+p.life.major:'Not working'}${p.life.married?' · married':''}`:''}`)),h('span',{},h('div',{className:'relbar'},h('i',{style:`width:${p.rel}%`}))))));
@@ -4136,7 +4141,7 @@ function hlRisk(id){const H=hlEnsure(),m=(id==='diabetes')?[1.8,1,.6][H.diet]*[1
   id==='back'?[1.4,1,1.3][H.ex]*(S.spt&&S.spt.seasons>8?1.8:1):id==='arthritis'?(S.spt&&S.spt.seasons>8?1.7:1)*[1.1,1,1.15][H.ex]:
   id==='stroke'?[1.4,1,.8][H.diet]*[1.4,1,.75][H.ex]*(1+H.smoke*1.1)*[1,1,1.5][H.alc]*(hlHas('hyper')?2:1):
   id==='dementia'?[1.3,1,.85][H.ex]*[1.2,1,.9][H.sleep]*(S.st.happy<35?1.3:1)*(H.alc===2?1.5:1):
-  id==='depress'?(S.st.happy<30?4:S.st.happy<50?1.6:.7)*[1.4,1,.8][H.sleep]:1;
+  id==='depress'?(S.st.happy<30?4:S.st.happy<50?1.6:.7)*[1.4,1,.8][H.sleep]*(frCircle()>=60?.8:frCircle()<15&&S.age>=15?1.3:1):1;
   return m*(H.clinic?.55:1);}
 function hlOnset(id,age){const d=HCD[id];return Math.min(.25,d.b*Math.exp(d.ar*Math.max(0,age-d.a0)));}
 function hlDeathP(){if(!S.hl)return 0;return S.hl.c.reduce((t,c)=>{if(c.cured||c.sev<3)return t;const d=HCD[c.id];return t+d.d3*(c.tx==='managed'?.25:c.tx==='active'?.5:1);},0);}
@@ -6065,6 +6070,87 @@ function wpBlock(s,j,C){
   const cert=(S.flags.cert||{})[j.c];
   s.append(row(cert?'🎓 Certified in this field':'🎓 Get a professional certification',cert?'Helps with job offers and promotions':`Costs ${fmt(cc*2)}. Helps with job offers and promotions in ${C.n.toLowerCase()}`,'',()=>{S.money-=cc*2;S.flags.cert=S.flags.cert||{};S.flags.cert[j.c]=true;j.perf=Math.min(100,j.perf+3);stay('I earned a professional certification.','good');},ro||!!cert||S.money<cc*2,1));
 }
+/* ================= friends and social life: circle, making friends, upkeep, favours, betrayals, life events ================= */
+const FR_ORIGIN={school:'school',work:'work',club:'a club',neighbour:'the neighbourhood',online:'an online community',team:'a sports team',volunteer:'volunteering',alumni:'an alumni event'};
+function frEnsure(){if(!S.fr)S.fr={list:[],met:0,lost:0};return S.fr;}
+function frMake(origin,age){
+  const F=frEnsure(),g=pick(['M','F']),a=age!=null?age:Math.max(5,S.age+R(-4,4)),tr=[];
+  while(tr.length<2){const t=pick(Object.keys(TRAITS));if(!tr.includes(t))tr.push(t);}
+  const f={id:uid(),n:fullName(g,pick(rnd()<.8?[resKey()]:Object.keys(COUNTRIES))),g,age:a,close:R(35,65),tr,origin,since:S.age,far:false,rival:false};
+  F.list.push(f);F.met++;return f;}
+const frClose=()=>frEnsure().list.filter(f=>f.close>=60).length;
+const frCircle=()=>Math.min(100,frEnsure().list.reduce((t,f)=>t+f.close,0)/3);
+function yrFriends(){
+  if(!S.alive||S.age<5)return;const F=frEnsure();
+  // upkeep, drifting and loss
+  F.list.slice().forEach(f=>{
+    f.age++;f.close=Math.max(0,f.close-R(1,4)-(f.far?2:0)+(f.close>=70?1:0));
+    if(rnd()<mortP(f.age,f.g,1)){F.list=F.list.filter(x=>x!==f);if(f.close>=45){S.st.happy=Math.max(0,S.st.happy-R(6,14));line(`🕯️ My friend ${fname(f.n)} died.`,'bad');mile(`Lost my friend ${fname(f.n)}`);}return;}
+    if(f.close<12){F.list=F.list.filter(x=>x!==f);F.lost++;if(f.since<S.age-3)line(`${fname(f.n)} and I drifted apart.`);}
+    if(S.age-f.since>=20&&f.close>=60)unlock('frlife');
+  });
+  // meeting people through everyday life
+  if(F.list.length<14){
+    if(S.age>=5&&S.age<=22&&rnd()<.5){const f=frMake('school',S.age+R(-1,1));if(F.list.length<=6&&rnd()<.6)line(`🤝 I made a new friend at school: ${fname(f.n)}.`);}
+    if(S.job&&rnd()<.22){const f=frMake('work',S.age+R(-6,8));line(`🤝 I became friends with a colleague, ${fname(f.n)}.`);}
+    if(S.age>=23&&rnd()<(S.job?.12:.2)){frMake(S.job?'club':'neighbour');}
+  }
+  // the effect of the circle
+  const c=frCircle();
+  if(S.age>=12){if(!F.list.length)S.st.happy=Math.max(0,S.st.happy-2);else S.st.happy=Math.min(100,S.st.happy+Math.min(6,c/16)-1);}
+  if(frClose()>=5)unlock('frcircle');
+  // one event a year about a friend
+  if(F.list.length&&canManage()&&rnd()<.38)frEvent(F.list.filter(f=>f.close>=25));
+}
+function frEvent(pool){
+  if(!pool.length)return;const f=pick(pool),fn=fname(f.n),k=cpiF()*(.4+.6*resC().pp);
+  const ev=[];
+  ev.push(()=>({text:`${fn} is in financial trouble and asks to borrow ${fmt(Math.round(4000*k))}.`,ch:[
+    [`Lend it (${fmt(Math.round(4000*k))})`,()=>{const x=Math.round(4000*k);if(S.money<x)return 'I could not afford it.';S.money-=x;f.close=Math.min(100,f.close+8);if(rnd()<.55){S.money+=x;return `${fn} paid me back in full and meant it.`;}return `${fn} never really paid it back, but we stayed friends.`;},()=>S.money<4000*k],
+    ['Help in other ways',()=>{f.close=Math.min(100,f.close+3);return `I helped ${fn} with a plan instead of cash.`;}],
+    ['Say no',()=>{f.close=Math.max(0,f.close-10);return `${fn} was disappointed.`;}]]}));
+  if(S.age>=22&&S.age<=50)ev.push(()=>({text:`${fn} is getting married and invites me to the wedding.`,ch:[
+    [`Go and bring a gift (${fmt(Math.round(400*k))})`,()=>{S.money-=Math.round(400*k);f.close=Math.min(100,f.close+8);S.st.happy+=4;return 'It was a wonderful day.';}],
+    ['Send my regrets',()=>{f.close=Math.max(0,f.close-6);return `${fn} understood, mostly.`;}]]}));
+  if(f.close>=40)ev.push(()=>{const t=pick(['told people something I had shared in confidence',S.job?'took credit for my work':'let me down badly',partner()?'flirted with my partner':'talked behind my back']);return {text:`${fn} ${t}.`,ch:[
+    ['Confront them',()=>{if(rnd()<.55){f.close=Math.max(0,f.close-8);return `${fn} apologised and we talked it out.`;}frEnsure().lost++;frEnsure().list=frEnsure().list.filter(x=>x!==f);return `It ended in a shouting match. ${fn} is out of my life.`;}],
+    ['Forgive them',()=>{f.close=Math.max(0,f.close-10);addKarma(2);return `I let it go, though it left a mark on us.`;}],
+    ['Cut them off',()=>{frEnsure().list=frEnsure().list.filter(x=>x!==f);S.st.happy-=3;return `I ended the friendship with ${fn}.`;}]]};});
+  ev.push(()=>({text:`${fn} just got a big promotion.`,ch:[['Celebrate with them',()=>{f.close=Math.min(100,f.close+7);S.st.happy+=2;return 'We had a great night out.';}],['Feel a pang of envy and keep my distance',()=>{f.close=Math.max(0,f.close-6);return 'I kept my distance, and so did they.';}]]}));
+  if(S.age>=24)ev.push(()=>({text:`${fn} has a business idea and asks me to invest ${fmt(Math.round(10000*k))}.`,ch:[
+    [`Invest ${fmt(Math.round(10000*k))}`,()=>{const x=Math.round(10000*k);if(S.money<x)return 'I could not afford it.';S.money-=x;f.close=Math.min(100,f.close+5);if(rnd()<.3){S.money+=x*3;return `It worked out. My ${fmt(x)} became ${fmt(x*3)}.`;}return 'The idea did not take off and the money was lost.';},()=>S.money<10000*k],
+    ['Politely decline',()=>{f.close=Math.max(0,f.close-3);return `${fn} took it well.`;}]]}));
+  ev.push(()=>({text:`${fn} is going through a hard time and needs someone to talk to.`,ch:[['Be there for them',()=>{f.close=Math.min(100,f.close+10);S.st.happy+=1;return `${fn} will not forget it.`;}],['I am too busy',()=>{f.close=Math.max(0,f.close-8);return 'I let them down when it counted.';}]]}));
+  if(f.close<45)ev.push(()=>({text:`${fn} and I have not spoken in a long time.`,ch:[['Reach out',()=>{f.close=Math.min(100,f.close+18);return `${fn} was glad to hear from me.`;}],['Let it fade',()=>{f.close=Math.max(0,f.close-5);return 'We lost touch a little more.';}]]}));
+  ev.push(()=>({text:`${fn} is moving to another city.`,ch:[['Promise to stay in touch',()=>{f.far=true;f.close=Math.min(100,f.close+3);return 'We promised to visit, though it will take effort.';}],['Wish them well',()=>{f.far=true;return 'We said goodbye.';}]]}));
+  if(frEnsure().list.filter(x=>x.close>=40).length>=3)ev.push(()=>({text:'My friends are planning a group trip.',ch:[[`Join in (${fmt(Math.round(1800*k))})`,()=>{S.money-=Math.round(1800*k);frEnsure().list.forEach(x=>{if(x.close>=40)x.close=Math.min(100,x.close+5);});S.st.happy+=8;return 'It was the best week of the year.';},()=>S.money<1800*k],['Skip it',()=>{S.st.happy-=1;return 'I stayed home and wished I had gone.';}]]}));
+  Q.push(pick(ev)());}
+let frFocus=null;
+function friendsSheet(){openSheet(drawFriends);}
+function drawFriends(s){
+  s.append(h('button',{className:'back',on:relSheet},'‹ All people'),h('h3',{},'🤝 Friends and social life'));
+  const F=frEnsure(),ro=!S.alive||!!S.jail;
+  s.append(h('p',{className:'sub'},`${F.list.length} friend${F.list.length===1?'':'s'}, ${frClose()} close. A strong circle lifts my happiness each year and helps with depression, jobs and money. Friends fade without contact.`),...spBar('My social circle',frCircle(),'happy'));
+  s.append(row('🔍 Meet new people','Join a club, volunteer, go to a meetup or an online community','',()=>choiceModal('Where do I meet people?','Each one costs 1 energy and gives a good chance to make a friend.',[
+    ['Join a club or class',()=>frMeet('club')],['Volunteer in the community',()=>frMeet('volunteer')],['Go to an alumni or neighbourhood event',()=>frMeet(rnd()<.5?'alumni':'neighbour')],['Join an online community',()=>frMeet('online')],['Cancel',()=>{}]]),ro||S.age<8||F.list.length>=14||S.used.meet,1));
+  if(!F.list.length)s.append(h('p',{className:'sub'},'No friends yet.'));
+  F.list.slice().sort((a,b)=>b.close-a.close).forEach(f=>s.append(row(`${f.close>=80?'⭐ ':''}${f.n}`,`Age ${f.age}. From ${FR_ORIGIN[f.origin]}. ${f.tr.map(t=>TRAITS[t]?TRAITS[t].ic+' '+TRAITS[t].n:t).join(', ')}${f.far?'. Lives far away':''}`,`${f.close}%`,()=>friendModal(f),ro)));
+}
+function frMeet(origin){
+  S.used.meet=true;const F=frEnsure();
+  if(rnd()<.6+(has('charming')?.15:0)+(S.st.looks-50)/500){const f=frMake(origin);stay(`I met ${fname(f.n)} through ${FR_ORIGIN[origin]} and we got along.`,'good');}
+  else stay('I put myself out there but did not click with anyone this time.');}
+function friendModal(f){
+  const fn=fname(f.n),k=cpiF()*(.4+.6*resC().pp),key='fr'+f.id,ch=[];
+  ch.push(['Hang out together (1 energy)',()=>{spend(1);S.used[key]=true;f.close=Math.min(100,f.close+R(6,12));S.st.happy=Math.min(100,S.st.happy+3);stay(`I spent time with ${fn}.`,'good');},()=>energyLeft()<1]);
+  ch.push([`Give a thoughtful gift (${fmt(Math.round(120*k))})`,()=>{S.money-=Math.round(120*k);f.close=Math.min(100,f.close+R(3,7));stay(`${fn} loved the gift.`);},()=>S.money<120*k]);
+  if(f.close>=60){
+    ch.push(['Ask for a job lead',()=>{S.flags.refer=1;f.close=Math.max(0,f.close-4);stay(`${fn} will put in a good word for my next application.`,'good');},()=>!!S.flags.refer]);
+    ch.push([`Ask to borrow ${fmt(Math.round(5000*k))} (no interest)`,()=>{S.used[key+'l']=true;S.money+=Math.round(5000*k);f.close=Math.max(0,f.close-6);stay(`${fn} lent me ${fmt(Math.round(5000*k))}. I should pay it back.`);},()=>S.used[key+'l']]);
+    ch.push(['Ask for advice',()=>{S.used[key+'a']=true;S.st.smarts=Math.min(100,S.st.smarts+R(1,3));S.st.happy+=2;stay(`${fn} gave me some honest advice.`);},()=>S.used[key+'a']]);}
+  ch.push(['End the friendship',()=>{frEnsure().list=frEnsure().list.filter(x=>x!==f);stay(`I let ${fn} go.`);}]);
+  ch.push(['Close',()=>{}]);
+  choiceModal(f.n,`${fn} is ${f.age}. We met through ${FR_ORIGIN[f.origin]}. Friendship ${f.close}%.`,ch);}
 /* ================= casino: blackjack and poker ================= */
 /* Opened from Activities. CV is this visit's result; S.flags.gTot is the lifetime result. */
 let CV={net:0};

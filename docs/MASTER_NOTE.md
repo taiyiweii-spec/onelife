@@ -186,3 +186,5 @@ Pick with David: backlog item 4 (special-careers scaffold).
 **2026-10-07, 3.6.0 realism passes.** Three passes from the realism audit. Not published yet.
 
 **2026-10-07, 3.7.0.** Crime and law, event cost scaling and later life built and tested. Published as version 10 earlier; these are not published yet.
+
+**2026-10-07, 3.8.1 friends and social life.** Friends list (school, work, club, neighbourhood), yearly upkeep and drift, meeting people, favours, betrayals, weddings, group trips. Circle lifts happiness and lowers depression risk, friends give job referrals (+15% on the next application). Unpublished since version 13: workplace mechanics, inflation settling, friends.
