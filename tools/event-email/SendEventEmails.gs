@@ -232,13 +232,13 @@ function setup() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Event emails')
-    .addItem('Send to new people now', 'sendNow_')
+    .addItem('Send to new people now', 'sendNow')
     .addItem('Copy Yes rows to tab A', 'copyYesToTab')
     .addItem('Invite Yes people to calendar', 'inviteYesToCalendar')
     .addToUi();
 }
 
-function sendNow_() {
+function sendNow() {
   sendEventEmails();
   SpreadsheetApp.getActive().toast('Done. Check the "' + CONFIG.sentHeader + '" column.', 'Event emails', 5);
 }
